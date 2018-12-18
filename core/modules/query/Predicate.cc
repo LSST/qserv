@@ -246,7 +246,9 @@ BoolFactorTerm::Ptr InPredicate::clone() const {
 void InPredicate::dbgPrint(std::ostream& os) const {
     os << "InPredicate(value:" << value;
     os << ", cands:" << util::printable(cands);
-    os << ", hasNot:" << hasNot;
+    if (hasNot) {
+        os << ", has NOT";
+    }
     os << ")";
 }
 
@@ -271,7 +273,9 @@ BoolFactorTerm::Ptr BetweenPredicate::clone() const {
 
 void BetweenPredicate::dbgPrint(std::ostream& os) const {
     os << "BetweenPredicate(value:" << value;
-    os << ", NOT:" << (hasNot ? "true" : "false");
+    if (hasNot) {
+        os << " NOT,";
+    }
     os << ", minValue:" << minValue;
     os << ", maxValue:" << maxValue;
     os << ")";
@@ -298,7 +302,9 @@ BoolFactorTerm::Ptr LikePredicate::clone() const {
 
 void LikePredicate::dbgPrint(std::ostream& os) const {
     os << "LikePredicate(value:" << value;
-    os << ", NOT:" << hasNot;
+    if (hasNot) {
+        os << ", NOT";
+    }
     os << ", charValue:" << charValue;
     os << ")";
 }
@@ -322,7 +328,9 @@ BoolFactorTerm::Ptr NullPredicate::clone() const {
 
 void NullPredicate::dbgPrint(std::ostream& os) const {
     os << "NullPredicate(value:" << value;
-    os << ", hasNot:" << hasNot;
+    if (hasNot) {
+        os << ", NOT";
+    }
     os << ")";
 }
 

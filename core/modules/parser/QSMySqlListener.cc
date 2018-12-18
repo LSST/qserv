@@ -536,11 +536,17 @@ public:
     enum OperatorType {
         AND,
         OR,
+        XOR,
     };
     virtual void handleLogicalOperator(OperatorType operatorType) = 0;
 
     static string OperatorTypeToStr(OperatorType operatorType) {
-        return operatorType == AND ? "AND" : "OR";
+        switch (operatorType) {
+            case AND: return "AND"; break;
+            case OR: return "OR"; break;
+            case XOR: return "XOR"; break;
+        }
+        return "unrecognized operator type.";
     }
 };
 
@@ -2689,29 +2695,15 @@ public:
 
     void handleLogicalOperator(LogicalOperatorCBH::OperatorType operatorType) {
         TRACE_CALLBACK_INFO(LogicalOperatorCBH::OperatorTypeToStr(operatorType));
-        switch (operatorType) {
-        default:
-            ASSERT_EXECUTION_CONDITION(false, "unhandled operator type", _ctx);
-            break;
-
-        case LogicalOperatorCBH::AND:
-            // We capture the AndTerm into a base class so we can pass by reference into the setter.
-            _setLogicalOperator(make_shared<query::AndTerm>());
-            break;
-
-        case LogicalOperatorCBH::OR:
-            // We capture the OrTerm into a base class so we can pass by reference into the setter.
-            _setLogicalOperator(make_shared<query::OrTerm>());
-            break;
-        }
+        ASSERT_EXECUTION_CONDITION(false == _logicalOperatorIsSet,
+                "logical operator must be set only once.", _ctx);
+        _logicalOperatorIsSet = true;
+        _logicalOperatorType = operatorType;
     }
 
     void handleLogicalExpression(shared_ptr<query::LogicalTerm> const & logicalTerm,
             antlr4::ParserRuleContext* childCtx) override {
         TRACE_CALLBACK_INFO(logicalTerm);
-        if (_logicalOperator != nullptr && _logicalOperator->merge(*logicalTerm)) {
-            return;
-        }
         _terms.push_back(logicalTerm);
     }
 
@@ -2725,47 +2717,74 @@ public:
     }
 
     void onExit() override {
-        ASSERT_EXECUTION_CONDITION(_logicalOperator != nullptr, "logicalOperator is not set.", _ctx);
-
-        bool isOr = dynamic_pointer_cast<query::OrTerm>(_logicalOperator) != nullptr;
-        for (auto term : _terms) {
-            if (false == _logicalOperator->merge(*term)) {
-                if (isOr) {
-                    _logicalOperator->addBoolTerm(make_shared<query::AndTerm>(term));
-                } else {
-                    _logicalOperator->addBoolTerm(term);
+        ASSERT_EXECUTION_CONDITION(_logicalOperatorIsSet, "logicalOperator is not set.", _ctx);
+        shared_ptr<query::LogicalTerm> logicalTerm;
+        switch (_logicalOperatorType) {
+            case LogicalOperatorCBH::AND: {
+                logicalTerm = make_shared<query::AndTerm>();
+                for (auto term : _terms) {
+                    if (false == logicalTerm->merge(*term)) {
+                        logicalTerm->addBoolTerm(term);
+                    }
                 }
+                break;
             }
+
+            case LogicalOperatorCBH::OR: {
+                logicalTerm = make_shared<query::OrTerm>();
+                for (auto term : _terms) {
+                    if (false == logicalTerm->merge(*term)) {
+                        logicalTerm->addBoolTerm(make_shared<query::AndTerm>(term));
+                    }
+                }
+                break;
+            }
+
+            case LogicalOperatorCBH::XOR: {
+                logicalTerm = make_shared<query::OrTerm>();
+                for (auto addTerm : _terms) {
+                    query::BoolTerm::PtrVector terms;
+                    for (auto otherTerm: _terms) {
+                        if (otherTerm == addTerm) {
+                            terms.push_back(otherTerm);
+                        } else {
+                            auto term = dynamic_pointer_cast<query::BoolFactor>(otherTerm->copySyntax());
+                            ASSERT_EXECUTION_CONDITION(term != nullptr, "XOR currently only works with BoolFactor", _ctx);
+                            term->setHasNot(true);
+                            terms.push_back(term);
+                        }
+                    }
+                    query::BoolFactorTerm::PtrVector termsWithParenthesis;
+                    termsWithParenthesis.push_back(make_shared<query::PassTerm>("("));
+                    termsWithParenthesis.push_back(make_shared<query::BoolTermFactor>(make_shared<query::AndTerm>(terms)));
+                    termsWithParenthesis.push_back(make_shared<query::PassTerm>(")"));
+                    auto boolFactor = make_shared<query::BoolFactor>(termsWithParenthesis);
+                    auto andTerm = make_shared<query::AndTerm>(boolFactor);
+                    logicalTerm->addBoolTerm(andTerm);
+                }
+                break;
+            }
+
+            default:
+                ASSERT_EXECUTION_CONDITION(false, "unhandled logical operator.", _ctx);
         }
-        lockedParent()->handleLogicalExpression(_logicalOperator, _ctx);
+        lockedParent()->handleLogicalExpression(logicalTerm, _ctx);
     }
 
     string name() const override { return getTypeName(this); }
 
 private:
-    void _setLogicalOperator(shared_ptr<query::LogicalTerm> const & logicalTerm) {
-        ASSERT_EXECUTION_CONDITION(nullptr == _logicalOperator,
-                "logical operator must be set only once.", _ctx);
-        _logicalOperator = logicalTerm;
-    }
-
     friend ostream& operator<<(ostream& os, const LogicalExpressionAdapter& logicaAndlExpressionAdapter);
 
-    // a qserv restrictor fucntion can be the left side of a predicate (currently it can only be the left
-    // side; that is to say, it can only be the first term in the WHERE clause. If `handleQservFunctionSpec`
-    // is called and _leftTerm is null (as well as _rightTerm and _logicalOperator, then _leftHandled is set
-    // to true to indicate that the left term has been handled. This allows onExit to put only one term into
-    // the logicalOperator and know that it was ok (the qserv IR accepts an AndTerm with only one factor).
-    // This mechanism does not fully proect against qserv restrictors that may be the left side of a
-    // subsequent logical expression. TBD if that's really an issue.
     vector<shared_ptr<query::BoolTerm>> _terms;
-    shared_ptr<query::LogicalTerm> _logicalOperator;
+    LogicalOperatorCBH::OperatorType _logicalOperatorType;
+    bool _logicalOperatorIsSet {false};
 };
 
 
 ostream& operator<<(ostream& os, const LogicalExpressionAdapter& logicalExpressionAdapter) {
     os << "LogicalExpressionAdapter(";
-    os << "terms:" << util::printable(logicalExpressionAdapter._terms);
+    os << util::printable(logicalExpressionAdapter._terms);
     return os;
 }
 
@@ -3277,6 +3296,8 @@ public:
             lockedParent()->handleLogicalOperator(LogicalOperatorCBH::AND);
         } else if (_ctx->OR() != nullptr || _ctx->getText() == "||") {
             lockedParent()->handleLogicalOperator(LogicalOperatorCBH::OR);
+        } else if (_ctx->XOR() != nullptr) { // just a note; there is no alt operator like e.g. && for AND
+            lockedParent()->handleLogicalOperator(LogicalOperatorCBH::XOR);
         } else {
             ASSERT_EXECUTION_CONDITION(false, "unhandled logical operator", _ctx);
         }

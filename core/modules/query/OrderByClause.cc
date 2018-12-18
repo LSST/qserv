@@ -140,7 +140,7 @@ bool OrderByTerm::operator==(const OrderByTerm& rhs) const {
 ////////////////////////////////////////////////////////////////////////
 std::ostream&
 operator<<(std::ostream& os, OrderByClause const& clause) {
-    os << "OrderByClause(terms:" << util::ptrPrintable(clause._terms) << ")";
+    os << "OrderByClause(" << util::ptrPrintable(clause._terms) << ")";
     return os;
 }
 

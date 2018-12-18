@@ -309,7 +309,7 @@ bool OrTerm::merge(const BoolTerm& other) {
     return true;
 }
 void OrTerm::dbgPrint(std::ostream& os) const {
-    os << "OrTerm(terms:" << util::printable(_terms) << ")";
+    os << "OrTerm(" << util::printable(_terms) << ")";
 }
 bool OrTerm::operator==(const BoolTerm& rhs) const {
     auto rhsOrTerm = dynamic_cast<OrTerm const *>(&rhs);
@@ -332,7 +332,7 @@ bool AndTerm::merge(const BoolTerm& other) {
     return true;
 }
 void AndTerm::dbgPrint(std::ostream& os) const {
-    os << "AndTerm(terms:" << util::printable(_terms) << ")";
+    os << "AndTerm(" << util::printable(_terms) << ")";
 }
 bool AndTerm::operator==(const BoolTerm& rhs) const {
     auto rhsAndTerm = dynamic_cast<AndTerm const *>(&rhs);
@@ -348,7 +348,11 @@ std::shared_ptr<BoolTerm> BoolFactor::copySyntax() const {
     return bf;
 }
 void BoolFactor::dbgPrint(std::ostream& os) const {
-    os << "BoolFactor(terms:" << util::printable(_terms) << ", hasNot:" << _hasNot << ")";
+    os << "BoolFactor(" << util::printable(_terms);
+    if (_hasNot) {
+        os << ", has NOT";
+    }
+    os << ")";
 }
 void UnknownTerm::dbgPrint(std::ostream& os) const {
     os << "UnknownTerm()";
@@ -362,7 +366,11 @@ BoolFactorTerm::Ptr PassTerm::copySyntax() const {
     return BoolFactorTerm::Ptr(p);
 }
 void PassTerm::dbgPrint(std::ostream& os) const {
-    os << "PassTerm(text:'" << _text << "')";
+    os << "PassTerm('";
+    if ("(" == _text) os << "LHP";
+    else if (")" == _text) os << "RHP";
+    else os << _text;
+    os << "')";
 }
 bool PassTerm::operator==(const BoolFactorTerm& rhs) const {
     auto rhsPassTerm = dynamic_cast<PassTerm const *>(&rhs);
@@ -377,7 +385,7 @@ BoolFactorTerm::Ptr PassListTerm::copySyntax() const {
     return BoolFactorTerm::Ptr(p);
 }
 void PassListTerm::dbgPrint(std::ostream& os) const {
-    os << "PassListTerm(terms:" << util::printable(_terms) << ")";
+    os << "PassListTerm(" << util::printable(_terms) << ")";
 }
 bool PassListTerm::operator==(const BoolFactorTerm& rhs) const {
     auto rhsTerm = dynamic_cast<PassListTerm const *>(&rhs);
@@ -392,7 +400,7 @@ BoolFactorTerm::Ptr BoolTermFactor::copySyntax() const {
     return BoolFactorTerm::Ptr(p);
 }
 void BoolTermFactor::dbgPrint(std::ostream& os) const {
-    os << "BoolTermFactor(term:" << _term << ")";
+    os << "BoolTermFactor(" << _term << ")";
 }
 bool BoolTermFactor::operator==(const BoolFactorTerm& rhs) const {
     auto rhsTerm = dynamic_cast<BoolTermFactor const *>(&rhs);

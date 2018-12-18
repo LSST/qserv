@@ -74,7 +74,7 @@ renderList(QueryTemplate& qt, ValueExprPtrVector const& vel) {
 ////////////////////////////////////////////////////////////////////////
 
 std::ostream& operator<<(std::ostream& os, const ValueExpr::FactorOp& factorOp) {
-    os << "FactorOp(op:";
+    os << "FactorOp(";
     switch(factorOp.op) {
     case ValueExpr::NONE: os << "NONE"; break;
     case ValueExpr::UNKNOWN: os << "UNKNOWN"; break;
@@ -92,7 +92,7 @@ std::ostream& operator<<(std::ostream& os, const ValueExpr::FactorOp& factorOp) 
     case ValueExpr::BIT_XOR: os << "BIT_XOR"; break;
     default: os << "!!unhandled!!"; break;
     }
-    os << ", factor:" << factorOp.factor;
+    os << ", " << factorOp.factor;
     os << ")";
     return os;
 }
@@ -270,14 +270,7 @@ std::string ValueExpr::sqlFragment() const {
 
 std::ostream& operator<<(std::ostream& os, ValueExpr const& ve) {
     os << "ValueExpr(";
-    os << "alias:" << ve._alias;
-    os << ", isColumnRef:" << ve.isColumnRef();
-    os << ", isFactor:" << ve.isFactor();
-    os << ", isStar:" << ve.isStar();
-    bool hasAgg = false;
-    qana::CheckAggregation ca(hasAgg);
-    os << ", hasAgg:" << hasAgg;
-    os << ", factorOps:";
+    if (not ve._alias.empty()) os << "alias:" << ve._alias << ", ";
     os << util::printable(ve._factorOps);
     os << ")";
     return os;

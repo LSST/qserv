@@ -950,6 +950,14 @@ static const std::vector<Antlr4CompareQueries> ANTLR4_COMPARE_QUERIES = {
         },
         "SELECT * FROM Filter WHERE NOT(filterId>1 AND filterId<6)"
     ),
+
+    // tests XOR
+    Antlr4CompareQueries(
+        "select ra_PS, objectId from Object where ra_PS > 1 XOR ra_PS < 2;",
+        "select ra_PS, objectId from Object where (ra_PS > 1 and not ra_PS < 2) OR (not ra_PS > 1 and ra_PS < 2)",
+        [](query::SelectStmt::Ptr const & selectStatement) {},
+        "SELECT ra_PS,objectId FROM Object WHERE (ra_PS>1 AND NOT ra_PS<2) OR (NOT ra_PS>1 AND ra_PS<2)"
+    ),
 };
 
 

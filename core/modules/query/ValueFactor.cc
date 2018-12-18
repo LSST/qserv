@@ -136,12 +136,11 @@ ValueFactorPtr ValueFactor::clone() const{
 
 std::ostream& operator<<(std::ostream& os, ValueFactor const& ve) {
     os << "ValueFactor(";
-    os << "type:" << ValueFactor::getTypeString(ve._type);
-    os << ", columnRef:" << ve._columnRef;
-    os << ", funcExpr:" << ve._funcExpr;
-    os << ", valueExpr:" << ve._valueExpr;
-    os << ", alias:" << ve._alias;
-    os << ", constVal:" << ve._constVal;
+    if (ve._columnRef != nullptr) os << ve._columnRef;
+    if (ve._funcExpr != nullptr) os <<  ve._funcExpr;
+    if (ve._valueExpr != nullptr) os <<  ve._valueExpr;
+    if (not ve._alias.empty()) os << "alias:" << ve._alias;
+    if (not ve._constVal.empty()) os << "constVal:" << ve._constVal;
     os << ")";
     return os;
 }

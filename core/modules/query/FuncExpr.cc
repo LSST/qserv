@@ -119,7 +119,7 @@ std::ostream&
 operator<<(std::ostream& os, FuncExpr const& fe) {
     os << "FuncExpr(";
     os << "name:" << fe._name;
-    os << ", params:" << util::printable(fe.params);
+    os << ", " << util::printable(fe.params);
     os << ")";
     return os;
 }

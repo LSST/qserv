@@ -83,7 +83,7 @@ bool GroupByTerm::operator==(const GroupByTerm& rhs) const {
 // GroupByClause
 ////////////////////////////////////////////////////////////////////////
 std::ostream& operator<<(std::ostream& os, GroupByClause const& c) {
-    os <<"GroupByClause(terms:" << util::ptrPrintable(c._terms) << ")";
+    os << "GroupByClause(" << util::ptrPrintable(c._terms) << ")";
     return os;
 }
 
