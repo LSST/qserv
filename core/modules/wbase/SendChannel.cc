@@ -216,5 +216,11 @@ bool SendChannel::setMetadata(const char *buf, int blen) {
 }
 
 
+uint64_t SendChannel::getSeq() const {
+    if (_ssiRequest == nullptr) return 0;
+    return _ssiRequest->getSeq();
+}
+
+
 }}} // namespace lsst::qserv::wbase
 

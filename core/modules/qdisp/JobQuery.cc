@@ -21,6 +21,7 @@
  */
 
 // System headers
+#include <memory>
 #include <sstream>
 
 // Third-party headers
@@ -44,10 +45,12 @@ namespace lsst {
 namespace qserv {
 namespace qdisp {
 
+using namespace std;
+
 
 JobQuery::JobQuery(Executive::Ptr const& executive, JobDescription::Ptr const& jobDescription,
                    JobStatus::Ptr const& jobStatus,
-                   std::shared_ptr<MarkCompleteFunc> const& markCompleteFunc,
+                   shared_ptr<MarkCompleteFunc> const& markCompleteFunc,
                    QueryId qid) :
           _executive(executive), _jobDescription(jobDescription),
           _markCompleteFunc(markCompleteFunc), _jobStatus(jobStatus),
@@ -75,14 +78,14 @@ bool JobQuery::runJob() {
     bool cancelled = executive->getCancelled();
     bool handlerReset = _jobDescription->respHandler()->reset();
     if (!cancelled && handlerReset) {
-        auto criticalErr = [this, &executive](std::string const& msg) {
+        auto criticalErr = [this, &executive](string const& msg) {
             LOGS(_log, LOG_LVL_ERROR, msg << " "
                  << _jobDescription << " Canceling user query!");
             executive->squash(); // This should kill all jobs in this user query.
         };
 
         LOGS(_log, LOG_LVL_DEBUG, "runJob checking attempt=" << _jobDescription->getAttemptCount());
-        std::lock_guard<std::recursive_mutex> lock(_rmutex);
+        lock_guard<recursive_mutex> lock(_rmutex);
         if (_jobDescription->getAttemptCount() < _getMaxAttempts()) {
             bool okCount = _jobDescription->incrAttemptCountScrubResults();
             if (!okCount) {
@@ -105,7 +108,7 @@ bool JobQuery::runJob() {
         // whether or not we are in SSI as cancellation handling differs.
         //
         LOGS(_log, LOG_LVL_TRACE, "runJob calls StartQuery()");
-        std::shared_ptr<JobQuery> jq(shared_from_this());
+        JobQuery::Ptr jq(dynamic_pointer_cast<JobQuery>(shared_from_this()));
         _inSsi = true;
         if (executive->startQuery(jq)) {
            _jobStatus->updateInfo(_idStr, JobStatus::REQUEST);
@@ -123,7 +126,7 @@ bool JobQuery::cancel() {
     QSERV_LOGCONTEXT_QUERY_JOB(getQueryId(), getIdInt());
     LOGS(_log, LOG_LVL_DEBUG, "JobQuery::cancel()");
     if (_cancelled.exchange(true) == false) {
-        std::lock_guard<std::recursive_mutex> lock(_rmutex);
+        lock_guard<recursive_mutex> lock(_rmutex);
         // If _inSsi is true then this query request has been passed to SSI and
         // _queryRequestPtr cannot be a nullptr. Cancellation is complicated.
         bool cancelled = false;
@@ -137,7 +140,7 @@ bool JobQuery::cancel() {
             }
         }
         if (!cancelled) {
-            std::ostringstream os;
+            ostringstream os;
             os << _idStr << " cancel QueryRequest=" << _queryRequestPtr ;
             LOGS(_log, LOG_LVL_DEBUG, os.str());
             getDescription()->respHandler()->errorFlush(os.str(), -1);
@@ -170,8 +173,19 @@ bool JobQuery::isQueryCancelled() {
     return exec->getCancelled();
 }
 
-std::ostream& operator<<(std::ostream& os, JobQuery const& jq) {
-    return os << "{" << jq.getIdStr() << jq._jobDescription << " " << *jq._jobStatus << "}";
+
+std::string const& JobQuery::getPayload() const {
+    return _jobDescription->payload();
+}
+
+
+void JobQuery::callMarkCompleteFunc(bool success) {
+    _markCompleteFunc->operator()(success);
+}
+
+
+ostream& JobQuery::dumpOS(ostream &os) const {
+    return os << "{" << getIdStr() << _jobDescription << " " << _jobStatus << "}";
 }
 
 

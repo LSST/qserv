@@ -57,6 +57,8 @@ namespace czar {
  *
  */
 
+class WorkerResourceLists; // &&& TODO:UJ delete
+
 class Czar {
 public:
     using Ptr = std::shared_ptr<Czar>;
@@ -109,6 +111,9 @@ public:
     /// Remove all old tables in the qservResult database.
     void removeOldResultTables();
 
+    bool setupWorkerResources(std::string const& fName); // &&& TODO:UJ remove ???
+    std::shared_ptr<WorkerResourceLists> getWorkerResourceLists() { return _workerResourceLists; } // TODO:UJ
+
 protected:
 
 private:
@@ -155,6 +160,8 @@ private:
     /// Prevents multiple concurrent calls to _removeOldTables().
     std::atomic<bool> _removingOldTables{false};
     std::thread _oldTableRemovalThread; ///< thread needs to remain valid while running.
+
+    std::shared_ptr<WorkerResourceLists> _workerResourceLists; // &&& TODO:UJ remove ???
 };
 
 }}} // namespace lsst::qserv::czar

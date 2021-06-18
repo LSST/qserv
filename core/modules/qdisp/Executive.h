@@ -26,6 +26,9 @@
 #ifndef LSST_QSERV_QDISP_EXECUTIVE_H
 #define LSST_QSERV_QDISP_EXECUTIVE_H
 
+//&&& replace with better enable/disable feature.
+#define uberJobsEnabled 1 //&&&
+
 // System headers
 #include <atomic>
 #include <mutex>
@@ -61,6 +64,7 @@ namespace qdisp {
 class JobQuery;
 class LargeResultMgr;
 class MessageStore;
+class UberJob;
 
 struct ExecutiveConfig {
     typedef std::shared_ptr<ExecutiveConfig> Ptr;
@@ -80,6 +84,8 @@ class Executive : public std::enable_shared_from_this<Executive> {
 public:
     typedef std::shared_ptr<Executive> Ptr;
     typedef std::unordered_map<int, std::shared_ptr<JobQuery>> JobMap;
+    typedef int ChunkIdType; //&&& TODO:UJ probably needs to be ResourceUnit
+    typedef std::unordered_map<ChunkIdType, JobQuery*> ChunkIdJobMapType;
 
     /// Construct an Executive.
     /// If c->serviceUrl == ExecutiveConfig::getMockStr(), then use XrdSsiServiceMock
@@ -132,6 +138,12 @@ public:
     std::shared_ptr<QdispPool> getQdispPool() { return _qdispPool; }
 
     bool startQuery(std::shared_ptr<JobQuery> const& jobQuery);
+
+    /// Add UbjerJobs to this user query.
+    void addUberJobs(std::vector<std::shared_ptr<UberJob>> const& jobsToAdd);
+    ChunkIdJobMapType& getChunkJobMapAndInvalidate();
+    bool startUberJob(std::shared_ptr<UberJob> const& uJob);
+    std::shared_ptr<JobQuery> getSharedPtrForRawJobPtr(JobQuery* jqRaw);
 
 private:
     Executive(ExecutiveConfig const& c, std::shared_ptr<MessageStore> const& ms,
@@ -195,6 +207,17 @@ private:
     std::mutex _lastQMetaMtx; ///< protects _lastQMetaUpdate.
 
     bool _scanInteractive = false; ///< true for interactive scans.
+
+    // Add a job to the _chunkToJobMap
+    void _addToChunkJobMap(std::shared_ptr<JobQuery> const& job);
+    /// _chunkToJobMap is created once and then destroyed when used.
+    std::atomic<bool> _chunkToJobMapInvalid{false}; ///< true indicates the map is no longer valid.
+    std::mutex _chunkToJobMapMtx; ///< protects _chunkToJobMap
+    ChunkIdJobMapType _chunkToJobMap; ///< Map of jobs ordered by chunkId
+
+
+    std::vector<std::shared_ptr<UberJob>> _uberJobs; ///< List of UberJobs
+    std::mutex _uberJobsMtx; ///< protects _uberJobs.
 };
 
 class MarkCompleteFunc {

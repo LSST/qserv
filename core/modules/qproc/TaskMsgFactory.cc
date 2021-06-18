@@ -36,6 +36,7 @@
 #include <stdexcept>
 
 // Third-party headers
+#include <google/protobuf/arena.h>
 
 // LSST headers
 #include "lsst/log/Log.h"
@@ -56,13 +57,11 @@ namespace qserv {
 namespace qproc {
 
 
-std::shared_ptr<proto::TaskMsg> TaskMsgFactory::_makeMsg(ChunkQuerySpec const& chunkQuerySpec,
-                                                         std::string const& chunkResultName,
-                                                         QueryId queryId, int jobId, int attemptCount,
-                                                         qmeta::CzarId czarId) {
+bool TaskMsgFactory::fillTaskMsg(proto::TaskMsg* taskMsg, ChunkQuerySpec const& chunkQuerySpec,
+                                 std::string const& chunkResultName, QueryId queryId, int jobId,
+                                 int attemptCount, qmeta::CzarId czarId) {
     std::string resultTable("Asdfasfd");
     if (!chunkResultName.empty()) { resultTable = chunkResultName; }
-    auto taskMsg = std::make_shared<proto::TaskMsg>();
     // shared
     taskMsg->set_session(_session);
     taskMsg->set_db(chunkQuerySpec.db);
@@ -71,6 +70,7 @@ std::shared_ptr<proto::TaskMsg> TaskMsgFactory::_makeMsg(ChunkQuerySpec const& c
     taskMsg->set_jobid(jobId);
     taskMsg->set_attemptcount(attemptCount);
     taskMsg->set_czarid(czarId);
+    //LOGS(_log, LOG_LVL_INFO, "&&& _makeMsg ses=" << _session << " db=" << chunkQuerySpec.db << " qId=" << queryId << " jId=" << jobId << " att=" << attemptCount << " cz=" << czarId);
     // scanTables (for shared scans)
     // check if more than 1 db in scanInfo
     std::string db;
@@ -113,7 +113,7 @@ std::shared_ptr<proto::TaskMsg> TaskMsgFactory::_makeMsg(ChunkQuerySpec const& c
         _addFragment(*taskMsg, resultTable, chunkQuerySpec.subChunkTables,
                      chunkQuerySpec.subChunkIds, chunkQuerySpec.queries);
     }
-    return taskMsg;
+    return true;
 }
 
 
@@ -146,12 +146,14 @@ void TaskMsgFactory::_addFragment(proto::TaskMsg& taskMsg, std::string const& re
 }
 
 
-void TaskMsgFactory::serializeMsg(ChunkQuerySpec const& s,
-                                  std::string const& chunkResultName,
+void TaskMsgFactory::serializeMsg(ChunkQuerySpec const& s, std::string const& chunkResultName,
                                   QueryId queryId, int jobId, int attemptCount, qmeta::CzarId czarId,
                                   std::ostream& os) {
-    std::shared_ptr<proto::TaskMsg> m = _makeMsg(s, chunkResultName, queryId, jobId, attemptCount, czarId);
-    m->SerializeToOstream(&os);
+    google::protobuf::Arena arena;
+    proto::TaskMsg* taskMsg = google::protobuf::Arena::CreateMessage<proto::TaskMsg>(&arena);
+    fillTaskMsg(taskMsg, s, chunkResultName, queryId, jobId, attemptCount, czarId);
+
+    taskMsg->SerializeToOstream(&os);
 }
 
 }}} // namespace lsst::qserv::qproc

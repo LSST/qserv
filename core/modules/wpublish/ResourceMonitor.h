@@ -98,6 +98,28 @@ private:
     mutable std::mutex _mtx;
 };
 
+
+/// RAII helper class for ResourcMonitor
+class ResourceMonitorLock {
+public:
+    ResourceMonitorLock() = delete;
+    ResourceMonitorLock(ResourceMonitorLock const&) = delete;
+    ResourceMonitorLock& operator=(ResourceMonitorLock const&) = delete;
+
+    ResourceMonitorLock(ResourceMonitor& rMonitor, std::string const& resource)
+      : _rMonitor(rMonitor), _resource(resource) {
+        _rMonitor.increment(_resource);
+    }
+
+    ~ResourceMonitorLock() {
+        _rMonitor.decrement(_resource);
+    }
+
+private:
+    ResourceMonitor& _rMonitor;
+    std::string const _resource;
+};
+
 }}} // namespace lsst::qserv::wpublish
 
 #endif // LSST_QSERV_WPUBLISH_RESOURCE_MONITOR_H

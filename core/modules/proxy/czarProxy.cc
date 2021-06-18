@@ -38,6 +38,8 @@
 // Qserv headers
 #include "czar/Czar.h"
 
+#include "qdisp/Executive.h" // &&& TODO:UJ remove, only here for uberJobsEnabled def.
+
 
 namespace {
 
@@ -91,6 +93,19 @@ initCzar(std::string const& czarName) {
     }
 
     _czar = czar::Czar::createCzar(qConfig, name);
+
+
+    /// &&& TODO:UJ This is a hack to read in a file that has the basic worker ids
+    ///             and the chunks on each worker from a file in the same directory as
+    ///             qConfig, named workerchunkdata.txt
+    if (uberJobsEnabled) { /// &&& delete this block once there's a reasonable way to get this information.
+        std::string fpath = qConfig;
+        auto pos = fpath.find_last_of("/");
+        std::string fname = fpath.substr(0, pos);
+        fname += "/workerchunkdata.txt";
+        LOGS(_log, LOG_LVL_WARN, "&&& fpath=" << fpath << " fname=" << fname);
+        _czar->setupWorkerResources(fname);
+    }
 }
 
 

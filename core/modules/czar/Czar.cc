@@ -50,6 +50,7 @@
 #include "util/IterableFormatter.h"
 #include "XrdSsi/XrdSsiProvider.hh"
 #include "../util/StringHelper.h"
+#include "WorkerResourceLists.h" // &&& TODO:UJ
 
 
 using namespace std;
@@ -449,6 +450,12 @@ void Czar::removeOldResultTables() {
     });
     t.detach();
     _oldTableRemovalThread = std::move(t);
+}
+
+
+bool Czar::setupWorkerResources(std::string const& fName) {
+    _workerResourceLists = std::make_shared<WorkerResourceLists>();
+    return _workerResourceLists->readIn(fName);
 }
 
 

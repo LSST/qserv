@@ -134,7 +134,7 @@ bool MergingHandler::flush(int bLen, BufPtr const& bufPtr, bool& last, bool& lar
     case MsgState::RESULT_WAIT:
         {
             nextBufSize = proto::ProtoHeaderWrap::getProtoHeaderSize();
-            auto jobQuery = getJobQuery().lock();
+            auto job = getJobBase().lock();
             if (!_verifyResult(bufPtr, bLen)) { return false; }
             if (!_setResult(bufPtr, bLen)) { // This sets _response->result
                 LOGS(_log, LOG_LVL_WARN, "setResult failure " << _wName);
@@ -218,7 +218,8 @@ void MergingHandler::_initState() {
 }
 
 bool MergingHandler::_merge() {
-    if (auto job = getJobQuery().lock()) {
+    auto job = getJobBase().lock();
+    if (job != nullptr) {
         if (_flushed) {
             throw Bug("MergingRequester::_merge : already flushed");
         }

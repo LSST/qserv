@@ -56,9 +56,9 @@ namespace wsched {
 
 GroupQueue::GroupQueue(int maxAccepted, wbase::Task::Ptr const& task) : _maxAccepted{maxAccepted} {
     assert(task != nullptr);
-    _hasChunkId = task->msg->has_chunkid();
+    _hasChunkId = task->msg.has_chunkid();
     if (_hasChunkId) {
-        _chunkId = task->msg->chunkid();
+        _chunkId = task->msg.chunkid();
     }
     assert(queTask(task));
 }
@@ -67,11 +67,11 @@ GroupQueue::GroupQueue(int maxAccepted, wbase::Task::Ptr const& task) : _maxAcce
 /// The task is acceptable if has the same chunk id.
 bool GroupQueue::queTask(wbase::Task::Ptr const& task) {
     /// Not having a chunk id is considered an id.
-    auto hasChunkId = task->msg->has_chunkid();
+    auto hasChunkId = task->msg.has_chunkid();
     if (hasChunkId != _hasChunkId) {
         return false; // Reject as one has a chunk id and the other does not.
     }
-    auto chunkId = task->msg->chunkid();
+    auto chunkId = task->msg.chunkid();
     if (hasChunkId && chunkId != _chunkId) {
         return false; // Reject since chunk ids don't match.
     }

@@ -98,6 +98,8 @@ public:
     /// Set just before destorying this object to prevent pointless error messages.
     void setDestroying() { _destroying = true; }
 
+    uint64_t getSeq() const;
+
 protected:
     std::function<void(void)> _release = [](){;}; ///< Function to release resources.
 

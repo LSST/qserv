@@ -58,15 +58,15 @@ typedef std::vector<qdisp::ResponseHandler::Ptr> RequesterVector;
 class ChunkMsgReceiverMock : public MsgReceiver {
 public:
     virtual void operator()(int code, std::string const& msg) {
-        LOGS_DEBUG("Mock::operator() chunkId=" << _chunkId
+        LOGS_DEBUG("Mock::operator() mockId=" << _mockId
                    << ", code=" << code << ", msg=" << msg);
     }
-    static std::shared_ptr<ChunkMsgReceiverMock> newInstance(int chunkId) {
-        std::shared_ptr<ChunkMsgReceiverMock> r = std::make_shared<ChunkMsgReceiverMock>();
-        r->_chunkId = chunkId;
-        return r;
+    static std::shared_ptr<ChunkMsgReceiverMock> newInstance(int mockId) {
+        std::shared_ptr<ChunkMsgReceiverMock> cmr = std::make_shared<ChunkMsgReceiverMock>();
+        cmr->_mockId = mockId;
+        return cmr;
     }
-    int _chunkId;
+    int _mockId;
 };
 
 namespace lsst {
@@ -114,16 +114,18 @@ std::shared_ptr<qdisp::JobQuery> addMockRequests(
                                  qdisp::Executive::Ptr const& ex,
                                  SequentialInt &sequence, int chunkID,
                                  std::string msg, RequesterVector& rv) {
-    ResourceUnit ru;
     std::shared_ptr<qdisp::JobQuery> jobQuery;
     int copies = rv.size();
-    ru.setAsDbChunk("Mock", chunkID);
     for(int j=0; j < copies; ++j) {
+        ResourceUnit ru;
+        ru.setAsDbChunk("Mock", chunkID++);
+
         // The job copies the JobDescription.
         qdisp::JobDescription::Ptr job = makeMockJobDescription(
                                              ex, sequence.incr(), ru,
                                              msg, rv[j]);
         jobQuery = ex->add(job);
+        jobQuery->runJob();
     }
     return jobQuery;
 }
@@ -215,7 +217,8 @@ BOOST_AUTO_TEST_CASE(Executive) {
     int jobs = 0;
     _log.setLevel(LOG_LVL_DEBUG); // Ugly but boost test suite forces this
     std::thread timeoutT(&timeoutFunc, std::ref(done), millisInt);
-    qdisp::XrdSsiServiceMock::setRName("/chk/Mock/1234");
+    //qdisp::XrdSsiServiceMock::setRName("/chk/Mock/1234");
+    qdisp::XrdSsiServiceMock::setRName("/chk/Mock/");
 
     // Test single instance
     {

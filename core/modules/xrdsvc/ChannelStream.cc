@@ -64,8 +64,8 @@ void ChannelStream::append(StreamBuffer::Ptr const& streamBuffer, bool last) {
     if (_closed) {
         throw Bug("ChannelStream::append: Stream closed, append(...,last=true) already received");
     }
-    LOGS(_log, LOG_LVL_DEBUG, "seq=" << to_string(_seq) << " ChannelStream::append last=" << last
-         << " " << util::prettyCharBuf(streamBuffer->data, streamBuffer->getSize(), 5));
+    //&&&LOGS(_log, LOG_LVL_DEBUG, "seq=" << to_string(_seq) << " ChannelStream::append last=" << last
+    //&&&     << " " << util::prettyCharBuf(streamBuffer->data, streamBuffer->getSize(), 5));
     {
         unique_lock<mutex> lock(_mutex);
         LOGS(_log, LOG_LVL_INFO, "seq=" << to_string(_seq) << " Trying to append message (flowing)");
@@ -79,15 +79,16 @@ void ChannelStream::append(StreamBuffer::Ptr const& streamBuffer, bool last) {
 
 /// Pull out a data packet as a Buffer object (called by XrdSsi code)
 XrdSsiStream::Buffer* ChannelStream::GetBuff(XrdSsiErrInfo &eInfo, int &dlen, bool &last) {
+    util::InstanceCount ic("ChannelStream::GetBuff&&& a");
     unique_lock<mutex> lock(_mutex);
     while(_msgs.empty() && !_closed) { // No msgs, but we aren't done
         // wait.
-        LOGS(_log, LOG_LVL_INFO, "seq=" << to_string(_seq) << " Waiting, no data ready");
+        LOGS(_log, LOG_LVL_INFO, "seq=" << to_string(_seq) << " GetBuff Waiting, no data ready");
         _hasDataCondition.wait(lock);
     }
     if (_msgs.empty() && _closed) {
         // It's closed and no more msgs are available.
-        LOGS(_log, LOG_LVL_INFO, "seq=" << to_string(_seq) << " Not waiting, but closed");
+        LOGS(_log, LOG_LVL_INFO, "seq=" << to_string(_seq) << " GetBuff Not waiting, but closed");
         dlen = 0;
         eInfo.Set("Not an active stream", EOPNOTSUPP);
         return 0;
@@ -98,7 +99,7 @@ XrdSsiStream::Buffer* ChannelStream::GetBuff(XrdSsiErrInfo &eInfo, int &dlen, bo
     _msgs.pop_front();
     last = _closed && _msgs.empty();
     LOGS(_log, LOG_LVL_INFO, "seq=" << to_string(_seq)
-                           << " returning buffer (" << dlen << ", " << (last ? "(last)" : "(more)") << ")");
+                           << " GetBuff returning buffer (" << dlen << ", " << (last ? "(last)" : "(more)") << ")");
     return sb.get();
 }
 

@@ -44,6 +44,12 @@
 // Forward declarations
 class XrdSsiService;
 
+
+namespace google {
+namespace protobuf {
+class Arena;
+}}
+
 namespace lsst {
 namespace qserv {
 namespace wbase {
@@ -116,6 +122,8 @@ public:
 
     bool sendMetadata(const char *buf, int blen);
 
+    uint64_t getSeq() const;
+
     /// Call this to allow object to die after it truly is no longer needed.
     /// i.e. It is know Finish() will not be called.
     /// NOTE: It is important that any non-static SsiRequest member
@@ -154,6 +162,10 @@ private:
     wbase::WorkerCommand::Ptr parseWorkerCommand(char const* reqData, int reqSize);
 
 private:
+    /// Convert the UberJobMsg into its component TaskMsgs and run them.
+    /// uberJobMsg must be in memory held by gArena.
+    void _handleUberJob(proto::UberJobMsg* uberJobMsg,
+                        std::shared_ptr<google::protobuf::Arena> const& gArena);
 
     /// Counters of the database/chunk requests which are being used
     static std::shared_ptr<wpublish::ResourceMonitor> _resourceMonitor;

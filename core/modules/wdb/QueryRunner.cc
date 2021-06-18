@@ -103,7 +103,7 @@ QueryRunner::QueryRunner(wbase::Task::Ptr const& task,
       _sqlConnMgr(sqlConnMgr) {
     int rc = mysql_thread_init();
     assert(rc == 0);
-    assert(_task->msg);
+    //&&& assert(_task->msg);
 }
 
 /// Initialize the db connection
@@ -124,10 +124,10 @@ bool QueryRunner::_initConnection() {
     return true;
 }
 
-/// Override _dbName with _msg->db() if available.
+/// Override _dbName with _msg.db() if available.
 void QueryRunner::_setDb() {
-    if (_task->msg->has_db()) {
-        _dbName = _task->msg->db();
+    if (_task->msg.has_db()) {
+        _dbName = _task->msg.db();
         LOGS(_log, LOG_LVL_DEBUG, "QueryRunner overriding dbName with " << _dbName);
     }
 }
@@ -161,7 +161,7 @@ bool QueryRunner::runQuery() {
         return false;
     }
 
-    _czarId = _task->msg->czarid();
+    _czarId = _task->msg.czarid();
 
     // Wait for memman to finish reserving resources. This can take several seconds.
     util::Timer memTimer;
@@ -178,7 +178,8 @@ bool QueryRunner::runQuery() {
 
     _setDb();
     LOGS(_log, LOG_LVL_DEBUG,  "Exec in flight for Db=" << _dbName
-        << " sqlConnMgr total" << _sqlConnMgr->getTotalCount() << " conn=" << _sqlConnMgr->getSqlConnCount());
+        << " sqlConnMgr total=" << _sqlConnMgr->getTotalCount()
+        << " conn=" << _sqlConnMgr->getSqlConnCount());
     wcontrol::SqlConnLock sqlConnLock(*_sqlConnMgr, not _task->getScanInteractive());
     bool connOk = _initConnection();
     if (!connOk) {
@@ -187,14 +188,16 @@ bool QueryRunner::runQuery() {
         // Put the error from _initConnection in _transmitData via _multiError.
         _buildDataMsg(0, 0);
         // Since there's an error, this will be the last transmit from this QueryRunner.
+        //LOGS(_log, LOG_LVL_INFO, "&&&QR::_dispatch transmit err start");
         if (!_transmit(true)) {
             LOGS(_log, LOG_LVL_WARN, " Could not report error to czar as sendChannel not accepting msgs.");
         }
+        //LOGS(_log, LOG_LVL_INFO, "&&&QR::_dispatch transmit err end");
         return false;
     }
 
-    if (_task->msg->has_protocol()) {
-        switch(_task->msg->protocol()) {
+    if (_task->msg.has_protocol()) {
+        switch(_task->msg.protocol()) {
         case 2:
             return _dispatchChannel(); // Run the query and send the results back.
         case 1:
@@ -205,7 +208,7 @@ bool QueryRunner::runQuery() {
     } else {
         throw UnsupportedError(_task->getIdStr() + " QueryRunner: Expected protocol > 1 in TaskMsg");
     }
-    LOGS(_log, LOG_LVL_DEBUG, "QueryRunner::runQuery() END");
+    LOGS(_log, LOG_LVL_INFO, "QueryRunner::runQuery() END"); //&&& revert to DEBUG
     return false;
 }
 
@@ -249,7 +252,7 @@ void QueryRunner::_buildDataMsg(unsigned int rowCount, size_t tSize) {
     result->set_attemptcount(_task->getAttemptCount());
 
     if (!_multiError.empty()) {
-        string chunkId = to_string(_task->msg->chunkid());
+        string chunkId = to_string(_task->msg.chunkid());
         string msg = "Error(s) in result for chunk #" + chunkId + ": " + _multiError.toOneLineString();
         result->set_errormsg(msg);
         LOGS(_log, LOG_LVL_ERROR, msg);
@@ -278,7 +281,9 @@ bool QueryRunner::_transmit(bool lastIn) {
 
     int qId = _task->getQueryId();
     int jId = _task->getJobId();
+    //LOGS(_log, LOG_LVL_INFO, "&&&QR::_transmit start lastIn=" << lastIn);
     bool success = _task->sendChannel->addTransmit(_cancelled, erred, lastIn, _largeResult, _transmitData, qId, jId);
+    //LOGS(_log, LOG_LVL_INFO, "&&&QR::_transmit end lastIn=" << lastIn);
 
     // Large results get priority, but new large results should not get priority until
     // after they have started transmitting.
@@ -299,8 +304,8 @@ proto::Result* QueryRunner::_initResult() {
     result->set_jobid(_task->getJobId());
     _transmitData->result = result;
     result->mutable_rowschema();
-    if (_task->msg->has_session()) {
-        result->set_session(_task->msg->session());
+    if (_task->msg.has_session()) {
+        result->set_session(_task->msg.session());
     }
     // Load schema from _schemaCols
     for(auto&& col:_schemaCols) {
@@ -426,7 +431,7 @@ bool QueryRunner::_fillRows(MYSQL_RES* result, int numFields, uint& rowCount, si
 
 bool QueryRunner::_dispatchChannel() {
     int const fragNum = _task->getQueryFragmentNum();
-    proto::TaskMsg& tMsg = *_task->msg;
+    proto::TaskMsg const& tMsg = _task->msg;
     bool erred = false;
     int numFields = -1;
     if (tMsg.fragment_size() < 1) {
@@ -452,6 +457,7 @@ bool QueryRunner::_dispatchChannel() {
             sqlTimer.start();
             MYSQL_RES* res = _primeResult(query); // This runs the SQL query, throws SqlErrorObj on failure.
             needToFreeRes = true;
+            _task->freeResourceMonitorLock();
             sqlTimer.stop();
             LOGS(_log, LOG_LVL_DEBUG, " fragment time=" << sqlTimer.getElapsed() << " query=" << query);
             _fillSchema(res);
@@ -460,6 +466,7 @@ bool QueryRunner::_dispatchChannel() {
             // (see pull-request for DM-216)
             // Now get rows...
             while (!_fillRows(res, numFields, rowCount, tSize)) {
+                //LOGS(_log, LOG_LVL_INFO, "&&&QR::_dispatch loop start");
                 if (tSize > proto::ProtoHeaderWrap::PROTOBUFFER_HARD_LIMIT) {
                     LOGS_ERROR("Message single row too large to send using protobuffer");
                     erred = true;
@@ -467,13 +474,16 @@ bool QueryRunner::_dispatchChannel() {
                 }
                 LOGS(_log, LOG_LVL_TRACE, "Splitting message size=" << tSize << ", rowCount=" << rowCount);
                 _buildDataMsg(rowCount, tSize);
+                //LOGS(_log, LOG_LVL_INFO, "&&&QR::_dispatch transmit false start");
                 if (!_transmit(false)) {
                     LOGS(_log, LOG_LVL_ERROR, "Could not transmit intermediate results.");
                     return false;
                 }
+                //LOGS(_log, LOG_LVL_INFO, "&&&QR::_dispatch transmit false end");
                 rowCount = 0;
                 tSize = 0;
                 _initTransmit(); // reset _transmitData
+                //LOGS(_log, LOG_LVL_INFO, "&&&QR::_dispatch loop end");
             }
 
         }
@@ -489,12 +499,15 @@ bool QueryRunner::_dispatchChannel() {
         _mysqlConn->freeResult();
     }
     if (!_cancelled) {
+        //util::InstanceCount icTransmit("_dispatchChannel::Transmit&&&");
         // Send results. This needs to happen after the error check.
         _buildDataMsg(rowCount, tSize);
+        //LOGS(_log, LOG_LVL_INFO, "&&&QR::_dispatch transmit true start");
         if (!_transmit(true)) { // All remaining rows/errors for this QueryRunner should be in this transmit.
             LOGS(_log, LOG_LVL_ERROR, "Could not transmit last results.");
             return false;
         }
+        //LOGS(_log, LOG_LVL_INFO, "&&&QR::_dispatch transmit true end");
     } else {
         erred = true;
         // Set poison error, no point in sending.

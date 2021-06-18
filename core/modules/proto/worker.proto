@@ -76,6 +76,18 @@ message TaskMsg {
     required uint32 czarid = 14;
 }
 
+
+// TODO:UJ For now, just a pile of task messages. Eventually, there should be a template
+//         with chunkId numbers which the worker would then expand into full queries. Much
+//         like how subchunks are now handled.
+message UberJobMsg {
+	required uint64 queryid = 1;
+	required uint32 czarid = 2;
+	required uint32 uberjobid = 3;
+	repeated TaskMsg taskmsgs = 4;
+	required uint32 magicnumber = 5;
+}
+
 // Result message received from worker
 // One of these headers is sent, if the czar requests result bundling.
 // If sent, an int64 size (network-byte-ordered) is always sent before

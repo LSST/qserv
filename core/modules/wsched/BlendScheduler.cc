@@ -171,9 +171,11 @@ void BlendScheduler::queCmd(std::vector<util::Command::Ptr> const& cmds) {
         if (first) {
             QSERV_LOGCONTEXT_QUERY_JOB(task->getQueryId(), task->getJobId());
         }
+        /* &&&
         if (task->msg == nullptr) {
             throw Bug("BlendScheduler::queCmd task with null message!");
         }
+        */
 
         util::LockGuardTimed guard(util::CommandQueue::_mx, "BlendScheduler::queCmd b");
         // Check for scan tables. The information for all tasks should be the same

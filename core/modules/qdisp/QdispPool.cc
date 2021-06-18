@@ -29,6 +29,7 @@
 
 // Qserv headers
 #include "util/common.h"
+#include "util/InstanceCount.h" //&&&
 
 namespace {
 LOG_LOGGER _log = LOG_GET("lsst.qserv.qdisp.QdispPool");
@@ -70,6 +71,7 @@ void PriorityQueue::queCmd(util::Command::Ptr const& cmd) {
 
 void PriorityQueue::queCmd(PriorityCommand::Ptr const& cmd, int priority) {
     {
+        //util::InstanceCount ic("PQ:queCmd&&&");
         std::lock_guard<std::mutex> lock(_mtx);
         auto iter = _queues.find(priority);
         if (iter == _queues.end()) {
@@ -82,17 +84,20 @@ void PriorityQueue::queCmd(PriorityCommand::Ptr const& cmd, int priority) {
             }
         }
         cmd->_priority = priority;
+        //LOGS (_log, LOG_LVL_INFO, "&&&priQue p=" << priority << _statsStr());
         iter->second->queCmd(cmd);
         LOGS (_log, LOG_LVL_DEBUG, "priQue p=" << priority << _statsStr());
         _changed = true;
     }
     _cv.notify_one();
+    _cv.notify_one(); //&&&
 }
 
 
 std::atomic<unsigned int> localLogLimiter(0);
 
 util::Command::Ptr PriorityQueue::getCmd(bool wait){
+    //util::InstanceCount ic("PQ:getCmd&&&");
     util::Command::Ptr ptr;
     std::unique_lock<std::mutex> uLock(_mtx);
     while (true) {
@@ -100,7 +105,7 @@ util::Command::Ptr PriorityQueue::getCmd(bool wait){
         ++localLogLimiter;
         // Log this every once in while to INFO so there's some idea of system
         // load without generating crushing amounts of log messages.
-        if (localLogLimiter % 500 == 0) {
+        if (true) { //&&& localLogLimiter % 500 == 0) { // &&& revert
             LOGS(_log, LOG_LVL_INFO, "priQueGet " << _statsStr());
         } else {
             LOGS(_log, LOG_LVL_DEBUG, "priQueGet " << _statsStr());
@@ -115,6 +120,8 @@ util::Command::Ptr PriorityQueue::getCmd(bool wait){
                 if (que->running < que->getMinRunning()) {
                     ptr = que->getCmd(false); // no wait
                     if (ptr != nullptr) {
+                        _changed = true;
+                        _cv.notify_one();
                         return ptr;
                     }
                 }
@@ -130,6 +137,7 @@ util::Command::Ptr PriorityQueue::getCmd(bool wait){
                 if (ptr != nullptr) {
                     _changed = true;
                     _cv.notify_one();
+                    _cv.notify_one(); //&&&
                     return ptr;
                 }
             }
@@ -137,6 +145,7 @@ util::Command::Ptr PriorityQueue::getCmd(bool wait){
 
         // If nothing was found, wait or return nullptr.
         if (wait) {
+            //util::InstanceCount icWait("PQ:getCmd&&&WAIT");
             LOGS (_log, LOG_LVL_DEBUG, "getCmd wait " << _statsStr());
             _cv.wait(uLock, [this](){ return _changed; });
         } else {

@@ -41,6 +41,7 @@
 #include "wbase/Task.h"
 #include "wcontrol/TransmitMgr.h"
 #include "wpublish/QueriesAndChunks.h"
+#include "wpublish/ResourceMonitor.h"
 #include "wsched/ChunkDisk.h"
 #include "wsched/ChunkTasksQueue.h"
 #include "wsched/BlendScheduler.h"
@@ -63,6 +64,8 @@ using lsst::qserv::proto::TaskMsg;
 using lsst::qserv::wbase::Task;
 using lsst::qserv::wbase::SendChannel;
 using lsst::qserv::wbase::SendChannelShared;
+using lsst::qserv::wpublish::ResourceMonitor;
+using lsst::qserv::wpublish::ResourceMonitorLock;
 
 double const oneHr = 60.0;
 
@@ -71,26 +74,36 @@ lsst::qserv::wcontrol::TransmitMgr::Ptr locTransmitMgr =
 
 std::vector<SendChannelShared::Ptr> locSendSharedPtrs;
 
-Task::Ptr makeTask(std::shared_ptr<TaskMsg> tm) {
+auto gArena = std::make_shared<google::protobuf::Arena>();
+
+std::shared_ptr<ResourceMonitor> resourceMonitor(new ResourceMonitor());
+
+/// Just need a dummy ResourceMonitorLock as it is irrelevant to what is being tested.
+std::shared_ptr<ResourceMonitorLock> getRmLock() {
+    auto resourceLock = std::make_shared<ResourceMonitorLock>(*(resourceMonitor.get()), "/dummyRes/1234");
+    return resourceLock;
+}
+
+
+Task::Ptr makeTask(TaskMsg* tm) {
     auto sendC = std::make_shared<SendChannel>();
     auto sc = SendChannelShared::create(sendC, locTransmitMgr);
     locSendSharedPtrs.push_back(sc);
-    Task::Ptr task(new Task(tm, "", 0, sc));
+    Task::Ptr task(new Task(*tm, "", 0, sc, gArena, getRmLock()));
     task->setSafeToMoveRunning(true); // Can't wait for MemMan in unit tests.
     return task;
 }
 
 
 struct SchedulerFixture {
-    typedef std::shared_ptr<TaskMsg> TaskMsgPtr;
 
     SchedulerFixture(void) {
         counter = 20;
     }
     ~SchedulerFixture(void) { }
 
-    TaskMsgPtr newTaskMsg(int seq, lsst::qserv::QueryId qId, int jobId) {
-        TaskMsgPtr t = std::make_shared<TaskMsg>();
+    TaskMsg* newTaskMsg(int seq, lsst::qserv::QueryId qId, int jobId) {
+        TaskMsg* t = google::protobuf::Arena::CreateMessage<TaskMsg>(gArena.get());
         t->set_session(123456);
         t->set_queryid(qId);
         t->set_jobid(jobId);
@@ -106,8 +119,8 @@ struct SchedulerFixture {
         return t;
     }
 
-    TaskMsgPtr newTaskMsgSimple(int seq, lsst::qserv::QueryId qId, int jobId) {
-        TaskMsgPtr t = std::make_shared<TaskMsg>();
+    TaskMsg* newTaskMsgSimple(int seq, lsst::qserv::QueryId qId, int jobId) {
+        TaskMsg* t = google::protobuf::Arena::CreateMessage<TaskMsg>(gArena.get());
         t->set_session(123456);
         t->set_queryid(qId);
         t->set_jobid(jobId);
@@ -118,9 +131,9 @@ struct SchedulerFixture {
     }
 
 
-    TaskMsgPtr newTaskMsgScan(int seq, int priority, lsst::qserv::QueryId qId, int jobId,
+    TaskMsg* newTaskMsgScan(int seq, int priority, lsst::qserv::QueryId qId, int jobId,
                               std::string const& tableName="whatever") {
-        auto taskMsg = newTaskMsg(seq, qId, jobId);
+        TaskMsg* taskMsg = newTaskMsg(seq, qId, jobId);
         taskMsg->set_scanpriority(priority);
         auto sTbl = taskMsg->add_scantable();
         sTbl->set_db("elephant");

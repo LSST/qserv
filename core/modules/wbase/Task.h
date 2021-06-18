@@ -43,6 +43,11 @@
 #include "util/threadSafe.h"
 
 // Forward declarations
+namespace google {
+namespace protobuf {
+    class Arena;
+}}
+
 namespace lsst {
 namespace qserv {
 namespace wbase {
@@ -52,6 +57,9 @@ namespace wbase {
 namespace proto {
     class TaskMsg;
     class TaskMsg_Fragment;
+}
+namespace wpublish {
+    class ResourceMonitorLock;
 }}} // End of forward declarations
 
 namespace lsst {
@@ -108,7 +116,6 @@ class Task : public util::CommandForThreadPool {
 public:
     static std::string const defaultUser;
     using Ptr =  std::shared_ptr<Task>;
-    using TaskMsgPtr = std::shared_ptr<proto::TaskMsg>;
 
     enum class State {CREATED, QUEUED, RUNNING, FINISHED};
 
@@ -119,17 +126,21 @@ public:
         bool operator()(Ptr const& x, Ptr const& y);
     };
 
-    explicit Task(TaskMsgPtr const& t, std::string const& query, int fragmentNumber,
-                  std::shared_ptr<SendChannelShared> const& sc);
+    explicit Task(proto::TaskMsg const& t, std::string const& query, int fragmentNumber,
+                  std::shared_ptr<SendChannelShared> const& sc,
+                  std::shared_ptr<google::protobuf::Arena> const& gArena,
+                  std::shared_ptr<wpublish::ResourceMonitorLock> const& rmLock);
     Task& operator=(const Task&) = delete;
     Task(const Task&) = delete;
     virtual ~Task();
 
     /// Read 'taskMsg' to generate a vector of one or more task objects all using the same 'sendChannel'
-    static std::vector<Ptr> createTasks(std::shared_ptr<proto::TaskMsg> const& taskMsg,
-                                        std::shared_ptr<SendChannelShared> const& sendChannel);
+    static std::vector<Ptr> createTasks(proto::TaskMsg const& taskMsg,
+                                        std::shared_ptr<SendChannelShared> const& sendChannel,
+                                        std::shared_ptr<google::protobuf::Arena> const& gArena,
+                                        std::shared_ptr<wpublish::ResourceMonitorLock> const& rmLock);
 
-    TaskMsgPtr msg; ///< Protobufs Task spec
+    proto::TaskMsg const& msg; ///< Protobufs Task spec, in memory held by _gArena
     std::shared_ptr<SendChannelShared> sendChannel; ///< For result reporting
     std::string hash; ///< hash of TaskMsg
     std::string user; ///< Incoming username
@@ -183,6 +194,8 @@ public:
     void started(std::chrono::system_clock::time_point const& now);
     std::chrono::milliseconds finished(std::chrono::system_clock::time_point const& now);
 
+    void freeResourceMonitorLock() { _resourceMonitorLock.reset(); }
+
 private:
     QueryId  const    _qId = 0; ///< queryId from czar
     int      const    _jId = 0; ///< jobId from czar
@@ -190,6 +203,11 @@ private:
     std::string const _idStr = QueryIdHelper::makeIdStr(0, 0, true); // < for logging only
     std::string _queryString; ///< The query this task will run.
     int _queryFragmentNum = 0; ///< The fragment number of the query in the task message.
+    std::shared_ptr<google::protobuf::Arena> _gArena; ///< holds memory for msg.
+
+    /// Shared pointer to the ResourceMonitorLock, this should be reset when
+    /// this Task is done with the chunk.
+    std::shared_ptr<wpublish::ResourceMonitorLock> _resourceMonitorLock;
 
     std::atomic<bool> _cancelled{false};
     std::atomic<bool> _safeToMoveRunning{false}; ///< false until done with waitForMemMan().

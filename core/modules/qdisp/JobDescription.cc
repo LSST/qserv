@@ -85,6 +85,11 @@ void JobDescription::buildPayload() {
 }
 
 
+bool JobDescription::fillTaskMsg(proto::TaskMsg* tMsg) {
+    return _taskMsgFactory->fillTaskMsg(tMsg, *_chunkQuerySpec, _chunkResultName, _queryId, _jobId, _attemptCount, _czarId);
+}
+
+
 bool JobDescription::verifyPayload() const {
     proto::ProtoImporter<proto::TaskMsg> pi;
     if (!_mock && !pi.messageAcceptable(_payloads.at(_attemptCount))) {

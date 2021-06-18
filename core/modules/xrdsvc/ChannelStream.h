@@ -59,6 +59,8 @@ public:
 
     bool closed() const { return _closed; }
 
+    uint64_t getSeq() const { return _seq; }
+
 private:
     bool _closed; ///< Closed to new append() calls?
     // Can keep a deque of (buf, bufsize) to reduce copying, if needed.

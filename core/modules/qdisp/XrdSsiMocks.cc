@@ -284,10 +284,18 @@ void XrdSsiServiceMock::ProcessRequest(XrdSsiRequest  &reqRef,
 
     // Check if we should verify the resource name
     //
-    if (_myRName.size() && _myRName != resRef.rName) {
+    auto sz = _myRName.size();
+    if (sz) {
+        // rName needs to allow for the chunkID numbers to be different, so ignore
+        // extra characters in rName beyond the length of _myRName.
+        // if _myRName = "/chk/Mock/", then rName = "/chk/Mock/1236" needs to be acceptable.
+        std::string rName = resRef.rName.substr(0, sz);
+        if (_myRName != rName) {
+
        LOGS_DEBUG("Expected rname " <<_myRName <<" got " <<resRef.rName
                   <<" from req #" <<reqNum);
        _aOK = false;
+        }
     }
 
     // Get the query request object for this request and process it.

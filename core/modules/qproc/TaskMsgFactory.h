@@ -63,12 +63,14 @@ public:
                       qmeta::CzarId czarId,
                       std::ostream& os);
 
-private:
-    std::shared_ptr<proto::TaskMsg> _makeMsg(ChunkQuerySpec const& s,
-                                             std::string const& chunkResultName,
-                                             QueryId queryId, int jobId, int attemptCount,
-                                             qmeta::CzarId czarId);
+    /// Use the provided information to fill in taskMsg.
+    /// @return true if successful.
+    bool fillTaskMsg(proto::TaskMsg* taskMsg, ChunkQuerySpec const& s,
+                     std::string const& chunkResultName,
+                     QueryId queryId, int jobId, int attemptCount,
+                     qmeta::CzarId czarId);
 
+private:
     void _addFragment(proto::TaskMsg& taskMsg, std::string const& resultName,
                       DbTableSet const& subChunkTables, std::vector<int> const& subChunkIds,
                       std::vector<std::string> const& queries);

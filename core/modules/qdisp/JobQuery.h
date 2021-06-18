@@ -33,6 +33,7 @@
 
 // Qserv headers
 #include "qdisp/Executive.h"
+#include "qdisp/JobBase.h"
 #include "qdisp/JobDescription.h"
 #include "qdisp/ResponseHandler.h"
 #include "util/InstanceCount.h"
@@ -47,7 +48,7 @@ class QueryRequest;
 /** This class is used to describe, monitor, and control a single query to a worker.
  *
  */
-class JobQuery : public std::enable_shared_from_this<JobQuery> {
+class JobQuery : public JobBase {
 public:
     typedef std::shared_ptr<JobQuery> Ptr;
 
@@ -63,13 +64,17 @@ public:
     virtual ~JobQuery();
     virtual bool runJob();
 
-    QueryId getQueryId() const {return _qid; }
-    int getIdInt() const { return _jobDescription->id(); }
-    std::string const& getIdStr() const { return _idStr; }
-    JobDescription::Ptr getDescription() { return _jobDescription; }
-    JobStatus::Ptr getStatus() { return _jobStatus; }
+    QueryId getQueryId() const override {return _qid; }
+    int getIdInt() const override { return _jobDescription->id(); }
+    std::string const& getPayload() const override;
+    std::string const& getIdStr() const override { return _idStr; }
+    std::shared_ptr<ResponseHandler> getRespHandler() override { return _jobDescription->respHandler(); }
+    bool getScanInteractive() const override { return _jobDescription->getScanInteractive(); }
 
-    void setQueryRequest(std::shared_ptr<QueryRequest> const& qr) {
+    JobDescription::Ptr getDescription() { return _jobDescription; }
+    JobStatus::Ptr getStatus() override { return _jobStatus; }
+
+    void setQueryRequest(std::shared_ptr<QueryRequest> const& qr) override {
         std::lock_guard<std::recursive_mutex> lock(_rmutex);
         _queryRequestPtr = qr;
     }
@@ -78,16 +83,16 @@ public:
         return _queryRequestPtr;
     }
 
-    std::shared_ptr<MarkCompleteFunc> getMarkCompleteFunc() { return _markCompleteFunc; }
+    void callMarkCompleteFunc(bool success) override;
 
     bool cancel();
-    bool isQueryCancelled();
+    bool isQueryCancelled() override;
 
     Executive::Ptr getExecutive() { return _executive.lock(); }
 
-    std::shared_ptr<QdispPool> getQdispPool() { return _qdispPool; }
+    std::shared_ptr<QdispPool> getQdispPool() override { return _qdispPool; }
 
-    friend std::ostream& operator<<(std::ostream& os, JobQuery const& jq);
+    std::ostream& dumpOS(std::ostream &os) const override;
 
     /// Make a copy of the job description. JobQuery::_setup() must be called after creation.
     /// Do not call this directly, use create.
@@ -95,9 +100,16 @@ public:
         JobStatus::Ptr const& jobStatus, std::shared_ptr<MarkCompleteFunc> const& markCompleteFunc,
         QueryId qid);
 
+    /// Set to true if this job is part of an UberJob
+    void setInUberJob(bool inUberJob) { _inUberJob = inUberJob; };
+
+    /// @return true if this job is part of an UberJob.
+    bool inUberJob() const { return _inUberJob; }
+
 protected:
     void _setup() {
-        _jobDescription->respHandler()->setJobQuery(shared_from_this());
+        JobBase::Ptr jbPtr = shared_from_this();
+        _jobDescription->respHandler()->setJobQuery(jbPtr);
     }
 
     int _getRunAttemptsCount() const {
@@ -131,6 +143,9 @@ protected:
     std::atomic<bool> _cancelled {false}; ///< Lock to make sure cancel() is only called once.
 
     std::shared_ptr<QdispPool> _qdispPool;
+
+    /// True if this job is part of an UberJob.
+    std::atomic<bool> _inUberJob{false}; ///< TODO:UJ There are probably several places this should be checked
 };
 
 }}} // end namespace
