@@ -1,0 +1,115 @@
+/*
+ * LSST Data Management System
+ * Copyright 2018 LSST Corporation.
+ *
+ * This product includes software developed by the
+ * LSST Project (http://www.lsst.org/).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the LSST License Statement and
+ * the GNU General Public License along with this program.  If not,
+ * see <http://www.lsstcorp.org/LegalNotices/>.
+ */
+/// replication.proto
+/// This defines the wire-messages sent between replication master and workers.
+
+package lsst.qserv.proto;
+
+/// Response to any maessage
+message LdrMsgReceived {
+    /// 
+    required uint64 originalid   = 1;
+    required uint32 originalkind = 2;
+    required uint32 status       = 3;
+    optional string errmsg       = 4;
+    required uint32 dataentries  = 5;
+}
+
+/// Register a worker with the master.    
+message LdrNetAddress {
+    required string ip      = 1;
+    required uint32 udpport = 2;
+    required uint32 tcpport = 3;
+}
+
+
+message WorkerRange {
+    required bool valid        = 1;
+    required uint64 minint     = 2;
+    required string minstr     = 3;
+    required uint64 maxint     = 4; 
+    required string maxstr     = 5;
+    required bool maxunlimited = 6;
+}
+
+message WorkerListItem {
+    required uint32            wid      = 1; // worker's id number
+    optional WorkerRange       range    = 2;
+    optional LdrNetAddress     address  = 3;
+}
+
+
+message LdrMastWorkerList {
+	required uint32         workercount = 1;
+    repeated WorkerListItem worker      = 2;
+}
+
+
+message KeyInfo {
+	required string keystr   = 1;
+	required uint64 keyint   = 2;
+	required uint32 chunk    = 3;
+	required uint32 subchunk = 4;
+	optional bool   success  = 5;
+}
+
+
+message KeyInfoInsert {
+	required LdrNetAddress requester = 1;
+	required KeyInfo       keyinfo   = 2;
+	required uint32        hops      = 3;
+}
+
+
+message Neighbor {
+	required uint32 wid = 2;
+}	
+
+
+// Information about a worker and the keys it holds.
+message WorkerKeysInfo {
+    required uint32            wid        = 1;
+    required uint32            mapsize    = 2;
+    required uint32            recentadds = 3;
+    required WorkerRange       range      = 4;
+    required Neighbor          left       = 5;
+    required Neighbor          right      = 6;
+}
+
+
+message WorkerImNeighbor {
+    required uint32      wid      = 1;
+    required uint64      keycount = 2;
+    required WorkerRange range    = 4;
+}
+ 
+ 
+message KeyList {
+    required uint32       keycount = 1;  // TODO this could be redundant
+    repeated KeyInfo      keypair  = 2;
+}
+     
+
+message KeyShiftRequest {
+    required uint32 keystoshift = 1; 
+}
+

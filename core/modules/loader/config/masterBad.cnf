@@ -1,0 +1,8 @@
+# This configuration file is intentionally incorrect for testing.
+#
+[master]
+portdp = 9876
+maxKeysPerWorker = 1050
+threadPoolSize = 10
+# Time to sleep in microseconds.
+loopSleepTime = 100000

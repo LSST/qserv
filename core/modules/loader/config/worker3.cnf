@@ -1,0 +1,29 @@
+# Worker 3
+#
+[worker]
+# Master information
+masterHost = 127.0.0.1
+masterPortUdp = 10042
+
+# Worker ports
+wPortUdp = 10045
+wPortTcp = 10145
+
+# Worker thread pool size
+threadPoolSize = 10
+
+# Period of time where a key insert is considered recent in milliseconds
+recentAddLimit = 60000
+
+# Difference in number of keys stored between neighbors
+# A value of 1.2 would cause a shift if either worker had 
+# 20% more keys than its neighbor.
+thresholdNeighborShift = 1.1
+
+# Maximum number of keys to shift in a single iteration.
+# An iteration would be transfer, insert, verify range.
+maxKeysToShift = 10000
+
+# Time to sleep between checking every item in the DoList 
+# in microseconds.
+loopSleepTime = 100000

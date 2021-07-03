@@ -1,0 +1,31 @@
+# -*- python -*-
+Import('env')
+Import('standardModule')
+
+import os.path
+
+# Harvest special binary products - files starting with the package's name
+# followed by underscore:
+#
+#   qserv-<something>.cc
+#
+
+bin_cc_files = {}
+path = "./"
+for f in env.Glob(os.path.join(path, "app*.cc"), source=True, strings=True):
+    print(f)
+    bin_cc_files[f] = [
+        "loader",
+        "qserv_common",
+        "util",
+        "protobuf",
+        "boost_filesystem",
+        "boost_system",
+        "log",
+        "log4cxx"]
+
+# Initiate the standard sequence of actions for this module by excluding
+# the above discovered binary sources
+
+standardModule(env, bin_cc_files=bin_cc_files, unit_tests="")
+

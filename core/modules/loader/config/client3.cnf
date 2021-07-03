@@ -1,0 +1,27 @@
+# Client 3
+#
+[client]
+# Master information - for discovering worker key ranges.
+masterHost = 127.0.0.1
+masterPortUdp = 10042
+
+# Default worker - if a specific worker cannot be identified for
+# a request, send the request to this worker.
+defWorkerHost = 127.0.0.1
+defWorkerPortUdp = 10043
+
+# Client's port - request answers will be sent here.
+clientPortUdp = 10052
+
+# Time to sleep between checking every item in the DoList 
+# in microseconds.
+loopSleepTime = 100000
+
+# Maximum number of lookups that can be on the DoList at a time.
+doListMaxLookups = 99000 
+
+# Maximum number of inserts that can be on the DoList at a time.
+doListMaxInserts = 99000
+
+# Client thread pool size
+threadPoolSize = 5

@@ -1,0 +1,11 @@
+# Intentionally malformed for testing
+#
+[client]
+masterHost = 127.0.0.1
+masterPortUdp = 10042
+defWorkerHost = 127.0.0.1
+defWorkerPortUdp = 10043
+clientortUdp = 10050
+loopSleepTime = 100000
+doListMaxLookups = 99000 
+doListMaxInserts = 99000

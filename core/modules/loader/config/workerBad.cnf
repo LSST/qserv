@@ -1,0 +1,12 @@
+# Intentionally bad config file for testing.
+#
+[worker]
+masterHost = 127.0.0.1
+masterPortUdp = 10042
+wPortUdp = 10043
+wPortTcp = 10143
+wPoolSize = 11
+recentAdddLimit = 60000 
+thresholdNeighborShift = 1000
+maxKeysToShift = 10000
+loopSleepTime = 100000

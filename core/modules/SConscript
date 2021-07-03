@@ -282,6 +282,11 @@ shlibs["qmetaLib"] = dict(mods="qmeta:python",
                           libs="qserv_qmeta log",
                           SHLIBPREFIX='',
                           instDir="$python_prefix/lsst/qserv/qmeta")
+                          
+# library of tools for building binary applications of the loader subsystem
+shlibs["loader"] = dict(mods="""loader""",
+                         libs="""qserv_common util protobuf boost_filesystem boost_system
+                              log log4cxx""")                          
 
 # get list of all modules
 all_modules = sorted(str(d) for d in Glob('*', source=True) if os.path.isdir(d.srcnode().abspath))
