@@ -129,11 +129,6 @@ void ControllerApp::_configureParser() {
                     _cancelDelayMilliseconds)
             .option("priority", "The priority level of a request", _priority)
             .flag("do-not-track", "Do not track requests by waiting before they finish.", _doNotTrackRequest)
-            .flag("allow-duplicates",
-                  "Allow requests which duplicate the previously made one. This applies"
-                  " to requests which change the replica disposition at a worker, and only"
-                  " for those requests which are still in the worker's queues.",
-                  _allowDuplicates)
             .flag("do-not-save-replica",
                   "The flag which (if used) prevents the application from saving replica info in a database."
                   " This may significantly speed up the application in setups where the number of chunks is "
@@ -415,11 +410,10 @@ int ControllerApp::runImpl() {
         request = ReplicationRequest::createAndStart(
                 controller, _workerName, _sourceWorkerName, _databaseName, _chunkNumber,
                 [](ReplicationRequest::Ptr const& request_) { request_->print(); }, _priority,
-                !_doNotTrackRequest, _allowDuplicates);
+                !_doNotTrackRequest);
     } else if ("DELETE" == _requestType) {
         request = DeleteRequest::createAndStart(controller, _workerName, _databaseName, _chunkNumber,
-                                                Request::defaultPrinter, _priority, !_doNotTrackRequest,
-                                                _allowDuplicates);
+                                                Request::defaultPrinter, _priority, !_doNotTrackRequest);
     } else if ("FIND" == _requestType) {
         request = FindRequest::createAndStart(controller, _workerName, _databaseName, _chunkNumber,
                                               Request::defaultPrinter, _priority, _computeCheckSum,

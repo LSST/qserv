@@ -44,8 +44,8 @@ namespace lsst::qserv::replica {
 
 RequestMessenger::RequestMessenger(shared_ptr<Controller> const& controller, string const& type,
                                    string const& workerName, int priority, bool keepTracking,
-                                   bool allowDuplicate, bool disposeRequired)
-        : Request(controller, type, workerName, priority, keepTracking, allowDuplicate, disposeRequired) {}
+                                   bool disposeRequired)
+        : Request(controller, type, workerName, priority, keepTracking, disposeRequired) {}
 
 void RequestMessenger::finishImpl(replica::Lock const& lock) {
     LOGS(_log, LOG_LVL_DEBUG, context() << __func__);

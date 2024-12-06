@@ -45,7 +45,6 @@ using namespace std::placeholders;
 
 namespace {
 LOG_LOGGER _log = LOG_GET("lsst.qserv.replica.SqlRequest");
-bool const allowDuplicateNo = false;
 bool const disposeRequired = true;
 }  // namespace
 
@@ -71,8 +70,7 @@ void SqlRequest::extendedPrinter(Ptr const& ptr) {
 
 SqlRequest::SqlRequest(shared_ptr<Controller> const& controller, std::string const& requestName,
                        string const& workerName, uint64_t maxRows, int priority, bool keepTracking)
-        : RequestMessenger(controller, requestName, workerName, priority, keepTracking, ::allowDuplicateNo,
-                           ::disposeRequired) {
+        : RequestMessenger(controller, requestName, workerName, priority, keepTracking, ::disposeRequired) {
     // Partial initialization of the request body's content. Other members
     // will be set in the request type-specific subclasses.
     requestBody.set_max_rows(maxRows);

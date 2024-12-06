@@ -70,8 +70,7 @@ protected:
      * @return A pointer to the created object.
      */
     RequestMessenger(std::shared_ptr<Controller> const& controller, std::string const& type,
-                     std::string const& workerName, int priority, bool keepTracking, bool allowDuplicate,
-                     bool disposeRequired);
+                     std::string const& workerName, int priority, bool keepTracking, bool disposeRequired);
 
     /// @see Request::finishImpl()
     void finishImpl(replica::Lock const& lock) override;

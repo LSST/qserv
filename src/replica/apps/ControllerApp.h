@@ -171,11 +171,6 @@ private:
     /// Do not track requests waiting before they finish
     bool _doNotTrackRequest = false;
 
-    /// Allow requests which duplicate the previously made one. This applies
-    /// to requests which change the replica disposition at a worker, and only
-    /// for those requests which are still in the worker's queues.
-    bool _allowDuplicates = false;
-
     /// Do not save the replica info in the database if set to 'true'
     bool _doNotSaveReplicaInfo = false;
 

@@ -235,14 +235,13 @@ void DeleteReplicaJob::_beginDeleteReplica(replica::Lock const& lock) {
     // VERY IMPORTANT: the requests are sent for participating databases
     // only because some catalogs may not have a full coverage
     bool const keepTracking = true;
-    bool const allowDuplicate = true;
     for (auto&& replica : _replicas) {
         _requests.push_back(DeleteRequest::createAndStart(
                 controller(), workerName(), replica.database(), chunk(),
                 [self = shared_from_base<DeleteReplicaJob>()](DeleteRequest::Ptr ptr) {
                     self->_onRequestFinish(ptr);
                 },
-                priority(), keepTracking, allowDuplicate, id()));
+                priority(), keepTracking, id()));
     }
 }
 

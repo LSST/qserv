@@ -88,8 +88,8 @@ public:
     static Ptr createAndStart(std::shared_ptr<Controller> const& controller, std::string const& workerName,
                               std::string const& database, unsigned int chunk,
                               CallbackType const& onFinish = nullptr, int priority = PRIORITY_NORMAL,
-                              bool keepTracking = true, bool allowDuplicate = true,
-                              std::string const& jobId = "", unsigned int requestExpirationIvalSec = 0);
+                              bool keepTracking = true, std::string const& jobId = "",
+                              unsigned int requestExpirationIvalSec = 0);
 
 protected:
     void startImpl(replica::Lock const& lock) final;
@@ -101,7 +101,7 @@ protected:
 private:
     DeleteRequest(std::shared_ptr<Controller> const& controller, std::string const& workerName,
                   std::string const& database, unsigned int chunk, CallbackType const& onFinish, int priority,
-                  bool keepTracking, bool allowDuplicate);
+                  bool keepTracking);
 
     /**
      * Send the serialized content of the buffer to a worker.

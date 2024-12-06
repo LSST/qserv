@@ -257,7 +257,6 @@ size_t FixUpJob::_launchNext(replica::Lock const& lock, string const& destinatio
     if (maxRequests == 0) return 0;
     auto&& tasks = _destinationWorker2tasks[destinationWorker];
     bool const keepTracking = true;
-    bool const allowDuplicate = true;
     size_t numLaunched = 0;
     for (size_t i = 0; i < maxRequests; ++i) {
         if (tasks.size() == 0) break;
@@ -270,7 +269,7 @@ size_t FixUpJob::_launchNext(replica::Lock const& lock, string const& destinatio
                 [self = shared_from_base<FixUpJob>()](ReplicationRequest::Ptr ptr) {
                     self->_onRequestFinish(ptr);
                 },
-                priority(), keepTracking, allowDuplicate, id()));
+                priority(), keepTracking, id()));
         tasks.pop();
         numLaunched++;
     }

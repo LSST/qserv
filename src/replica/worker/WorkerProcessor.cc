@@ -49,31 +49,7 @@ using namespace std::placeholders;
 using namespace lsst::qserv::replica;
 
 namespace {
-
 LOG_LOGGER _log = LOG_GET("lsst.qserv.replica.WorkerProcessor");
-
-template <class PROTOCOL_RESPONSE_TYPE, class PROTOCOL_REQUEST_TYPE>
-bool ifDuplicateRequest(PROTOCOL_RESPONSE_TYPE& response, WorkerRequest::Ptr const& p,
-                        PROTOCOL_REQUEST_TYPE const& request) {
-    bool isDuplicate = false;
-
-    auto const ptr = dynamic_pointer_cast<WorkerReplicationRequest>(p);
-    if (nullptr != ptr) {
-        isDuplicate = (ptr->database() == request.database()) and (ptr->chunk() == request.chunk());
-
-    } else {
-        auto const ptr = dynamic_pointer_cast<WorkerDeleteRequest>(p);
-        if (nullptr != ptr) {
-            isDuplicate = (ptr->database() == request.database()) and (ptr->chunk() == request.chunk());
-        }
-    }
-    if (isDuplicate) {
-        WorkerProcessor::setDefaultResponse(response, ProtocolStatus::BAD, ProtocolStatusExt::DUPLICATE);
-        response.set_duplicate_request_id(p->id());
-    }
-    return isDuplicate;
-}
-
 }  // namespace
 
 namespace lsst::qserv::replica {
@@ -179,17 +155,6 @@ void WorkerProcessor::enqueueForReplication(string const& id, int32_t priority,
 
     replica::Lock lock(_mtx, _context(__func__));
 
-    // Verify a scope of the request to ensure it won't duplicate or interfere (with)
-    // existing requests in the active (non-completed) queues. A reason why we're ignoring
-    // the completed is that this replica may have already been deleted from this worker.
-
-    for (auto&& ptr : _newRequests) {
-        if (::ifDuplicateRequest(response, ptr, request)) return;
-    }
-    for (auto&& entry : _inProgressRequests) {
-        if (::ifDuplicateRequest(response, entry.second, request)) return;
-    }
-
     // The code below may catch exceptions if other parameters of the request
     // won't pass further validation against the present configuration of the request
     // processing service.
@@ -218,17 +183,6 @@ void WorkerProcessor::enqueueForDeletion(string const& id, int32_t priority,
                             << "  chunk: " << request.chunk());
 
     replica::Lock lock(_mtx, _context(__func__));
-
-    // Verify a scope of the request to ensure it won't duplicate or interfere (with)
-    // existing requests in the active (non-completed) queues. A reason why we're ignoring
-    // the completed is that this replica may have already been deleted from this worker.
-
-    for (auto&& ptr : _newRequests) {
-        if (::ifDuplicateRequest(response, ptr, request)) return;
-    }
-    for (auto&& entry : _inProgressRequests) {
-        if (::ifDuplicateRequest(response, entry.second, request)) return;
-    }
 
     // The code below may catch exceptions if other parameters of the request
     // won't pass further validation against the present configuration of the request

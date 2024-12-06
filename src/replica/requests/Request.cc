@@ -105,14 +105,13 @@ string Request::state2string(State state, ExtendedState extendedState,
 }
 
 Request::Request(shared_ptr<Controller> const& controller, string const& type, string const& workerName,
-                 int priority, bool keepTracking, bool allowDuplicate, bool disposeRequired)
+                 int priority, bool keepTracking, bool disposeRequired)
         : _controller(controller),
           _type(type),
           _id(Generators::uniqueId()),
           _workerName(workerName),
           _priority(priority),
           _keepTracking(keepTracking),
-          _allowDuplicate(allowDuplicate),
           _disposeRequired(disposeRequired),
           _state(CREATED),
           _extendedState(NONE),
@@ -149,8 +148,6 @@ string Request::context() const {
            "::" + replica::status2string(extendedServerStatus()) + "  ";
 }
 
-string const& Request::remoteId() const { return _duplicateRequestId.empty() ? _id : _duplicateRequestId; }
-
 unsigned int Request::nextTimeIvalMsec() {
     auto result = _currentTimeIvalMsec;
     _currentTimeIvalMsec = min(2 * _currentTimeIvalMsec, 1000 * timerIvalSec());
@@ -170,9 +167,7 @@ string Request::toString(bool extended) const {
         << "  worker: " << workerName() << "\n"
         << "  priority: " << priority() << "\n"
         << "  keepTracking: " << bool2str(keepTracking()) << "\n"
-        << "  allowDuplicate: " << bool2str(allowDuplicate()) << "\n"
         << "  disposeRequired: " << bool2str(disposeRequired()) << "\n"
-        << "  remoteId: " << remoteId() << "\n"
         << "  performance: " << performance() << "\n";
     if (extended) {
         for (auto&& kv : extendedPersistentState()) {

@@ -94,8 +94,7 @@ public:
                               std::string const& sourceWorkerName, std::string const& database,
                               unsigned int chunk, CallbackType const& onFinish = nullptr,
                               int priority = PRIORITY_NORMAL, bool keepTracking = true,
-                              bool allowDuplicate = true, std::string const& jobId = "",
-                              unsigned int requestExpirationIvalSec = 0);
+                              std::string const& jobId = "", unsigned int requestExpirationIvalSec = 0);
 
     /// @see Request::extendedPersistentState()
     std::list<std::pair<std::string, std::string>> extendedPersistentState() const override;
@@ -109,7 +108,7 @@ protected:
 private:
     ReplicationRequest(std::shared_ptr<Controller> const& controller, std::string const& workerName,
                        std::string const& sourceWorkerName, std::string const& database, unsigned int chunk,
-                       CallbackType const& onFinish, int priority, bool keepTracking, bool allowDuplicate);
+                       CallbackType const& onFinish, int priority, bool keepTracking);
 
     /**
      * Send the serialized content of the buffer to a worker

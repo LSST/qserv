@@ -203,14 +203,13 @@ void CreateReplicaJob::startImpl(replica::Lock const& lock) {
     // VERY IMPORTANT: the requests are sent for participating databases
     // only because some catalogs may not have a full coverage
     bool const keepTracking = true;
-    bool const allowDuplicate = true;
     for (auto&& replica : sourceReplicas) {
         _requests.push_back(ReplicationRequest::createAndStart(
                 controller(), destinationWorker(), sourceWorker(), replica.database(), chunk(),
                 [self = shared_from_base<CreateReplicaJob>()](ReplicationRequest::Ptr ptr) {
                     self->_onRequestFinish(ptr);
                 },
-                priority(), keepTracking, allowDuplicate, id()));
+                priority(), keepTracking, id()));
     }
 }
 
