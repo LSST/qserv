@@ -34,6 +34,7 @@
 // Qserv headers
 #include "replica/config/Configuration.h"
 #include "replica/contr/Controller.h"
+#include "replica/requests/Messenger.h"
 #include "replica/services/ServiceProvider.h"
 #include "replica/util/ProtocolBuffer.h"
 
@@ -283,8 +284,34 @@ void Request::finish(replica::Lock const& lock, ExtendedState extendedState) {
     // Stop the timer if the one is still running
     _requestExpirationTimer.cancel();
 
-    // Let a subclass to run its own finalization if needed
-    finishImpl(lock);
+    // Make sure the request (if any) has been eliminated from the messenger.
+    // This operation is unnecessary if the request has successfully finished,
+    // in which case it's guaranteed that no outstanding message for the request
+    // will be at the messenger's queue. This optimization also reduces extra
+    // locking (and delays) in the messenger because the operation is synchronized.
+    if (extendedState != Request::ExtendedState::SUCCESS) {
+        controller()->serviceProvider()->messenger()->cancel(workerName(), id());
+    }
+
+    // Tell the worker to dispose the request if a subclass made such requirement,
+    // and only if the request has successfully finished. This will remove the request
+    // from the worker's "finished" queue and release memory taken by the request
+    // much earlier than after request expiration deadline.
+    // Don't dispose requests in other states since any such actions may result in
+    // unnecessary increase of the traffic on a communication channel with the worker
+    // and increase processing latency (and increasing a probability of running into
+    // the Controller side timeouts while waiting for the completion of the requests)
+    // of the on-going or queued requests.
+    // Requests in other states ended up at workers would be automatically disposed
+    // by workers after requests's expiration deadlines.
+    if (disposeRequired() && (extendedState == Request::ExtendedState::SUCCESS)) {
+        // Don't require any callback notification for the completion of
+        // the operation. This will also prevent incrementing a shared pointer
+        // counter for the current object.
+        dispose(lock, priority(), nullptr);
+    }
+
+    // Notify a subscriber (if any) about the completion of the request.
     notify(lock);
 
     // Unblock threads (if any) waiting on the synchronization call
@@ -320,6 +347,26 @@ void Request::setState(replica::Lock const& lock, State newState, ExtendedState 
         _state = newState;
     }
     savePersistentState(lock);
+}
+
+void Request::dispose(replica::Lock const& lock, int priority, OnDisposeCallbackType const& onFinish) {
+    LOGS(_log, LOG_LVL_DEBUG, context() << __func__);
+
+    buffer()->resize();
+
+    ProtocolRequestHeader hdr;
+    hdr.set_id(id());
+    hdr.set_type(ProtocolRequestHeader::REQUEST);
+    hdr.set_management_type(ProtocolManagementRequestType::REQUEST_DISPOSE);
+    hdr.set_instance_id(controller()->serviceProvider()->instanceId());
+
+    buffer()->serialize(hdr);
+    ProtocolRequestDispose message;
+    message.add_ids(id());
+    buffer()->serialize(message);
+
+    controller()->serviceProvider()->messenger()->send<ProtocolResponseDispose>(workerName(), id(), priority,
+                                                                                buffer(), onFinish);
 }
 
 boost::asio::io_service& Request::_ioService() { return controller()->serviceProvider()->io_service(); }

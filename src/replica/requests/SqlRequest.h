@@ -31,7 +31,7 @@
 
 // Qserv headers
 #include "replica/proto/protocol.pb.h"
-#include "replica/requests/RequestMessenger.h"
+#include "replica/requests/Request.h"
 #include "replica/requests/SqlResultSet.h"
 #include "replica/util/Common.h"
 
@@ -53,7 +53,7 @@ namespace lsst::qserv::replica {
  * In case of a successful completion of a request an object of this request class
  * will receive a result set (if any) of the query.
  */
-class SqlRequest : public RequestMessenger {
+class SqlRequest : public Request {
 public:
     typedef std::shared_ptr<SqlRequest> Ptr;
 

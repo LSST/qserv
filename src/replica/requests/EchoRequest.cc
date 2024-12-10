@@ -64,7 +64,7 @@ EchoRequest::Ptr EchoRequest::createAndStart(shared_ptr<Controller> const& contr
 EchoRequest::EchoRequest(shared_ptr<Controller> const& controller, string const& workerName,
                          string const& data, uint64_t delay, CallbackType const& onFinish, int priority,
                          bool keepTracking)
-        : RequestMessenger(controller, "TEST_ECHO", workerName, priority, keepTracking, ::disposeRequired),
+        : Request(controller, "TEST_ECHO", workerName, priority, keepTracking, ::disposeRequired),
           _data(data),
           _delay(delay),
           _onFinish(onFinish) {}

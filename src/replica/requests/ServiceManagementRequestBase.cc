@@ -168,8 +168,7 @@ ServiceManagementRequestBase::ServiceManagementRequestBase(shared_ptr<Controller
                                                            char const* requestName, string const& workerName,
                                                            ProtocolServiceRequestType requestType,
                                                            int priority)
-        : RequestMessenger(controller, requestName, workerName, priority, ::keepTrackingNo,
-                           ::disposeRequiredNo),
+        : Request(controller, requestName, workerName, priority, ::keepTrackingNo, ::disposeRequiredNo),
           _requestType(requestType) {}
 
 void ServiceManagementRequestBase::startImpl(replica::Lock const& lock) {

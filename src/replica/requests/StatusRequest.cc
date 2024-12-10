@@ -58,8 +58,7 @@ StatusRequest::Ptr StatusRequest::createAndStart(shared_ptr<Controller> const& c
 StatusRequest::StatusRequest(shared_ptr<Controller> const& controller, string const& workerName,
                              string const& targetRequestId, CallbackType const& onFinish, int priority,
                              bool keepTracking)
-        : RequestMessenger(controller, "REQUEST_STATUS", workerName, priority, keepTracking,
-                           ::disposeRequiredNo),
+        : Request(controller, "REQUEST_STATUS", workerName, priority, keepTracking, ::disposeRequiredNo),
           _targetRequestId(targetRequestId),
           _onFinish(onFinish) {}
 

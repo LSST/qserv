@@ -82,7 +82,7 @@ DisposeRequest::Ptr DisposeRequest::createAndStart(shared_ptr<Controller> const&
 DisposeRequest::DisposeRequest(shared_ptr<Controller> const& controller, string const& workerName,
                                std::vector<std::string> const& targetIds, CallbackType const& onFinish,
                                int priority, bool keepTracking)
-        : RequestMessenger(controller, "DISPOSE", workerName, priority, keepTracking, ::disposeRequiredNo),
+        : Request(controller, "DISPOSE", workerName, priority, keepTracking, ::disposeRequiredNo),
           _targetIds(targetIds),
           _onFinish(onFinish) {}
 

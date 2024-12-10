@@ -54,8 +54,7 @@ StopRequest::Ptr StopRequest::createAndStart(shared_ptr<Controller> const& contr
 StopRequest::StopRequest(shared_ptr<Controller> const& controller, string const& workerName,
                          string const& targetRequestId, CallbackType const& onFinish, int priority,
                          bool keepTracking)
-        : RequestMessenger(controller, "REQUEST_STOP", workerName, priority, keepTracking,
-                           ::disposeRequiredNo),
+        : Request(controller, "REQUEST_STOP", workerName, priority, keepTracking, ::disposeRequiredNo),
           _targetRequestId(targetRequestId),
           _onFinish(onFinish) {}
 

@@ -28,7 +28,7 @@
 
 // Qserv headers
 #include "replica/proto/protocol.pb.h"
-#include "replica/requests/RequestMessenger.h"
+#include "replica/requests/Request.h"
 #include "replica/util/Common.h"
 #include "replica/util/ReplicaInfo.h"
 
@@ -44,7 +44,7 @@ namespace lsst::qserv::replica {
  * Class FindAllRequest represents known replicas lookup requests within
  * the master controller.
  */
-class FindAllRequest : public RequestMessenger {
+class FindAllRequest : public Request {
 public:
     typedef std::shared_ptr<FindAllRequest> Ptr;
 

@@ -29,7 +29,7 @@
 
 // Qserv headers
 #include "replica/proto/protocol.pb.h"
-#include "replica/requests/RequestMessenger.h"
+#include "replica/requests/Request.h"
 #include "replica/util/Common.h"
 
 // Forward declarations
@@ -43,7 +43,7 @@ namespace lsst::qserv::replica {
 /**
  * Class StopRequest is used for canceling the previously submitted requests.
  */
-class StopRequest : public RequestMessenger {
+class StopRequest : public Request {
 public:
     typedef std::shared_ptr<StopRequest> Ptr;
 

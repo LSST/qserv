@@ -30,7 +30,7 @@
 
 // Qserv headers
 #include "replica/proto/protocol.pb.h"
-#include "replica/requests/RequestMessenger.h"
+#include "replica/requests/Request.h"
 #include "replica/util/Common.h"
 
 // Forward declarations
@@ -70,7 +70,7 @@ public:
  *
  * @note Requests of this type don't have any persistent states.
  */
-class DisposeRequest : public RequestMessenger {
+class DisposeRequest : public Request {
 public:
     typedef std::shared_ptr<DisposeRequest> Ptr;
 

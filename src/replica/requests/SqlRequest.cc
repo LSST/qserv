@@ -70,7 +70,7 @@ void SqlRequest::extendedPrinter(Ptr const& ptr) {
 
 SqlRequest::SqlRequest(shared_ptr<Controller> const& controller, std::string const& requestName,
                        string const& workerName, uint64_t maxRows, int priority, bool keepTracking)
-        : RequestMessenger(controller, requestName, workerName, priority, keepTracking, ::disposeRequired) {
+        : Request(controller, requestName, workerName, priority, keepTracking, ::disposeRequired) {
     // Partial initialization of the request body's content. Other members
     // will be set in the request type-specific subclasses.
     requestBody.set_max_rows(maxRows);

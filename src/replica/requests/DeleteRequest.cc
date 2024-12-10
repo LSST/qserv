@@ -64,8 +64,7 @@ DeleteRequest::Ptr DeleteRequest::createAndStart(shared_ptr<Controller> const& c
 DeleteRequest::DeleteRequest(shared_ptr<Controller> const& controller, string const& workerName,
                              string const& database, unsigned int chunk, CallbackType const& onFinish,
                              int priority, bool keepTracking)
-        : RequestMessenger(controller, "REPLICA_DELETE", workerName, priority, keepTracking,
-                           ::disposeRequired),
+        : Request(controller, "REPLICA_DELETE", workerName, priority, keepTracking, ::disposeRequired),
           _database(database),
           _chunk(chunk),
           _onFinish(onFinish) {

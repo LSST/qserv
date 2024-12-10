@@ -31,7 +31,7 @@
 
 // Qserv headers
 #include "replica/proto/protocol.pb.h"
-#include "replica/requests/RequestMessenger.h"
+#include "replica/requests/Request.h"
 #include "replica/util/Common.h"
 #include "replica/util/ReplicaInfo.h"
 
@@ -47,7 +47,7 @@ namespace lsst::qserv::replica {
  * Class ReplicationRequest represents a transient state of requests
  * within the master controller for creating replicas.
  */
-class ReplicationRequest : public RequestMessenger {
+class ReplicationRequest : public Request {
 public:
     typedef std::shared_ptr<ReplicationRequest> Ptr;
 

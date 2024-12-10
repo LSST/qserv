@@ -76,7 +76,7 @@ DirectorIndexRequest::DirectorIndexRequest(std::shared_ptr<Controller> const& co
                                            string const& directorTable, unsigned int chunk,
                                            bool hasTransactions, TransactionId transactionId,
                                            CallbackType const& onFinish, int priority, bool keepTracking)
-        : RequestMessenger(controller, "INDEX", workerName, priority, keepTracking, ::disposeRequired),
+        : Request(controller, "INDEX", workerName, priority, keepTracking, ::disposeRequired),
           _database(database),
           _directorTable(directorTable),
           _chunk(chunk),

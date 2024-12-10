@@ -30,7 +30,7 @@
 
 // Qserv headers
 #include "replica/proto/protocol.pb.h"
-#include "replica/requests/RequestMessenger.h"
+#include "replica/requests/Request.h"
 #include "replica/util/Common.h"
 
 // Forward declarations
@@ -56,7 +56,7 @@ std::ostream& operator<<(std::ostream& os, DirectorIndexRequestInfo const& info)
  * Class DirectorIndexRequest extracts and returns data to be loaded into
  * the "director" index.
  */
-class DirectorIndexRequest : public RequestMessenger {
+class DirectorIndexRequest : public Request {
 public:
     typedef std::shared_ptr<DirectorIndexRequest> Ptr;
 

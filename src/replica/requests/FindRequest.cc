@@ -65,7 +65,7 @@ FindRequest::Ptr FindRequest::createAndStart(shared_ptr<Controller> const& contr
 FindRequest::FindRequest(shared_ptr<Controller> const& controller, string const& workerName,
                          string const& database, unsigned int chunk, CallbackType const& onFinish,
                          int priority, bool computeCheckSum, bool keepTracking)
-        : RequestMessenger(controller, "REPLICA_FIND", workerName, priority, keepTracking, ::disposeRequired),
+        : Request(controller, "REPLICA_FIND", workerName, priority, keepTracking, ::disposeRequired),
           _database(database),
           _chunk(chunk),
           _computeCheckSum(computeCheckSum),

@@ -24,6 +24,7 @@
 // System headers
 #include <atomic>
 #include <condition_variable>
+#include <functional>
 #include <list>
 #include <memory>
 #include <iostream>
@@ -253,6 +254,17 @@ public:
 
 protected:
     /**
+     * The callaback type for notifications on completion of the request
+     *  disposal operation. The first parameter (std::string const&) of the callback
+     *  is the unique identifier of a request, the second parameter (bool) is a flag
+     *  indicating a success or a failure of the operation, and the last parameter
+     *  (ProtocolResponseDispose const&) represents a result of the operation reported
+     *  by the worker service.
+     */
+    typedef std::function<void(std::string const&, bool, ProtocolResponseDispose const&)>
+            OnDisposeCallbackType;
+
+    /**
      * Construct the request with the pointer to the services provider.
      *
      * @note options 'keepTracking' and 'disposeRequired'
@@ -380,13 +392,6 @@ protected:
     void finish(replica::Lock const& lock, ExtendedState extendedState);
 
     /**
-     * This method is supposed to be provided by subclasses
-     * to finalize request processing as required by the subclass.
-     * @param lock A lock on Request::_mtx must be acquired before calling this method.
-     */
-    virtual void finishImpl(replica::Lock const& lock) = 0;
-
-    /**
      * This method is supposed to be provided by subclasses to save the request's
      * state into a database.
      *
@@ -437,6 +442,22 @@ protected:
      * @param extendedState The new extended state.
      */
     void setState(replica::Lock const& lock, State state, ExtendedState extendedStat = ExtendedState::NONE);
+
+    /**
+     * Initiate the request disposal at the worker server. This method is automatically
+     * called upon succesfull completion of requests for which the flag 'disposeRequired'
+     * was set during request object construction. However, the streaming requests
+     * that are designed to make more than one trip to the worker under the same request
+     * identifier may also explicitly call this method upon completing intermediate
+     * requests. That is normally done to expedite the garbage collection of the worker
+     * requests and prevent excessive memory build up (or keeping other resources)
+     * at the worker.
+     * @param lock The lock on Request::_mtx must be acquired before calling this method.
+     * @param priority The desired priority level of the operation.
+     * @param onFinish The optional callback to be called upon the completion of
+     *  the request disposal operation.
+     */
+    void dispose(replica::Lock const& lock, int priority, OnDisposeCallbackType const& onFinish = nullptr);
 
     /**
      * This method will begin an optional user protocol upon a completion
@@ -500,6 +521,12 @@ protected:
 private:
     /// @return The global IO service object retreived from the service provider
     boost::asio::io_service& _ioService();
+
+    /**
+     * This method finalizes request processing.
+     * @param lock A lock on Request::_mtx must be acquired before calling this method.
+     */
+    void finishImpl(replica::Lock const& lock);
 
     /// The global counter for the number of instances of any subclasses
     static std::atomic<size_t> _numClassInstances;
