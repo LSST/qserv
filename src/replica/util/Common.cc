@@ -29,10 +29,9 @@
 #include "boost/uuid/uuid.hpp"
 #include "boost/uuid/uuid_generators.hpp"
 #include "boost/uuid/uuid_io.hpp"
-#include "nlohmann/json.hpp"
 
 using namespace std;
-using namespace nlohmann;
+using json = nlohmann::json;
 
 namespace lsst::qserv::replica {
 
@@ -78,6 +77,43 @@ string Generators::uniqueId() {
     replica::Lock lock(_mtx, "Generators::" + string(__func__));
     boost::uuids::uuid id = boost::uuids::random_generator()();
     return boost::uuids::to_string(id);
+}
+
+///////////////////////////////////////////
+//                SqlColDef              //
+///////////////////////////////////////////
+
+list<SqlColDef> parseSqlColumns(json const& columnsJsonArray) {
+    if (!columnsJsonArray.is_array()) {
+        throw invalid_argument("lsst::qserv::replica::" + string(__func__) +
+                               "  columnsJsonArray is not an array");
+    }
+    list<SqlColDef> columns;
+    for (auto const& column : columnsJsonArray) {
+        columns.emplace_back(column.at("name"), column.at("type"));
+    }
+    return columns;
+}
+
+///////////////////////////////////////////
+//                SqlIndexDef            //
+///////////////////////////////////////////
+
+SqlIndexDef::SqlIndexDef(json const& indexSpecJson) {
+    if (!indexSpecJson.is_object()) {
+        throw invalid_argument("lsst::qserv::replica::" + string(__func__) +
+                               "  indexSpecJson is not an object");
+    }
+    spec = indexSpecJson.value("spec", "DEFAULT");
+    name = indexSpecJson.at("name");
+    comment = indexSpecJson.value("comment", "");
+    auto const keysJsonArray = indexSpecJson.at("keys");
+    if (!keysJsonArray.is_array()) {
+        throw invalid_argument("lsst::qserv::replica::" + string(__func__) + "  keys is not an array");
+    }
+    for (auto const& key : keysJsonArray) {
+        keys.emplace_back(key.at("name"), key.at("length"), key.at("ascending"));
+    }
 }
 
 ////////////////////////////////////////////
