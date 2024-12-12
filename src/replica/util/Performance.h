@@ -28,6 +28,7 @@
  */
 
 // System headers
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <ostream>
@@ -116,6 +117,7 @@ std::ostream& operator<<(std::ostream& os, Performance const& p);
  */
 class WorkerPerformance {
 public:
+    /// All (but the request receive time) timestamps will be initialized with 0.
     WorkerPerformance();
     WorkerPerformance(WorkerPerformance const&) = default;
     WorkerPerformance& operator=(WorkerPerformance const&) = default;
@@ -126,9 +128,9 @@ public:
 
     std::unique_ptr<ProtocolPerformance> info() const;
 
-    uint64_t receive_time = 0;  /// Received by a worker service
-    uint64_t start_time = 0;    /// Execution started by a worker service
-    uint64_t finish_time = 0;   /// Execution finished by a worker service
+    std::atomic<uint64_t> receive_time;  ///< Received by a worker service
+    std::atomic<uint64_t> start_time;    ///< Execution started by a worker service
+    std::atomic<uint64_t> finish_time;   ///< Execution finished by a worker service
 };
 
 std::ostream& operator<<(std::ostream& os, WorkerPerformance const& p);
