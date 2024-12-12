@@ -148,6 +148,13 @@ function(CSSLoader,
                         "dns":       worker['svc-host']['name'],
                         "cssClass":  "bg-white"
                     },
+                    {   "name":     "Replica Management (HTTP)",
+                        "protocol": "http",
+                        "port":      worker['http-svc-port'],
+                        "ip":        worker['http-svc-host']['addr'],
+                        "dns":       worker['http-svc-host']['name'],
+                        "cssClass":  "bg-white"
+                    },
                     {   "name":     "File Server",
                         "protocol": "binary",
                         "port":     worker['fs-port'],

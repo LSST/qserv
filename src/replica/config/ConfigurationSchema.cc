@@ -99,10 +99,7 @@ json const ConfigurationSchema::_schemaJson = json::object(
              {"default", 5}}}}},
          {"controller",
           {{"num-threads",
-            {{"description",
-              "The number of threads managed by BOOST ASIO. Must be greater than 0."
-              " Note that setting too many threads may result in a significant memory footprint"
-              " of the application due to specifics of the Linux memory allocation library."},
+            {{"description", "The number of threads managed by BOOST ASIO. Must be greater than 0."},
              {"default", min(8, num_threads)}}},
            {"request-timeout-sec",
             {{"description",
@@ -125,9 +122,7 @@ json const ConfigurationSchema::_schemaJson = json::object(
              {"default", 0}}},
            {"http-server-threads",
             {{"description",
-              "The number of threads managed by BOOST ASIO for the HTTP server. Must be greater than 0."
-              " Note that setting too many threads may result in a significant memory footprint"
-              " of the application due to specifics of the Linux memory allocation library."},
+              "The number of threads managed by BOOST ASIO for the HTTP server. Must be greater than 0."},
              {"default", min(8, num_threads)}}},
            {"http-server-port",
             {{"description", "The port number for the controller's HTTP server. Must be greater than 0."},
@@ -279,22 +274,18 @@ json const ConfigurationSchema::_schemaJson = json::object(
              {"default", 3600}}}}},
          {"worker",
           {{"num-threads",
-            {{"description",
-              "The number of threads managed by BOOST ASIO. Must be greater than 0."
-              " Note that setting too many threads may result in a significant memory footprint"
-              " of the application due to specifics of the Linux memory allocation library."},
+            {{"description", "The number of threads managed by BOOST ASIO. Must be greater than 0."},
              {"default", min(8, num_threads)}}},
            {"num-svc-processing-threads",
+            {{"description", "The number of request processing threads in each Replication worker service."},
+             {"default", min(8, num_threads)}}},
+           {"num-http-svc-threads",
             {{"description",
-              "The number of request processing threads in each Replication worker service."
-              " Note that setting too many threads may result in a significant memory footprint"
-              " of the application due to specifics of the Linux memory allocation library."},
+              "The number of threads in each HTTP server frontend of Replication worker service."},
              {"default", min(8, num_threads)}}},
            {"num-fs-processing-threads",
             {{"description",
-              "The number of request processing threads in each Replication worker's file service."
-              " Note that setting too many threads may result in a significant memory footprint"
-              " of the application due to specifics of the Linux memory allocation library."},
+              "The number of request processing threads in each Replication worker's file service."},
              {"default", min(8, num_threads)}}},
            {"fs-buf-size-bytes",
             {{"description",
@@ -313,14 +304,11 @@ json const ConfigurationSchema::_schemaJson = json::object(
            {"num-http-loader-processing-threads",
             {{"description",
               "The number of request processing threads in each Replication worker's HTTP-based ingest "
-              "service. Note that setting too many threads may result in a significant memory footprint"
-              " of the application due to specifics of the Linux memory allocation library."},
+              "service."},
              {"default", min(8, num_threads)}}},
            {"num-async-loader-processing-threads",
             {{"description",
-              "The number of request processing threads in each Replication worker's ASYNC ingest service."
-              " Note that setting too many threads may result in a significant memory footprint"
-              " of the application due to specifics of the Linux memory allocation library."},
+              "The number of request processing threads in each Replication worker's ASYNC ingest service."},
              {"default", min(8, num_threads)}}},
            {"async-loader-auto-resume",
             {{"description",
@@ -355,8 +343,19 @@ json const ConfigurationSchema::_schemaJson = json::object(
               " the default value unless there are specific reasons to change it."},
              {"empty-allowed", 1},
              {"default", 0}}},
+           {"http-svc-max-queued-requests",
+            {{"description",
+              "The maximum number of pending requests, i.e. requests accept()ed by"
+              " the listener but still waiting to be routed by the HTTP-based Worker Replication server."
+              " If set to 0 then no specific limit will be enforced. It's recommented to keep"
+              " the default value unless there are specific reasons to change it."},
+             {"empty-allowed", 1},
+             {"default", 0}}},
            {"svc-port",
-            {{"description", "The port number for the worker's replication service."}, {"default", 25000}}},
+            {{"description", "The port number for the worker replication service."}, {"default", 25000}}},
+           {"http-svc-port",
+            {{"description", "The port number for the HTTP-based worker replication service."},
+             {"default", 25005}}},
            {"fs-port",
             {{"description", "The port number for the worker's file service."}, {"default", 25001}}},
            {"data-dir",

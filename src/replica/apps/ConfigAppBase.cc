@@ -67,6 +67,7 @@ void ConfigAppBase::dumpWorkersAsTable(string const& indent, string const& capti
     vector<string> isReadOnly;
     vector<string> dataDir;
     vector<string> svcHostPort;
+    vector<string> httpSvcHostPort;
     vector<string> fsHostPort;
     vector<string> loaderHostPort;
     vector<string> loaderTmpDir;
@@ -82,6 +83,7 @@ void ConfigAppBase::dumpWorkersAsTable(string const& indent, string const& capti
         isReadOnly.push_back(worker.isReadOnly ? "yes" : "no");
         dataDir.push_back(worker.dataDir);
         svcHostPort.push_back(worker.svcHost.addr + ":" + to_string(worker.svcPort));
+        httpSvcHostPort.push_back(worker.httpSvcHost.addr + ":" + to_string(worker.httpSvcPort));
         fsHostPort.push_back(worker.fsHost.addr + ":" + to_string(worker.fsPort));
         loaderHostPort.push_back(worker.loaderHost.addr + ":" + to_string(worker.loaderPort));
         loaderTmpDir.push_back(worker.loaderTmpDir);
@@ -98,6 +100,7 @@ void ConfigAppBase::dumpWorkersAsTable(string const& indent, string const& capti
     table.addColumn("read-only", isReadOnly);
     table.addColumn("Qserv data directory", dataDir, util::ColumnTablePrinter::LEFT);
     table.addColumn("Repl. svc", svcHostPort, util::ColumnTablePrinter::LEFT);
+    table.addColumn("Repl. http-svc", httpSvcHostPort, util::ColumnTablePrinter::LEFT);
     table.addColumn("File svc", fsHostPort, util::ColumnTablePrinter::LEFT);
     table.addColumn("Binary ingest", loaderHostPort, util::ColumnTablePrinter::LEFT);
     table.addColumn(":tmp", loaderTmpDir, util::ColumnTablePrinter::LEFT);
