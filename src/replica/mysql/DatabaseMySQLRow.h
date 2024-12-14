@@ -37,6 +37,9 @@
 #include <string>
 #include <vector>
 
+// Third party headers
+#include "nlohmann/json.hpp"
+
 // Qserv headers
 #include "replica/mysql/DatabaseMySQLExceptions.h"
 
@@ -110,10 +113,7 @@ public:
      */
     Row();
 
-    /// Copy constructor
     Row(Row const& rhs) = default;
-
-    /// The Assignment operator
     Row& operator=(Row const& rhs) = default;
 
     ~Row() = default;
@@ -133,8 +133,6 @@ public:
     // There are two ways to access the values: either by a relative
     // index of a column in a result set, or by the name of the column.
     // The second method has some extra (though, minor) overhead.
-    //
-    // @see class Row
 
     template <typename T>
     T getAs(size_t columnIdx) const {
@@ -204,41 +202,36 @@ public:
     // Other types
 
     bool get(size_t columnIdx, bool& value) const;
-
     bool get(std::string const& columnName, bool& value) const;
 
     /**
-     * @return
-     *   reference to the data cell for the column
-     *
-     * @param columnIdx
-     *   the index of a column
+     * @param columnIdx the index of a column
+     * @return reference to the data cell for the column
      */
     Cell const& getDataCell(size_t columnIdx) const;
 
     /**
-     * @return
-     *   reference to the data cell for the column
-     *
-     * @param columnName
-     *   the name of a column
+     * @param columnName the name of a column
+     * @return reference to the data cell for the column
      */
     Cell const& getDataCell(std::string const& columnName) const;
 
     /**
      * Fill a Protobuf object representing a row.
-     *
-     * @param ptr
-     *   a valid pointer to the Protobuf object to be populated.
-     *
-     * @param std::invalid_argument
-     *   if the input pointer is 0
+     * @param ptr a valid pointer to the Protobuf object to be populated.
+     * @param std::invalid_argument if the input pointer is 0
      */
     void exportRow(ProtocolResponseSqlRow* ptr) const;
 
+    /**
+     * Convert the current row into a JSON object.
+     * @return a JSON object representing the current row
+     */
+    nlohmann::json toJson() const;
+
 private:
     /**
-     *  Mapping column names to the indexes
+     * Mapping column names to the indexes
      *
      * @note
      *   If the pointer is set to 'nullptr' then the object is not
