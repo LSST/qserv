@@ -10,3 +10,4 @@ Developer's Guide
    quick-start-devel
    doc
    scisql
+   api/index

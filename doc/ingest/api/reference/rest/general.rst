@@ -1,3 +1,5 @@
+.. _ingest-general:
+
 General guidelines
 ==================
 
