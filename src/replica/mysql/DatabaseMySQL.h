@@ -52,6 +52,7 @@
 
 // Third party headers
 #include <mysql/mysql.h>
+#include "nlohmann/json.hpp"
 
 // Qserv headers
 #include "replica/mysql/DatabaseMySQLExceptions.h"
@@ -421,6 +422,20 @@ public:
      * @throw std::out_of_range if the specified index exceed the maximum index of a result set.
      */
     void exportField(ProtocolResponseSqlField* ptr, size_t idx) const;
+
+    /**
+     * Convert the current result set into a JSON object.
+     *
+     * @note The method can be called only upon a successful completion of a query
+     *   which has a result set. Otherwise it will throw an exception.
+     *
+     * @see Connection::hasResult
+     *
+     * @return a JSON object representing the current result set
+     * @throw std::logic_error if no SQL statement has ever been executed, or
+     *   if the last query failed.
+     */
+    nlohmann::json fieldsToJson() const;
 
     /**
      * Move the iterator to the next (first) row of the current result set

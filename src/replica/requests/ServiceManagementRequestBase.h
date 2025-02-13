@@ -30,7 +30,7 @@
 
 // Qserv headers
 #include "replica/proto/protocol.pb.h"
-#include "replica/requests/RequestMessenger.h"
+#include "replica/requests/Request.h"
 #include "replica/util/Common.h"
 
 // Forward declarations
@@ -83,7 +83,7 @@ std::ostream& operator<<(std::ostream& os, const ServiceState& ss);
  *   of the protocol. All final customizations and type-specific operations are
  *   provided via a generic subclass.
  */
-class ServiceManagementRequestBase : public RequestMessenger {
+class ServiceManagementRequestBase : public Request {
 public:
     typedef std::shared_ptr<ServiceManagementRequestBase> Ptr;
 

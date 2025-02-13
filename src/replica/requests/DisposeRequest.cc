@@ -41,7 +41,6 @@ using namespace std::placeholders;
 namespace {
 
 LOG_LOGGER _log = LOG_GET("lsst.qserv.replica.DisposeRequest");
-bool const allowDuplicateNo = false;
 bool const disposeRequiredNo = false;
 }  // namespace
 
@@ -83,8 +82,7 @@ DisposeRequest::Ptr DisposeRequest::createAndStart(shared_ptr<Controller> const&
 DisposeRequest::DisposeRequest(shared_ptr<Controller> const& controller, string const& workerName,
                                std::vector<std::string> const& targetIds, CallbackType const& onFinish,
                                int priority, bool keepTracking)
-        : RequestMessenger(controller, "DISPOSE", workerName, priority, keepTracking, ::allowDuplicateNo,
-                           ::disposeRequiredNo),
+        : Request(controller, "DISPOSE", workerName, priority, keepTracking, ::disposeRequiredNo),
           _targetIds(targetIds),
           _onFinish(onFinish) {}
 

@@ -39,7 +39,6 @@ using namespace std;
 
 namespace {
 LOG_LOGGER _log = LOG_GET("lsst.qserv.replica.StatusRequest");
-bool const allowDuplicateNo = false;
 bool const disposeRequiredNo = false;
 }  // namespace
 
@@ -59,8 +58,7 @@ StatusRequest::Ptr StatusRequest::createAndStart(shared_ptr<Controller> const& c
 StatusRequest::StatusRequest(shared_ptr<Controller> const& controller, string const& workerName,
                              string const& targetRequestId, CallbackType const& onFinish, int priority,
                              bool keepTracking)
-        : RequestMessenger(controller, "REQUEST_STATUS", workerName, priority, keepTracking,
-                           ::allowDuplicateNo, ::disposeRequiredNo),
+        : Request(controller, "REQUEST_STATUS", workerName, priority, keepTracking, ::disposeRequiredNo),
           _targetRequestId(targetRequestId),
           _onFinish(onFinish) {}
 

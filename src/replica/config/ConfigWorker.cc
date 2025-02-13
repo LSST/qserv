@@ -58,6 +58,9 @@ ConfigWorker::ConfigWorker(json const& obj) {
         parseRequired<string>(svcHost.addr, obj.at("svc-host"), "addr");
         parseRequired<string>(svcHost.name, obj.at("svc-host"), "name");
         parseOptional<uint16_t>(svcPort, obj, "svc-port");
+        parseRequired<string>(httpSvcHost.addr, obj.at("http-svc-host"), "addr");
+        parseRequired<string>(httpSvcHost.name, obj.at("http-svc-host"), "name");
+        parseOptional<uint16_t>(httpSvcPort, obj, "http-svc-port");
         parseRequired<string>(fsHost.addr, obj.at("fs-host"), "addr");
         parseRequired<string>(fsHost.name, obj.at("fs-host"), "name");
         parseOptional<uint16_t>(fsPort, obj, "fs-port");
@@ -89,6 +92,8 @@ json ConfigWorker::toJson() const {
     infoJson["is-read-only"] = isReadOnly ? 1 : 0;
     infoJson["svc-host"] = svcHost.toJson();
     infoJson["svc-port"] = svcPort;
+    infoJson["http-svc-host"] = httpSvcHost.toJson();
+    infoJson["http-svc-port"] = httpSvcPort;
     infoJson["fs-host"] = fsHost.toJson();
     infoJson["fs-port"] = fsPort;
     infoJson["data-dir"] = dataDir;
@@ -107,8 +112,9 @@ json ConfigWorker::toJson() const {
 
 bool ConfigWorker::operator==(ConfigWorker const& other) const {
     return (name == other.name) && (isEnabled == other.isEnabled) && (isReadOnly == other.isReadOnly) &&
-           (svcHost == other.svcHost) && (svcPort == other.svcPort) && (fsHost == other.fsHost) &&
-           (fsPort == other.fsPort) && (dataDir == other.dataDir) && (loaderHost == other.loaderHost) &&
+           (svcHost == other.svcHost) && (svcPort == other.svcPort) && (httpSvcHost == other.httpSvcHost) &&
+           (httpSvcPort == other.httpSvcPort) && (fsHost == other.fsHost) && (fsPort == other.fsPort) &&
+           (dataDir == other.dataDir) && (loaderHost == other.loaderHost) &&
            (loaderPort == other.loaderPort) && (loaderTmpDir == other.loaderTmpDir) &&
            (exporterHost == other.exporterHost) && (exporterPort == other.exporterPort) &&
            (exporterTmpDir == other.exporterTmpDir) && (httpLoaderHost == other.httpLoaderHost) &&

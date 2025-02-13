@@ -30,11 +30,13 @@
 
 // Qserv headers
 #include "replica/proto/protocol.pb.h"
+#include "util/String.h"
 
 // LSST headers
 #include "lsst/log/Log.h"
 
 using namespace std;
+using json = nlohmann::json;
 
 namespace {
 
@@ -202,6 +204,30 @@ void Row::exportRow(ProtocolResponseSqlRow* ptr) const {
             ptr->add_nulls(false);
         }
     }
+}
+
+json Row::toJson() const {
+    string const context = "Row::" + string(__func__) + "  ";
+    if (not isValid()) {
+        throw logic_error(context + "the object is not valid");
+    }
+    json result = json::object();
+    result["cells"] = json::array();
+    result["nulls"] = json::array();
+    json& cellsJson = result["cells"];
+    json& nullsJson = result["nulls"];
+    for (Cell const& cell : _index2cell) {
+        char const* ptr = cell.first;
+        size_t const length = cell.second;
+        if (nullptr == ptr) {
+            cellsJson.push_back(string());
+            nullsJson.push_back(1);
+        } else {
+            cellsJson.push_back(util::String::toHex(ptr, length));
+            nullsJson.push_back(0);
+        }
+    }
+    return result;
 }
 
 }  // namespace lsst::qserv::replica::database::mysql

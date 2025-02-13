@@ -57,7 +57,6 @@ void dumpRequestInfo(ostream& os, vector<ProtocolServiceResponseInfo> const& req
 }
 
 bool const keepTrackingNo = false;
-bool const allowDuplicateNo = false;
 bool const disposeRequiredNo = false;
 
 }  // namespace
@@ -169,8 +168,7 @@ ServiceManagementRequestBase::ServiceManagementRequestBase(shared_ptr<Controller
                                                            char const* requestName, string const& workerName,
                                                            ProtocolServiceRequestType requestType,
                                                            int priority)
-        : RequestMessenger(controller, requestName, workerName, priority, ::keepTrackingNo,
-                           ::allowDuplicateNo, ::disposeRequiredNo),
+        : Request(controller, requestName, workerName, priority, ::keepTrackingNo, ::disposeRequiredNo),
           _requestType(requestType) {}
 
 void ServiceManagementRequestBase::startImpl(replica::Lock const& lock) {

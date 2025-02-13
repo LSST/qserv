@@ -399,7 +399,6 @@ enum ProtocolStatusExt {
     NONE = 0;                   // unspecified problem
     INVALID_PARAM = 1;          // invalid parameter(s) of a request
     INVALID_ID = 2;             // an invalid request identifier
-    DUPLICATE = 3;              // a duplicate request
     FOLDER_STAT = 4;            // failed to obtain fstat() for a folder
     FOLDER_CREATE = 5;          // failed to create a folder
     FILE_STAT = 6;              // failed to obtain fstat() for a file
@@ -487,9 +486,6 @@ message ProtocolResponseReplicate {
     /// Extended status of this operation
     optional ProtocolStatusExt status_ext = 2 [default = NONE];
 
-    /// The field is set for duplicate requests only
-    optional string duplicate_request_id = 3 [default = ""];
-
     /// The performance of this operation
     required ProtocolPerformance performance = 4;
 
@@ -518,9 +514,6 @@ message ProtocolResponseDelete {
 
     /// Extended status of this operation
     optional ProtocolStatusExt status_ext = 2 [default = NONE];
-
-    /// The field is set for duplicate requests only
-    optional string duplicate_request_id = 3 [default = ""];
 
     /// The performance of this operation
     required ProtocolPerformance performance = 4;

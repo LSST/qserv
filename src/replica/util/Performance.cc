@@ -30,6 +30,7 @@
 #include "lsst/log/Log.h"
 
 using namespace std;
+using json = nlohmann::json;
 
 namespace {
 
@@ -77,17 +78,9 @@ ostream& operator<<(ostream& os, Performance const& p) {
 WorkerPerformance::WorkerPerformance()
         : receive_time(util::TimeUtils::now()), start_time(0), finish_time(0) {}
 
-uint64_t WorkerPerformance::setUpdateStart() {
-    uint64_t const t = start_time;
-    start_time = util::TimeUtils::now();
-    return t;
-}
+uint64_t WorkerPerformance::setUpdateStart() { return start_time.exchange(util::TimeUtils::now()); }
 
-uint64_t WorkerPerformance::setUpdateFinish() {
-    uint64_t const t = finish_time;
-    finish_time = util::TimeUtils::now();
-    return t;
-}
+uint64_t WorkerPerformance::setUpdateFinish() { return finish_time.exchange(util::TimeUtils::now()); }
 
 unique_ptr<ProtocolPerformance> WorkerPerformance::info() const {
     auto ptr = make_unique<ProtocolPerformance>();
@@ -95,6 +88,12 @@ unique_ptr<ProtocolPerformance> WorkerPerformance::info() const {
     ptr->set_start_time(start_time);
     ptr->set_finish_time(finish_time);
     return ptr;
+}
+
+json WorkerPerformance::toJson() const {
+    return json::object({{"receive_time", receive_time.load()},
+                         {"start_time", start_time.load()},
+                         {"finish_time", finish_time.load()}});
 }
 
 ostream& operator<<(ostream& os, WorkerPerformance const& p) {

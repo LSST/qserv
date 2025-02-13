@@ -53,10 +53,9 @@ namespace lsst::qserv::replica {
 ReplicationRequest::Ptr ReplicationRequest::createAndStart(
         shared_ptr<Controller> const& controller, string const& workerName, string const& sourceWorkerName,
         string const& database, unsigned int chunk, CallbackType const& onFinish, int priority,
-        bool keepTracking, bool allowDuplicate, string const& jobId, unsigned int requestExpirationIvalSec) {
-    auto ptr = ReplicationRequest::Ptr(new ReplicationRequest(controller, workerName, sourceWorkerName,
-                                                              database, chunk, onFinish, priority,
-                                                              keepTracking, allowDuplicate));
+        bool keepTracking, string const& jobId, unsigned int requestExpirationIvalSec) {
+    auto ptr = ReplicationRequest::Ptr(new ReplicationRequest(
+            controller, workerName, sourceWorkerName, database, chunk, onFinish, priority, keepTracking));
     ptr->start(jobId, requestExpirationIvalSec);
     return ptr;
 }
@@ -64,9 +63,8 @@ ReplicationRequest::Ptr ReplicationRequest::createAndStart(
 ReplicationRequest::ReplicationRequest(shared_ptr<Controller> const& controller, string const& workerName,
                                        string const& sourceWorkerName, string const& database,
                                        unsigned int chunk, CallbackType const& onFinish, int priority,
-                                       bool keepTracking, bool allowDuplicate)
-        : RequestMessenger(controller, "REPLICA_CREATE", workerName, priority, keepTracking, allowDuplicate,
-                           ::disposeRequired),
+                                       bool keepTracking)
+        : Request(controller, "REPLICA_CREATE", workerName, priority, keepTracking, ::disposeRequired),
           _database(database),
           _chunk(chunk),
           _sourceWorkerName(sourceWorkerName),
@@ -127,7 +125,7 @@ void ReplicationRequest::awaken(boost::system::error_code const& ec) {
     buffer()->serialize(hdr);
 
     ProtocolRequestTrack message;
-    message.set_id(remoteId());
+    message.set_id(id());
     message.set_queued_type(ProtocolQueuedRequestType::REPLICA_CREATE);
     buffer()->serialize(message);
 
@@ -197,16 +195,6 @@ void ReplicationRequest::_analyze(bool success, ProtocolResponseReplicate const&
             keepTrackingOrFinish(lock, SERVER_IS_CANCELLING);
             break;
         case ProtocolStatus::BAD:
-            // Special treatment of the duplicate requests if allowed
-            if (extendedServerStatus() == ProtocolStatusExt::DUPLICATE) {
-                setDuplicateRequestId(lock, message.duplicate_request_id());
-                if (allowDuplicate() && keepTracking()) {
-                    timer().expires_from_now(boost::posix_time::milliseconds(nextTimeIvalMsec()));
-                    timer().async_wait(
-                            bind(&ReplicationRequest::awaken, shared_from_base<ReplicationRequest>(), _1));
-                    return;
-                }
-            }
             finish(lock, SERVER_BAD);
             break;
         case ProtocolStatus::FAILED:

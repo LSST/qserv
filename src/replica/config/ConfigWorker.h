@@ -68,6 +68,9 @@ public:
     ConfigHost svcHost;    // The host name (and IP address) of the worker service
     uint16_t svcPort = 0;  // The port number of the worker service
 
+    ConfigHost httpSvcHost;    // The host name (and IP address) of the HTTP-based worker service
+    uint16_t httpSvcPort = 0;  // The port number of the HTTP-based worker service
+
     ConfigHost fsHost;    // The host name (and IP address) of the file service for the worker
     uint16_t fsPort = 0;  // The port number for the file service for the worker
 

@@ -24,6 +24,7 @@
 // System headers
 #include <atomic>
 #include <condition_variable>
+#include <functional>
 #include <list>
 #include <memory>
 #include <iostream>
@@ -62,7 +63,6 @@ namespace lsst::qserv::replica {
  *   the request. The functin type is specific for each subclass.
  * @param priority The (optional) priority level of the request.
  * @param keepTracking The (optional) flagg to keep tracking the request before it finishes or fails.
- * @param allowDuplicate (optional) Follow a previously made request if the current one duplicates it.
  * @param jobId The (optional) unique identifier of a job to which the request belongs.
  * @param requestExpirationIvalSec The (optional) time in seconds after which the request
  *   will expire. The default value of '0' means an effective expiration time will be pull
@@ -162,14 +162,6 @@ public:
     /// @return a unique identifier of the request
     std::string const& id() const { return _id; }
 
-    /**
-     * Normally this is the same request as the one a request object is created with
-     * unless allowing to track duplicate requests (see constructor's options: 'keepTracking'
-     * and 'allowDuplicate') and after the one is found.
-     * @return an effective identifier of a remote (worker-side) request.
-     */
-    std::string const& remoteId() const;
-
     /// @return the priority level of the request
     int priority() const { return _priority; }
 
@@ -262,9 +254,20 @@ public:
 
 protected:
     /**
+     * The callaback type for notifications on completion of the request
+     *  disposal operation. The first parameter (std::string const&) of the callback
+     *  is the unique identifier of a request, the second parameter (bool) is a flag
+     *  indicating a success or a failure of the operation, and the last parameter
+     *  (ProtocolResponseDispose const&) represents a result of the operation reported
+     *  by the worker service.
+     */
+    typedef std::function<void(std::string const&, bool, ProtocolResponseDispose const&)>
+            OnDisposeCallbackType;
+
+    /**
      * Construct the request with the pointer to the services provider.
      *
-     * @note options 'keepTracking', 'allowDuplicate' and 'disposeRequired'
+     * @note options 'keepTracking' and 'disposeRequired'
      *   have effect for specific request only.
      *
      * @param controller The Controller associated with the request.
@@ -275,15 +278,12 @@ protected:
      *   the request by the worker service. It may also affect an order requests
      *   are processed locally. Higher number means higher priority.
      * @param keepTracking Keep tracking the request before it finishes or fails
-     * @param allowDuplicate Follow a previously made request if the current one
-     *   duplicates it.
      * @param disposeRequired The flag indicating of the worker-side request
      *   disposal is needed for a particular request. Normally, it's required for
      *   requests which are queued by workers in its processing queues.
      */
     Request(std::shared_ptr<Controller> const& controller, std::string const& type,
-            std::string const& workerName, int priority, bool keepTracking, bool allowDuplicate,
-            bool disposeRequired);
+            std::string const& workerName, int priority, bool keepTracking, bool disposeRequired);
 
     /// @return A shared pointer of the desired subclass (no dynamic type checking)
     template <class T>
@@ -310,9 +310,6 @@ protected:
 
     /// @return If 'true' then track request completion (queued requests only)
     bool keepTracking() const { return _keepTracking; }
-
-    /// @return If 'true' then follow a previously made request if the current one duplicates it.
-    bool allowDuplicate() const { return _allowDuplicate; }
 
     /// @return If 'true' the request needs to be disposed at the worker's side upon
     ///   a completion of an operation.
@@ -371,13 +368,6 @@ protected:
     }
 
     /**
-     * Set an effective identifier of a remote (worker-side) request
-     * @param lock A lock on Request::_mtx must be acquired before calling this method.
-     * @param id An identifier to be set.
-     */
-    void setDuplicateRequestId(replica::Lock const& lock, std::string const& id) { _duplicateRequestId = id; }
-
-    /**
      * This method is supposed to be provided by subclasses for additional
      * subclass-specific actions to begin processing the request.
      * @param lock A lock on Request::_mtx must be acquired before calling this method.
@@ -400,13 +390,6 @@ protected:
      * @param extendedState The new extended state.
      */
     void finish(replica::Lock const& lock, ExtendedState extendedState);
-
-    /**
-     * This method is supposed to be provided by subclasses
-     * to finalize request processing as required by the subclass.
-     * @param lock A lock on Request::_mtx must be acquired before calling this method.
-     */
-    virtual void finishImpl(replica::Lock const& lock) = 0;
 
     /**
      * This method is supposed to be provided by subclasses to save the request's
@@ -459,6 +442,22 @@ protected:
      * @param extendedState The new extended state.
      */
     void setState(replica::Lock const& lock, State state, ExtendedState extendedStat = ExtendedState::NONE);
+
+    /**
+     * Initiate the request disposal at the worker server. This method is automatically
+     * called upon succesfull completion of requests for which the flag 'disposeRequired'
+     * was set during request object construction. However, the streaming requests
+     * that are designed to make more than one trip to the worker under the same request
+     * identifier may also explicitly call this method upon completing intermediate
+     * requests. That is normally done to expedite the garbage collection of the worker
+     * requests and prevent excessive memory build up (or keeping other resources)
+     * at the worker.
+     * @param lock The lock on Request::_mtx must be acquired before calling this method.
+     * @param priority The desired priority level of the operation.
+     * @param onFinish The optional callback to be called upon the completion of
+     *  the request disposal operation.
+     */
+    void dispose(replica::Lock const& lock, int priority, OnDisposeCallbackType const& onFinish = nullptr);
 
     /**
      * This method will begin an optional user protocol upon a completion
@@ -523,6 +522,12 @@ private:
     /// @return The global IO service object retreived from the service provider
     boost::asio::io_service& _ioService();
 
+    /**
+     * This method finalizes request processing.
+     * @param lock A lock on Request::_mtx must be acquired before calling this method.
+     */
+    void finishImpl(replica::Lock const& lock);
+
     /// The global counter for the number of instances of any subclasses
     static std::atomic<size_t> _numClassInstances;
 
@@ -535,13 +540,7 @@ private:
 
     int const _priority;
     bool const _keepTracking;
-    bool const _allowDuplicate;
     bool const _disposeRequired;
-
-    /// An effective identifier of a remote (worker-side) request where
-    /// this applies. Note that the duplicate requests are discovered
-    /// in a course of communication with worker services.
-    std::string _duplicateRequestId;
 
     // 2-level state of a request
 

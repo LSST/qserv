@@ -43,6 +43,7 @@
 #include "lsst/log/Log.h"
 
 using namespace std;
+using json = nlohmann::json;
 
 namespace {
 
@@ -493,6 +494,30 @@ void Connection::exportField(ProtocolResponseSqlField* ptr, size_t idx) const {
     ptr->set_flags(field.flags);
     ptr->set_decimals(field.decimals);
     ptr->set_type(field.type);
+}
+
+json Connection::fieldsToJson() const {
+    _assertQueryContext();
+
+    json result;
+    for (size_t i = 0; i < _numFields; ++i) {
+        auto&& field = _fields[i];
+        json f;
+        f["name"] = field.name;
+        f["org_name"] = field.org_name;
+        f["table"] = field.table;
+        f["org_table"] = field.org_table;
+        f["db"] = field.db;
+        f["catalog"] = field.catalog;
+        f["def"] = field.def;
+        f["length"] = field.length;
+        f["max_length"] = field.max_length;
+        f["flags"] = field.flags;
+        f["decimals"] = field.decimals;
+        f["type"] = field.type;
+        result.push_back(move(f));
+    }
+    return result;
 }
 
 bool Connection::next(Row& row) {

@@ -28,7 +28,7 @@
 
 // Qserv headers
 #include "replica/proto/protocol.pb.h"
-#include "replica/requests/RequestMessenger.h"
+#include "replica/requests/Request.h"
 #include "replica/util/Common.h"
 #include "replica/util/ReplicaInfo.h"
 
@@ -44,7 +44,7 @@ namespace lsst::qserv::replica {
  * Class DeleteRequest represents a transient state of the replica deletion
  * requests within the master controller for deleting replicas.
  */
-class DeleteRequest : public RequestMessenger {
+class DeleteRequest : public Request {
 public:
     typedef std::shared_ptr<DeleteRequest> Ptr;
 
@@ -88,8 +88,8 @@ public:
     static Ptr createAndStart(std::shared_ptr<Controller> const& controller, std::string const& workerName,
                               std::string const& database, unsigned int chunk,
                               CallbackType const& onFinish = nullptr, int priority = PRIORITY_NORMAL,
-                              bool keepTracking = true, bool allowDuplicate = true,
-                              std::string const& jobId = "", unsigned int requestExpirationIvalSec = 0);
+                              bool keepTracking = true, std::string const& jobId = "",
+                              unsigned int requestExpirationIvalSec = 0);
 
 protected:
     void startImpl(replica::Lock const& lock) final;
@@ -101,7 +101,7 @@ protected:
 private:
     DeleteRequest(std::shared_ptr<Controller> const& controller, std::string const& workerName,
                   std::string const& database, unsigned int chunk, CallbackType const& onFinish, int priority,
-                  bool keepTracking, bool allowDuplicate);
+                  bool keepTracking);
 
     /**
      * Send the serialized content of the buffer to a worker.

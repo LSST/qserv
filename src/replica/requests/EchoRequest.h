@@ -29,7 +29,7 @@
 
 // Qserv headers
 #include "replica/proto/protocol.pb.h"
-#include "replica/requests/RequestMessenger.h"
+#include "replica/requests/Request.h"
 #include "replica/util/Common.h"
 
 // Forward declarations
@@ -45,7 +45,7 @@ namespace lsst::qserv::replica {
  * the controller-worker protocol and the worker-side framework.
  * These requests have no side effects.
  */
-class EchoRequest : public RequestMessenger {
+class EchoRequest : public Request {
 public:
     typedef std::shared_ptr<EchoRequest> Ptr;
 

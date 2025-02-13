@@ -29,7 +29,7 @@
 
 // Qserv headers
 #include "replica/proto/protocol.pb.h"
-#include "replica/requests/RequestMessenger.h"
+#include "replica/requests/Request.h"
 #include "replica/util/Common.h"
 #include "replica/util/Performance.h"
 
@@ -44,7 +44,7 @@ namespace lsst::qserv::replica {
 /**
  * Class StatusRequest is used for checking a status of the previously submitted requests.
  */
-class StatusRequest : public RequestMessenger {
+class StatusRequest : public Request {
 public:
     typedef std::shared_ptr<StatusRequest> Ptr;
 

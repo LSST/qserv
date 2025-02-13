@@ -80,6 +80,24 @@ public:
     }
 
     /**
+     * The helper method for finding and returning a value of an optional parameter.
+     * @param obj  JSON object to be inspected.
+     * @param name  The name of a parameter.
+     * @param defaultValue  A value to be returned if the parameter wasn't found.
+     * @return  A value of the parameter.
+     * @throw invalid_argument  If the input structure is not the valid JSON object.
+     */
+    template <typename T>
+    static T optional(nlohmann::json const& obj, std::string const& name, T const& defaultValue) {
+        if (not obj.is_object()) {
+            throw std::invalid_argument("RequestBodyJSON::" + std::string(__func__) +
+                                        "<T>[static] parameter 'obj' is not a valid JSON object");
+        }
+        if (obj.find(name) != obj.end()) return obj[name];
+        return defaultValue;
+    }
+
+    /**
      * Find and return a value of a required parameter.
      * @param name  The name of a parameter.
      * @return  A value of the parameter.

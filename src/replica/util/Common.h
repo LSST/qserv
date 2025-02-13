@@ -36,6 +36,9 @@
 #include <tuple>
 #include <vector>
 
+// Third party headers
+#include "nlohmann/json.hpp"
+
 // Qserv headers
 #include "replica/proto/protocol.pb.h"
 #include "replica/util/Mutex.h"
@@ -113,6 +116,13 @@ inline bool operator==(SqlColDef const& lhs, SqlColDef const& rhs) {
 inline bool operator!=(SqlColDef const& lhs, SqlColDef const& rhs) { return !operator==(lhs, rhs); }
 
 /**
+ * @param columnsJsonArray The JSON array containing the column definitions.
+ * @return The list of column definitions.
+ * @throw std::invalid_argument If the input JSON array is not valid.
+ */
+std::list<SqlColDef> parseSqlColumns(nlohmann::json const& columnsJsonArray);
+
+/**
  * This class is an abstraction for columns within table index
  * specifications.
  */
@@ -128,6 +138,30 @@ public:
     std::string name;
     size_t length = 0;
     bool ascending = true;
+};
+
+/**
+ * This class is an abstraction for the index definitions.
+ */
+class SqlIndexDef {
+public:
+    SqlIndexDef() = default;
+
+    /**
+     * Parse the definition from then input JSON object.
+     * @param indexSpecJson The JSON object containing the index definitions.
+     * @throw std::invalid_argument If the input JSON object is not valid.
+     */
+    SqlIndexDef(nlohmann::json const& indexSpecJson);
+
+    SqlIndexDef(SqlIndexDef const&) = default;
+    SqlIndexDef& operator=(SqlIndexDef const&) = default;
+    ~SqlIndexDef() = default;
+
+    std::string spec;
+    std::string name;
+    std::string comment;
+    std::list<std::tuple<std::string, unsigned int, bool>> keys;
 };
 
 /**

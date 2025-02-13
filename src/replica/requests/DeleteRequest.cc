@@ -53,19 +53,18 @@ namespace lsst::qserv::replica {
 DeleteRequest::Ptr DeleteRequest::createAndStart(shared_ptr<Controller> const& controller,
                                                  string const& workerName, string const& database,
                                                  unsigned int chunk, CallbackType const& onFinish,
-                                                 int priority, bool keepTracking, bool allowDuplicate,
-                                                 string const& jobId, unsigned int requestExpirationIvalSec) {
-    auto ptr = DeleteRequest::Ptr(new DeleteRequest(controller, workerName, database, chunk, onFinish,
-                                                    priority, keepTracking, allowDuplicate));
+                                                 int priority, bool keepTracking, string const& jobId,
+                                                 unsigned int requestExpirationIvalSec) {
+    auto ptr = DeleteRequest::Ptr(
+            new DeleteRequest(controller, workerName, database, chunk, onFinish, priority, keepTracking));
     ptr->start(jobId, requestExpirationIvalSec);
     return ptr;
 }
 
 DeleteRequest::DeleteRequest(shared_ptr<Controller> const& controller, string const& workerName,
                              string const& database, unsigned int chunk, CallbackType const& onFinish,
-                             int priority, bool keepTracking, bool allowDuplicate)
-        : RequestMessenger(controller, "REPLICA_DELETE", workerName, priority, keepTracking, allowDuplicate,
-                           ::disposeRequired),
+                             int priority, bool keepTracking)
+        : Request(controller, "REPLICA_DELETE", workerName, priority, keepTracking, ::disposeRequired),
           _database(database),
           _chunk(chunk),
           _onFinish(onFinish) {
@@ -117,7 +116,7 @@ void DeleteRequest::awaken(boost::system::error_code const& ec) {
     buffer()->serialize(hdr);
 
     ProtocolRequestTrack message;
-    message.set_id(remoteId());
+    message.set_id(id());
     message.set_queued_type(ProtocolQueuedRequestType::REPLICA_DELETE);
     buffer()->serialize(message);
 
@@ -194,15 +193,6 @@ void DeleteRequest::_analyze(bool success, ProtocolResponseDelete const& message
             break;
 
         case ProtocolStatus::BAD:
-            // Special treatment of the duplicate requests if allowed
-            if (extendedServerStatus() == ProtocolStatusExt::DUPLICATE) {
-                setDuplicateRequestId(lock, message.duplicate_request_id());
-                if (allowDuplicate() && keepTracking()) {
-                    timer().expires_from_now(boost::posix_time::milliseconds(nextTimeIvalMsec()));
-                    timer().async_wait(bind(&DeleteRequest::awaken, shared_from_base<DeleteRequest>(), _1));
-                    return;
-                }
-            }
             finish(lock, SERVER_BAD);
             break;
 
