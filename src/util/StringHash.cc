@@ -34,6 +34,7 @@
 #define COMMON_DIGEST_FOR_OPENSSL
 #include <CommonCrypto/CommonDigest.h>
 #else
+#include <openssl/evp.h>
 #include <openssl/md5.h>
 #include <openssl/sha.h>
 #endif
@@ -45,7 +46,7 @@ namespace {
 // Wrappers for CommonCrytpo on OSX to adapt function names and signatures to look like
 // their corresponding openssl versions.
 
-unsigned char* MD5(unsigned char const* data, size_t len, unsigned char* md) {
+unsigned char* WMD5(unsigned char const* data, size_t len, unsigned char* md) {
     return CC_MD5(static_cast<void const*>(data), static_cast<CC_LONG>(len), md);
 }
 
@@ -57,7 +58,14 @@ unsigned char* SHA256(unsigned char const* data, size_t len, unsigned char* md) 
     return CC_SHA256(static_cast<void const*>(data), static_cast<CC_LONG>(len), md);
 }
 
-#endif  // __APPLE__
+#else  // !__APPLE__
+
+unsigned char* WMD5(unsigned char const* data, size_t len, unsigned char* md) {
+    EVP_Q_digest(NULL, "MD5", NULL, data, len, md, NULL);
+    return NULL;
+}
+
+#endif  // !__APPLE__
 
 template <unsigned char* dFunc(unsigned char const*, size_t, unsigned char*), int dLength>
 inline std::string wrapHash(void const* buffer, int bufferSize) {
@@ -89,7 +97,7 @@ namespace lsst::qserv::util {
 /// @return a hexadecimal representation of the MD5 hash of the input buffer
 /// 128 bits -> 16 bytes -> 32 hex digits
 std::string StringHash::getMd5Hex(char const* buffer, int bufferSize) {
-    return wrapHashHex<MD5, MD5_DIGEST_LENGTH>(buffer, bufferSize);
+    return wrapHashHex<WMD5, MD5_DIGEST_LENGTH>(buffer, bufferSize);
 }
 
 /// @return a hexadecimal representation of the SHA1 hash of the input buffer
