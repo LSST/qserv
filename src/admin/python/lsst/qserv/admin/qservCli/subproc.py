@@ -19,9 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Utilities for running subprocesses in the qserv CLI
-"""
-
+"""Utilities for running subprocesses in the qserv CLI"""
 
 import subprocess
 from typing import Dict, List, Optional

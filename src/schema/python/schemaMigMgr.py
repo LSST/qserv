@@ -20,8 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-"""Module defining SchemaMigMgr abstract base class.
-"""
+"""Module defining SchemaMigMgr abstract base class."""
 
 from __future__ import annotations
 
@@ -214,7 +213,6 @@ class MigMatch:
 
 
 class SchemaMigMgr(metaclass=ABCMeta):
-
     """Abstract base class for schema migration managers.
 
     Parameters
@@ -344,11 +342,14 @@ class SchemaMigMgr(metaclass=ABCMeta):
                         stmt = f.read()
                 _log.debug(f"Migration statement: {stmt}")
                 if stmt:
-                    for result in cursor.execute(stmt, multi=True): # type: ignore
+                    for result in cursor.execute(stmt, multi=True):  # type: ignore
                         # Cast here because MySQLCursorAbtract does not have with_rows for some reason, even though both of
                         # its subclasses do...
                         result = cast(
-                            Union[mysql.connector.cursor.MySQLCursor, mysql.connector.cursor_cext.CMySQLCursor], result
+                            Union[
+                                mysql.connector.cursor.MySQLCursor, mysql.connector.cursor_cext.CMySQLCursor
+                            ],
+                            result,
                         )
                         if result.with_rows:
                             result.fetchall()
@@ -398,8 +399,7 @@ class SchemaMigMgr(metaclass=ABCMeta):
         migrations = self.migration_path(from_version, resolved_to_version, self.migrations)
         if not migrations:
             raise ValueError(
-                "No known scripts to migrate from version "
-                f"{from_version} to version {resolved_to_version}."
+                f"No known scripts to migrate from version {from_version} to version {resolved_to_version}."
             )
         if do_migrate:
             final_version = self.apply_migrations(migrations)
@@ -573,7 +573,9 @@ class SchemaMigMgr(metaclass=ABCMeta):
             True if the table exists, else False.
         """
         with closing(self.connection.cursor()) as cursor:
-            cursor.execute(f"SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = '{dbName}' AND TABLE_NAME = '{tableName}'")
+            cursor.execute(
+                f"SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = '{dbName}' AND TABLE_NAME = '{tableName}'"
+            )
             if not cursor.fetchone():
                 return False
         return True

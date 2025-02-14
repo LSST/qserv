@@ -19,8 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Module defining methods used for schema migration in the admin module.
-"""
+"""Module defining methods used for schema migration in the admin module."""
 
 __all__ = ["make_migration_manager"]
 
@@ -48,18 +47,14 @@ class AdminMigrationManager(SchemaMigMgr):
         # Currently the database has been initialized with user data or it has
         # not been initialized at all. Check to see if one of the expected
         # users exists
-        stmt = (
-            "SELECT COUNT(*) FROM mysql.user WHERE user='qsmaster' AND host='localhost'"
-        )
+        stmt = "SELECT COUNT(*) FROM mysql.user WHERE user='qsmaster' AND host='localhost'"
         cursor = self.connection.cursor()
         cursor.execute(stmt)
         result = cursor.fetchone()
         try:
             count = result[0]
         except:
-            raise RuntimeError(
-                f"Could not extract version from query result: {result}."
-            )
+            raise RuntimeError(f"Could not extract version from query result: {result}.")
         return Uninitialized if count == 0 else 0
 
     def apply_migrations(self, migrations: Sequence[Migration]) -> int:
@@ -78,9 +73,7 @@ class AdminMigrationManager(SchemaMigMgr):
         super().apply_migrations(migrations)
         cur = self.current_version()
         if cur != migrations[-1].to_version:
-            raise RuntimeError(
-                f"Failed to update admin schema to version {migrations[-1]}."
-            )
+            raise RuntimeError(f"Failed to update admin schema to version {migrations[-1]}.")
         return cur
 
 

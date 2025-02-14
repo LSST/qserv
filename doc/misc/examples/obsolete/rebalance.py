@@ -50,15 +50,31 @@ class RebalanceProgram:
     """)
     parser = optparse.OptionParser(usage)
     parser.add_option(
-        "-d", "--dirs", dest="dirs", type="int", default=22, help=dedent("""\
-        Number of directories among which to balance (default=%default)."""))
+        "-d",
+        "--dirs",
+        dest="dirs",
+        type="int",
+        default=22,
+        help=dedent("""\
+        Number of directories among which to balance (default=%default)."""),
+    )
     parser.add_option(
-        "-p", "--prefix", dest="prefix", default="Object", help=dedent("""\
-        Prefix of files to rebalance (default=%default)."""))
+        "-p",
+        "--prefix",
+        dest="prefix",
+        default="Object",
+        help=dedent("""\
+        Prefix of files to rebalance (default=%default)."""),
+    )
     parser.add_option(
-        "-t", "--target", dest="target", default="node", help=dedent("""\
+        "-t",
+        "--target",
+        dest="target",
+        default="node",
+        help=dedent("""\
         Target path prefix to which the files will be moved.
-        (default=%default)."""))
+        (default=%default)."""),
+    )
 
     def __init__(self):
         self._setup()
@@ -67,15 +83,16 @@ class RebalanceProgram:
         parser = RebalanceProgram.parser
         (opts, args) = parser.parse_args()
         if len(args) < 1:
-            parser.error(dedent("""Must specify at least one path.
-            (How about . ?)"""))
+            parser.error(
+                dedent("""Must specify at least one path.
+            (How about . ?)""")
+            )
         self._pathList = args
         self._opts = opts
         pass
 
     def _gatherChunkFiles(self):
-        chunkFiles = chain(*imap(loader.findChunkFiles, self._pathList,
-                                 repeat(self._opts.prefix)))
+        chunkFiles = chain(*imap(loader.findChunkFiles, self._pathList, repeat(self._opts.prefix)))
         self._chunkFiles = [x for x in chunkFiles]
 
     def _checkGathering(self):
@@ -84,9 +101,14 @@ class RebalanceProgram:
             for f in l:
                 path, name = os.path.split(f)
                 if name in checkDupe:
-                    raise RuntimeError(dedent("""\
+                    raise RuntimeError(
+                        dedent(
+                            """\
                                 Found 2 identically named chunk files:
-                                %s and %s""" % (p, c)))
+                                %s and %s"""
+                            % (p, c)
+                        )
+                    )
                 checkDupe.add(name)
         pass
 
@@ -124,6 +146,7 @@ class RebalanceProgram:
         self._gatherChunkFiles()
         self._checkGathering()
         self._move()
+
 
 if __name__ == "__main__":
     p = RebalanceProgram()

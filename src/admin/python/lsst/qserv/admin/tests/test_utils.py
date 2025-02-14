@@ -19,8 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Unit tests for the utils module.
-"""
+"""Unit tests for the utils module."""
 
 import click
 from click.decorators import pass_context
@@ -36,7 +35,6 @@ from lsst.qserv.admin.cli.options import options_targs, option_targs_file
 
 
 class SplitKvTestCase(unittest.TestCase):
-
     def test_split_kv(self):
         self.assertEqual(utils.split_kv([]), dict())
         self.assertEqual(utils.split_kv(["a=1"]), dict(a="1"))
@@ -51,6 +49,7 @@ class SplitKvTestCase(unittest.TestCase):
 
 
 targs_result = None
+
 
 @click.command()
 @pass_context
@@ -94,8 +93,7 @@ class CliTargsTestCase(unittest.TestCase):
         self.assertEqual(targs_result, expected)
 
     def test_targ_overrides(self):
-        """Test utils.targs, set values at each level and look for value overrides.
-        """
+        """Test utils.targs, set values at each level and look for value overrides."""
         global targs_result
         targs_result = None
         runner = CliRunner()
@@ -115,7 +113,7 @@ class CliTargsTestCase(unittest.TestCase):
                     "--targs-file",
                     f.name,
                 ],
-                env={"test_option3": "EnvCantGetNoRespect", "another_var_4": "thisOneGetsNoticed"}
+                env={"test_option3": "EnvCantGetNoRespect", "another_var_4": "thisOneGetsNoticed"},
             )
         self.assertEqual(res.exit_code, 0, utils.clickResultMsg(res))
         expected = dict(os.environ)
@@ -123,9 +121,14 @@ class CliTargsTestCase(unittest.TestCase):
         # test_option2 is set by an option and overridden by the targs file, targs file wins.
         # test_option3 is set by an environment variable and an option, the option wins.
         # another_var_4 is set in the environment, and wins.
-        expected.update(dict(
-            test_option1="1234", test_option2="ghijk", test_option3="baz", another_var_4="thisOneGetsNoticed"
-        ))
+        expected.update(
+            dict(
+                test_option1="1234",
+                test_option2="ghijk",
+                test_option3="baz",
+                another_var_4="thisOneGetsNoticed",
+            )
+        )
         self.assertEqual(targs_result, expected)
 
     def test_targ_split(self):
@@ -144,7 +147,7 @@ class CliTargsTestCase(unittest.TestCase):
                 "test_option1=beans",
                 "--targs",
                 "test_option2=cheese,guac",
-            ]
+            ],
         )
         self.assertEqual(res.exit_code, 0, utils.clickResultMsg(res))
         expected = dict(os.environ)
@@ -152,12 +155,13 @@ class CliTargsTestCase(unittest.TestCase):
         self.assertEqual(targs_result, expected)
 
         # more than one equal sign should fail
-        res = runner.invoke(testFunc, "--targs", 'test_option1=one=two')
+        res = runner.invoke(testFunc, "--targs", "test_option1=one=two")
         self.assertNotEqual(res.exit_code, 0, utils.clickResultMsg(res))
 
         # zero equal signs should fail
-        res = runner.invoke(testFunc, "--targs", 'test_option1')
+        res = runner.invoke(testFunc, "--targs", "test_option1")
         self.assertNotEqual(res.exit_code, 0, utils.clickResultMsg(res))
+
 
 if __name__ == "__main__":
     unittest.main()

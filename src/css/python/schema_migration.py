@@ -20,8 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-"""Module defining methods used in schema migration of the CSS database.
-"""
+"""Module defining methods used in schema migration of the CSS database."""
 
 __all__ = ["make_migration_manager"]
 
@@ -33,8 +32,7 @@ database = "qservCssData"
 
 
 class CssMigrationManager(SchemaMigMgr):
-    """Class implementing schema migration for the CSS database.
-    """
+    """Class implementing schema migration for the CSS database."""
 
     def __init__(self, connection: str, scripts_dir: str):
         super().__init__(scripts_dir, connection)

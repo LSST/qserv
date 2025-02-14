@@ -59,7 +59,6 @@ class NotifyUrlError:
 
 
 class Watcher:
-
     """Poll a qserv instance for queries that have been executing for longer
     than a given time, and send an alert to a given url if any are found.
 
@@ -96,13 +95,9 @@ class Watcher:
         self.timeout_sec = timeout_sec
         self.interval_sec = interval_sec
         self.show_query = show_query
-        self.notify_url: Union[None, Type[NotifyUrlError], str] = self._get_notify_url(
-            notify_url_file
-        )
+        self.notify_url: Union[None, Type[NotifyUrlError], str] = self._get_notify_url(notify_url_file)
 
-    def _get_notify_url(
-        self, notify_url_file: str
-    ) -> Union[Type[NotifyUrlError], str]:
+    def _get_notify_url(self, notify_url_file: str) -> Union[Type[NotifyUrlError], str]:
         _log.debug(f"Reading notify url {notify_url_file}")
         notify_url: Union[Type[NotifyUrlError], str] = NotifyUrlError
         try:
@@ -123,18 +118,13 @@ class Watcher:
                 ids=", ".join([str(cf.query_id) for cf in check_failures]),
             )
         else:
-            msg = msg_prefix_t.format(
-                timeout_sec=self.timeout_sec, cluster_id=self.cluster_id
-            )
+            msg = msg_prefix_t.format(timeout_sec=self.timeout_sec, cluster_id=self.cluster_id)
             if self.show_query:
                 msg_t = show_query_msg_t
             else:
                 msg_t = query_msg_t
             msg += " ".join(
-                [
-                    msg_t.format(query=f.query, id=f.query_id, time=f.execution_time)
-                    for f in check_failures
-                ]
+                [msg_t.format(query=f.query, id=f.query_id, time=f.execution_time) for f in check_failures]
             )
         self.notify(msg=msg)
 
@@ -148,18 +138,14 @@ class Watcher:
         if url is None:
             return
         if url is NotifyUrlError:
-            _log.error(
-                f"Could not open the notify url file, can not send notification: {msg}"
-            )
+            _log.error(f"Could not open the notify url file, can not send notification: {msg}")
             return
         # This satisfies the type checker; mypy does not seem to realize that `if url is NotifyUrlError`
         # handles that case, and the only remaning possibility is that url is a str.
         if not isinstance(url, str):
             raise RuntimeError(f"notify_url is {url}, expected a string value.")
         try:
-            res = requests.post(
-                url, headers=notify_headers, data=notify_data.format(msg=msg)
-            )
+            res = requests.post(url, headers=notify_headers, data=notify_data.format(msg=msg))
             if res.status_code != 200:
                 _log.error(
                     f"FAILED TO SEND NOTIFICATION cluster: {self.cluster_id}, msg: {msg} to {url}: {res}"
@@ -270,7 +256,5 @@ def watch(
     interval_sec: int,
     show_query: bool,
 ) -> None:
-    watcher = Watcher(
-        cluster_id, notify_url_file, qserv, timeout_sec, interval_sec, show_query
-    )
+    watcher = Watcher(cluster_id, notify_url_file, qserv, timeout_sec, interval_sec, show_query)
     watcher.watch()

@@ -19,9 +19,7 @@
 # You should have received a copy of the GNU General Public License
 
 
-"""Command line tool for launching qserv components inside a qserv container.
-"""
-
+"""Command line tool for launching qserv components inside a qserv container."""
 
 import click
 from collections import OrderedDict
@@ -97,20 +95,21 @@ cmsd_worker_cfg_path = "/config-etc/cmsd-worker.cf"
 xrdssi_cfg_path = "/config-etc/xrdssi-worker.cf"
 xrootd_manager_cfg_path = "/config-etc/xrootd-manager.cf"
 
-socket_option_help = f"""Accepts query key {click.style('socket',
-bold=True)}: The path to a socket file used to connect to the database.
+socket_option_help = f"""Accepts query key {
+    click.style("socket", bold=True)
+}: The path to a socket file used to connect to the database.
 """
 
 socket_option_description = f"""For URI options that accept a socket: if
-{click.style('host', bold=True)} and {click.style('port', bold=True)} are
+{click.style("host", bold=True)} and {click.style("port", bold=True)} are
 provided then node excution will be paused early, until the database TCP
-connection is available for connections. If {click.style('socket', bold=True)}
-is provided then the {click.style('host', bold=True)} and
-{click.style('port', bold=True)} part of the URI are not required. If
-{click.style('host', bold=True)}, {click.style('port', bold=True)}, and
-{click.style('socket', bold=True)} are provided then node excution will be
+connection is available for connections. If {click.style("socket", bold=True)}
+is provided then the {click.style("host", bold=True)} and
+{click.style("port", bold=True)} part of the URI are not required. If
+{click.style("host", bold=True)}, {click.style("port", bold=True)}, and
+{click.style("socket", bold=True)} are provided then node excution will be
 paused until the database is available via TCP connection, and the
-{click.style('socket', bold=True)} will be used for subsequent database
+{click.style("socket", bold=True)} will be used for subsequent database
 communication."""
 
 extended_args_description = """Options and arguments may be passed directly to
@@ -131,62 +130,89 @@ admin_worker_db_help = "Admin URI to the worker database. " + socket_option_help
 class CommandInfo:
     default_cmd: Optional[str] = None
 
+
 # Commands are in the ordered dict in "help order" - the order they
 # appear in `entrypoint --help`
-commands = OrderedDict((
-    ("proxy", CommandInfo(
-        "mysql-proxy --proxy-lua-script=/usr/local/lua/qserv/scripts/mysqlProxy.lua "
-        "--lua-cpath=/usr/local/lua/qserv/lib/czarProxy.so --defaults-file={{proxy_cfg_path}}",
-    )),
-    ("czar-http", CommandInfo(
-        "qserv-czar-http "
-        "--czar-name {{czar_name}} "
-        "--config {{czar_cfg_path}} "
-        "--port {{http_port}} "
-        "--threads {{http_threads}} "
-        "--worker-ingest-threads {{http_worker_ingest_threads}} "
-        "--ssl-cert-file {{http_ssl_cert_file}} "
-        "--ssl-private-key-file {{http_ssl_private_key_file}} "
-        "--tmp-dir {{http_tmp_dir}} "
-        "--conn-pool-size {{http_conn_pool_size}} "
-        "--verbose",
-    )),
-    ("cmsd-manager", CommandInfo(
-        "cmsd -c {{cmsd_manager_cfg_path}} -n manager -I v4",
-    )),
-    ("xrootd-manager", CommandInfo("xrootd -c {{xrootd_manager_cfg_path}} -n manager -I v4")),
-    ("worker-cmsd", CommandInfo(
-        "cmsd -c {{cmsd_worker_cfg_path}} -n worker -I v4 -l @libXrdSsiLog.so -+xrdssi {{xrdssi_cfg_path}}",
-    )),
-    ("worker-repl", CommandInfo(
-        "qserv-replica-worker "
-        "--qserv-worker-db={{db_admin_uri}} "
-        "--config={{config}} {% for arg in extended_args %}{{arg}}  {% endfor %}"
-    )),
-    ("worker-xrootd", CommandInfo(
-        "xrootd -c {{cmsd_worker_cfg_path}} -n worker -I v4 -l @libXrdSsiLog.so -+xrdssi {{xrdssi_cfg_path}}",
-    )),
-    ("replication-controller", CommandInfo(
-        "qserv-replica-master-http "
-        "--config={{db_uri}} "
-        "--http-root={{http_root}} "
-        "--qserv-czar-db={{qserv_czar_db}} "
-        "{% for arg in extended_args %}{{arg}} {% endfor %}"
-    )),
-    ("replication-registry", CommandInfo(
-        "qserv-replica-registry "
-        "--config={{db_uri}} "
-        "{% for arg in extended_args %}{{arg}} {% endfor %}"
-    )),
-    ("smig-update", CommandInfo()),
-    ("integration-test", CommandInfo()),
-    ("integration-test-http", CommandInfo()),
-    ("delete-database", CommandInfo()),
-    ("load-simple", CommandInfo()),
-    ("watcher", CommandInfo()),
-    ("prepare-data", CommandInfo()),
-    ("spawned-app-help", CommandInfo()),
-))
+commands = OrderedDict(
+    (
+        (
+            "proxy",
+            CommandInfo(
+                "mysql-proxy --proxy-lua-script=/usr/local/lua/qserv/scripts/mysqlProxy.lua "
+                "--lua-cpath=/usr/local/lua/qserv/lib/czarProxy.so --defaults-file={{proxy_cfg_path}}",
+            ),
+        ),
+        (
+            "czar-http",
+            CommandInfo(
+                "qserv-czar-http "
+                "--czar-name {{czar_name}} "
+                "--config {{czar_cfg_path}} "
+                "--port {{http_port}} "
+                "--threads {{http_threads}} "
+                "--worker-ingest-threads {{http_worker_ingest_threads}} "
+                "--ssl-cert-file {{http_ssl_cert_file}} "
+                "--ssl-private-key-file {{http_ssl_private_key_file}} "
+                "--tmp-dir {{http_tmp_dir}} "
+                "--conn-pool-size {{http_conn_pool_size}} "
+                "--verbose",
+            ),
+        ),
+        (
+            "cmsd-manager",
+            CommandInfo(
+                "cmsd -c {{cmsd_manager_cfg_path}} -n manager -I v4",
+            ),
+        ),
+        ("xrootd-manager", CommandInfo("xrootd -c {{xrootd_manager_cfg_path}} -n manager -I v4")),
+        (
+            "worker-cmsd",
+            CommandInfo(
+                "cmsd -c {{cmsd_worker_cfg_path}} -n worker -I v4 -l @libXrdSsiLog.so -+xrdssi {{xrdssi_cfg_path}}",
+            ),
+        ),
+        (
+            "worker-repl",
+            CommandInfo(
+                "qserv-replica-worker "
+                "--qserv-worker-db={{db_admin_uri}} "
+                "--config={{config}} {% for arg in extended_args %}{{arg}}  {% endfor %}"
+            ),
+        ),
+        (
+            "worker-xrootd",
+            CommandInfo(
+                "xrootd -c {{cmsd_worker_cfg_path}} -n worker -I v4 -l @libXrdSsiLog.so -+xrdssi {{xrdssi_cfg_path}}",
+            ),
+        ),
+        (
+            "replication-controller",
+            CommandInfo(
+                "qserv-replica-master-http "
+                "--config={{db_uri}} "
+                "--http-root={{http_root}} "
+                "--qserv-czar-db={{qserv_czar_db}} "
+                "{% for arg in extended_args %}{{arg}} {% endfor %}"
+            ),
+        ),
+        (
+            "replication-registry",
+            CommandInfo(
+                "qserv-replica-registry "
+                "--config={{db_uri}} "
+                "{% for arg in extended_args %}{{arg}} {% endfor %}"
+            ),
+        ),
+        ("smig-update", CommandInfo()),
+        ("integration-test", CommandInfo()),
+        ("integration-test-http", CommandInfo()),
+        ("delete-database", CommandInfo()),
+        ("load-simple", CommandInfo()),
+        ("watcher", CommandInfo()),
+        ("prepare-data", CommandInfo()),
+        ("spawned-app-help", CommandInfo()),
+    )
+)
 
 
 option_cmsd_worker_cfg_file = partial(
@@ -242,6 +268,7 @@ class EntrypointCommandExArgs(click.Command):
         (Factor this dataclass and/or command class as you need for greater
         command type polymorphism.)
         """
+
         extended_args: List[str] = field(default_factory=list)
 
     def parse_args(self, ctx: click.Context, args: List[str]) -> List[str]:
@@ -252,8 +279,8 @@ class EntrypointCommandExArgs(click.Command):
         ctx.obj = self.ContextObj()
         if separator in args:
             if separator in args:
-                ctx.obj.extended_args = args[args.index(separator)+1:]
-                args = args[:args.index(separator)]
+                ctx.obj.extended_args = args[args.index(separator) + 1 :]
+                args = args[: args.index(separator)]
         args = super().parse_args(ctx, args)
         return args
 
@@ -287,7 +314,7 @@ def cmd_default(ctx: click.Context, param: click.core.Option, value: str) -> Non
         return
     ctx.default_map = ctx.default_map or {}
     _log.debug(
-        "Changing the %s default_map value for --cmd from \"%s\" to \"%s\"",
+        'Changing the %s default_map value for --cmd from "%s" to "%s"',
         ctx.command.name,
         ctx.default_map.get("cmd", "None"),
         default_cmd := commands[ctx.command.name].default_cmd,
@@ -474,6 +501,7 @@ def prepare_data(
     click.echo(str(ok))
     sys.exit(0 if ok else 1)
 
+
 @entrypoint.command()
 @click.argument("DATABASE")
 @click.argument("repl_ctrl_uri")
@@ -532,7 +560,7 @@ def delete_database(
     default="127.0.0.1:3306",
     show_default=True,
     help="This is the same as the proxy-backend-address option to mysql proxy. This value is substitued "
-    "into the proxy-backend-address parameter in 'my-proxy.cnf.jinja'."
+    "into the proxy-backend-address parameter in 'my-proxy.cnf.jinja'.",
 )
 @click.option(
     "--proxy-cfg-file",
@@ -569,8 +597,7 @@ def delete_database(
 @options_cms()
 @option_options_file()
 def proxy(ctx: click.Context, **kwargs: Any) -> None:
-    """Start as a qserv-proxy node.
-    """
+    """Start as a qserv-proxy node."""
     targs = utils.targs(ctx)
     targs = render_targs(targs)
     script.enter_proxy(
@@ -587,7 +614,6 @@ def proxy(ctx: click.Context, **kwargs: Any) -> None:
     )
 
 
-
 @entrypoint.command(help=f"Start as a qserv http Czar node.\n\n{socket_option_description}")
 @pass_context
 @option_db_uri(
@@ -601,21 +627,21 @@ def proxy(ctx: click.Context, **kwargs: Any) -> None:
     default="4048",
     show_default=True,
     help="The HTTP port of the frontend. The value of the parameter is passed as a command-line"
-         " parameter to the application."
+    " parameter to the application.",
 )
 @click.option(
     "--http-threads",
     default="2",
     show_default=True,
     help="The number of the request processing threads in the REST service. The value of the parameter is passed"
-         " as a command-line parameter to the application."
+    " as a command-line parameter to the application.",
 )
 @click.option(
     "--http-worker-ingest-threads",
     default="2",
     show_default=True,
     help="The number of the request processing threads in the REST service. The value of the parameter is passed"
-         " as a command-line parameter to the application."
+    " as a command-line parameter to the application.",
 )
 @click.option(
     "--http-ssl-cert-file",
@@ -650,10 +676,10 @@ def proxy(ctx: click.Context, **kwargs: Any) -> None:
 @click.option(
     "--http-conn-pool-size",
     help="A size of a connection pool for synchronous communications over the HTTP"
-         " protocol with the Qserv Worker Ingest servbers. The default value is 0,"
-         " which assumes that the pool size is determined by an implementation of"
-         " the underlying library 'libcurl'. The number of connectons in a production"
-         " Qserv deployment should be at least the number of workers in the deployment.",
+    " protocol with the Qserv Worker Ingest servbers. The default value is 0,"
+    " which assumes that the pool size is determined by an implementation of"
+    " the underlying library 'libcurl'. The number of connectons in a production"
+    " Qserv deployment should be at least the number of workers in the deployment.",
     default=0,
     show_default=True,
 )
@@ -674,8 +700,7 @@ def proxy(ctx: click.Context, **kwargs: Any) -> None:
 @options_cms()
 @option_options_file()
 def czar_http(ctx: click.Context, **kwargs: Any) -> None:
-    """Start as a http-czar node.
-    """
+    """Start as a http-czar node."""
     targs = utils.targs(ctx)
     targs = render_targs(targs)
     script.enter_czar_http(
@@ -712,8 +737,7 @@ def czar_http(ctx: click.Context, **kwargs: Any) -> None:
 @options_cms()
 @option_options_file()
 def cmsd_manager(ctx: click.Context, **kwargs: Any) -> None:
-    """Start as a cmsd manager node.
-    """
+    """Start as a cmsd manager node."""
     targs = utils.targs(ctx)
     targs = render_targs(targs)
     script.enter_manager_cmsd(
@@ -743,8 +767,7 @@ def cmsd_manager(ctx: click.Context, **kwargs: Any) -> None:
 @options_cms()
 @option_options_file()
 def xrootd_manager(ctx: click.Context, **kwargs: Any) -> None:
-    """Start as an xrootd manager node.
-    """
+    """Start as an xrootd manager node."""
     targs = utils.targs(ctx)
     targs = render_targs(targs)
     script.enter_xrootd_manager(
@@ -836,15 +859,15 @@ def worker_xrootd(ctx: click.Context, **kwargs: Any) -> None:
 
 @entrypoint.command(
     help="Start as a replication worker node.\n\n"
-         "{socket_option_description}\n\n"
-         f"{extended_args_description.format(app='qserv-replica-worker')}",
+    "{socket_option_description}\n\n"
+    f"{extended_args_description.format(app='qserv-replica-worker')}",
     cls=EntrypointCommandExArgs,
 )
 @pass_context
-@option_db_admin_uri(help="The admin URI to the worker's database, used for replication and ingest. " + socket_option_help)
-@option_repl_connection(
-    help=f"{option_repl_connection.keywords['help']} {socket_option_help}"
+@option_db_admin_uri(
+    help="The admin URI to the worker's database, used for replication and ingest. " + socket_option_help
 )
+@option_repl_connection(help=f"{option_repl_connection.keywords['help']} {socket_option_help}")
 @option_debug()
 @options_cms()
 @click.option(
@@ -871,7 +894,7 @@ def worker_repl(ctx: click.Context, **kwargs: Any) -> None:
 
 @entrypoint.command(
     help=f"Start as a replication controller node.\n\n{socket_option_description}\n\n"
-         f"{extended_args_description.format(app='qserv-replica-master-http')}",
+    f"{extended_args_description.format(app='qserv-replica-master-http')}",
     cls=EntrypointCommandExArgs,
 )
 @pass_context
@@ -880,7 +903,8 @@ def worker_repl(ctx: click.Context, **kwargs: Any) -> None:
     required=True,
 )
 @option_db_admin_uri(
-    help="The admin URI to the replication controller's database, used for schema initialization. " + socket_option_help,
+    help="The admin URI to the replication controller's database, used for schema initialization. "
+    + socket_option_help,
     required=True,
 )
 @click.option(
@@ -895,10 +919,7 @@ def worker_repl(ctx: click.Context, **kwargs: Any) -> None:
     default="/usr/local/qserv/www",
     show_default=True,
 )
-@click.option(
-    "--qserv-czar-db",
-    help="The connection URL to the MySQL server of the Qserv master database."
-)
+@click.option("--qserv-czar-db", help="The connection URL to the MySQL server of the Qserv master database.")
 @options_targs()
 @option_run()
 @option_options_file()
@@ -917,7 +938,7 @@ def replication_controller(ctx: click.Context, **kwargs: Any) -> None:
 
 @entrypoint.command(
     help=f"Start as a replication registry node.\n\n{socket_option_description}\n\n"
-         f"{extended_args_description.format(app='qserv-replica-registry')}",
+    f"{extended_args_description.format(app='qserv-replica-registry')}",
     cls=EntrypointCommandExArgs,
 )
 @pass_context

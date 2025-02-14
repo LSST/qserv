@@ -20,9 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-"""Utilities for working with docker images and dockerhub.
-"""
-
+"""Utilities for working with docker images and dockerhub."""
 
 from copy import copy
 import logging
@@ -97,7 +95,7 @@ def last_git_tag(cwd: str) -> str:
         "git describe --abbrev=0".split(),
         capture_stdout=True,
         cwd=cwd,
-        errmsg=f"Failed to get most recent tag from repo at {cwd}."
+        errmsg=f"Failed to get most recent tag from repo at {cwd}.",
     )
     tag = res.stdout.decode().strip()
     res = subproc.run(
@@ -201,12 +199,7 @@ def git_log(a: str, b: str, cwd: str) -> List[str]:
         If there is an error running `git log a..b`.
     """
     args = ["git", "log", "--pretty=format:%H", f"{a}..{b}"]
-    res = subproc.run(
-        args,
-        cwd=cwd,
-        capture_stdout=True,
-        errmsg=f"Get log of shas {a}..{b}."
-    )
+    res = subproc.run(args, cwd=cwd, capture_stdout=True, errmsg=f"Get log of shas {a}..{b}.")
     return res.stdout.strip().split()
 
 

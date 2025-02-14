@@ -81,13 +81,13 @@ def execute(cursor: MySQLCursorAbstract, stmt: str, multi: bool = False) -> None
         if cursor.with_rows:
             for row in cursor.fetchall():
                 results.append(row)
-            if (w := cursor.fetchwarnings()):
+            if w := cursor.fetchwarnings():
                 warnings.append(w)
 
     if warnings:
-        _log.warn("Warnings were issued when executing \"%s\": %s", stmt, warnings)
+        _log.warn('Warnings were issued when executing "%s": %s', stmt, warnings)
     if results:
-        _log.info("Results were returned when executing \"%s\": %s", results, stmt)
+        _log.info('Results were returned when executing "%s": %s', results, stmt)
 
 
 @backoff.on_exception(
@@ -276,9 +276,7 @@ def _partition(staging_dir: str, table: LoadTable, data_file: str) -> None:
         for f in table.partition_config_files
     ]
     os.makedirs(staging_dir)
-    args = [
-        "sph-partition-matches" if table.is_match else "sph-partition"
-    ]
+    args = ["sph-partition-matches" if table.is_match else "sph-partition"]
     for config_file in partition_config_files:
         args.append("--config-file")
         args.append(config_file)
@@ -300,8 +298,8 @@ def _partition(staging_dir: str, table: LoadTable, data_file: str) -> None:
         f.write(partition_info)
 
 
-def _prep_table_data(load_table: LoadTable, dest_dir: str) ->  Tuple[str, str]:
-    """ Unzip and partition, if needed, input data for a table.
+def _prep_table_data(load_table: LoadTable, dest_dir: str) -> Tuple[str, str]:
+    """Unzip and partition, if needed, input data for a table.
 
     Parameters
     ----------
@@ -359,7 +357,13 @@ def _load_database(
     load_http : `bool`, optional
         The protocol to use for loading the data.
     """
-    _log.info(f"Loading database %s for test %s auth_key %s admin_auth_key %s", load_db.name, load_db.id, auth_key, admin_auth_key)
+    _log.info(
+        f"Loading database %s for test %s auth_key %s admin_auth_key %s",
+        load_db.name,
+        load_db.id,
+        auth_key,
+        admin_auth_key,
+    )
     repl = ReplicationInterface(repl_ctrl_uri, auth_key, admin_auth_key)
 
     @backoff.on_exception(
@@ -421,9 +425,7 @@ def _load_database(
     repl.publish_database(load_db.name)
     if load_db.build_table_stats:
         if not load_db.instance_id:
-            raise RuntimeError(
-                "To build table stats, instance_id must contain a non-empty value."
-            )
+            raise RuntimeError("To build table stats, instance_id must contain a non-empty value.")
         repl.build_table_stats(load_db.name, load_db.tables, load_db.instance_id)
 
 
@@ -517,7 +519,9 @@ def prepare_data(
         for table_name in load_db.tables:
             ingest_table_json = load_db.ingest_table_t.format(table_name=table_name)
             shutil.copy(ingest_table_json, dest_dir)
-        _log.info("Preparing input dataset %s for test %s inside directory %s", load_db.name, load_db.id, dest_dir)
+        _log.info(
+            "Preparing input dataset %s for test %s inside directory %s", load_db.name, load_db.id, dest_dir
+        )
         for table in load_db.iter_tables():
             _prep_table_data(table, dest_dir)
 
@@ -578,7 +582,15 @@ def load(
     for case_data in cases_data:
         load_db = LoadDb(case_data)
         if load == True or (load is None and load_db.name not in qserv_dbs):
-            _load_database(load_db, ref_db_uri, ref_db_admin, repl_ctrl_uri, auth_key, admin_auth_key, load_http=load_http)
+            _load_database(
+                load_db,
+                ref_db_uri,
+                ref_db_admin,
+                repl_ctrl_uri,
+                auth_key,
+                admin_auth_key,
+                load_http=load_http,
+            )
 
 
 def remove(

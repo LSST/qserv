@@ -1,5 +1,4 @@
-"""Module defining methods used in schema migration of QMeta database.
-"""
+"""Module defining methods used in schema migration of QMeta database."""
 
 __all__ = ["make_migration_manager"]
 
@@ -16,9 +15,9 @@ _log = logging.getLogger(__name__)
 
 database = "qservMeta"
 
+
 class QMetaMigrationManager(SchemaMigMgr):
-    """Class implementing schema migration for QMeta database.
-    """
+    """Class implementing schema migration for QMeta database."""
 
     def __init__(self, connection: str, scripts_dir: str):
         super().__init__(scripts_dir, connection)
@@ -39,7 +38,7 @@ class QMetaMigrationManager(SchemaMigMgr):
         # Initial database schema implementation did not have version number stored at all,
         # and we call this version 0. Since version=1 version number is stored in
         # QMetadata table with key="version"
-        if not self.tableExists(database, 'QMetadata'):
+        if not self.tableExists(database, "QMetadata"):
             return 0
 
         self.connection.database = database
@@ -68,7 +67,8 @@ class QMetaMigrationManager(SchemaMigMgr):
         current = self.current_version()
         if current != version:
             raise RuntimeError(
-                f"Failed to update database {database} to {version}, current version is {current}")
+                f"Failed to update database {database} to {version}, current version is {current}"
+            )
 
     def apply_migrations(self, migrations: Sequence[Migration]) -> Version:
         """Apply migrations.

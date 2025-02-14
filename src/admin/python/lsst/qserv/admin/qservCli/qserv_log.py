@@ -19,8 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Logging definitions and utilities for qserv CLI.
-"""
+"""Logging definitions and utilities for qserv CLI."""
 
 from typing import Any, List, Tuple
 
@@ -28,7 +27,10 @@ log_level_flag = "--log-level"
 default_log_level = "INFO"
 log_level_choices = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]
 missing_argument_msg = f"{log_level_flag} requires an argument."
-invalid_value_msg = f"Invalid value for {log_level_flag}, must be one of {log_level_choices}, not case sensitive."
+invalid_value_msg = (
+    f"Invalid value for {log_level_flag}, must be one of {log_level_choices}, not case sensitive."
+)
+
 
 def log_level_from_args(args: List[str], default: str = default_log_level) -> Tuple[bool, str]:
     """Get the log level from script arguments.

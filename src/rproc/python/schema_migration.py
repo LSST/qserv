@@ -20,9 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-"""Module defining methods used in schema migration of results processing database.
-"""
-
+"""Module defining methods used in schema migration of results processing database."""
 
 __all__ = ["make_migration_manager"]
 
@@ -34,8 +32,7 @@ database = "qservResult"
 
 
 class RprocMigrationManager(SchemaMigMgr):
-    """Class implementing schema migration for results processing database.
-    """
+    """Class implementing schema migration for results processing database."""
 
     def __init__(self, connection: str, scripts_dir: str):
         super().__init__(scripts_dir, connection)

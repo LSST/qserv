@@ -1,5 +1,4 @@
-"""Class which manages concurrent execution of queries.
-"""
+"""Class which manages concurrent execution of queries."""
 
 __all__ = ["RunnerManager"]
 
@@ -40,8 +39,7 @@ class RunnerManager:
         self._monitor = monitor
 
     def run(self):
-        """Start all runners and wait until they are done.
-        """
+        """Start all runners and wait until they are done."""
 
         monitor = None
         if self._monitor:
@@ -50,24 +48,28 @@ class RunnerManager:
         # instantiate all query runners
         runners = {}
         for qclass in self._config.classes():
-
             n_runners = self._config.concurrentQueries(qclass)
             queries = self._config.queries(qclass)
             _LOG.debug("%s runners and %s queries for class %s", n_runners, len(queries), qclass)
             maxRate = self._config.maxRate(qclass)
             arraysize = self._config.arraysize(qclass)
             for i_runner in range(n_runners):
-
                 if self._slot is not None:
                     runnerId = f"{qclass}-{self._slot}-{i_runner}"
                 else:
                     runnerId = f"{qclass}-{i_runner}"
 
                 _LOG.debug("Creating runner %s", runnerId)
-                runner = QueryRunner(queries, maxRate, self._connectionFactory,
-                                     runnerId, arraysize, queryCountLimit=None,
-                                     runTimeLimit=self._runTimeLimit,
-                                     monitor=monitor.child_monitor() if monitor else None)
+                runner = QueryRunner(
+                    queries,
+                    maxRate,
+                    self._connectionFactory,
+                    runnerId,
+                    arraysize,
+                    queryCountLimit=None,
+                    runTimeLimit=self._runTimeLimit,
+                    monitor=monitor.child_monitor() if monitor else None,
+                )
                 runners[runnerId] = runner
 
         # start all of them

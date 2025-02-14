@@ -25,7 +25,6 @@ there will be a CLI command called qserv. Use `qserv --help` to for more
 information.
 """
 
-
 import click
 import sys
 from typing import List, Optional
@@ -247,7 +246,8 @@ def build(
     )
 
 
-@qserv.command(help=f"""Build the qserv documentation.
+@qserv.command(
+    help=f"""Build the qserv documentation.
 
     Passing --upload will cause the docs to be uploaded to LSST The Docs (LTD).
     Typically this is only used by Github Actions (GHA)
@@ -385,7 +385,9 @@ def build_mariadb_image(
 @option_qserv_group()
 @option_run_base_image(help=env_run_base_image.help("The name of the lite-run-base image to create."))
 @option_mariadb_image(help=env_mariadb_image.help("The name of the mariadb image to create."))
-@option_push_image(help="Push base images to dockerhub if they do not exist. Requires login to dockerhub first.")
+@option_push_image(
+    help="Push base images to dockerhub if they do not exist. Requires login to dockerhub first."
+)
 @option_pull_image(help="Pull images from dockerhub if they exist.")
 @option_qserv_root()
 @option_dry()
@@ -446,10 +448,9 @@ def run_dev(
     type=click.Choice(("long-lived", "temp")),
     help="Indicates the container lifecycle.\n\n"
     "* 'long-lived' for long-lived container; runs and does not enter the container.\n\n"
-    "* 'temp' for a temporary container; runs and enters container, removes container when exiting.\n\n"
-    ,
+    "* 'temp' for a temporary container; runs and enters container, removes container when exiting.\n\n",
     default="temp",
-    show_default=True
+    show_default=True,
 )
 @option_dry()
 def run_build(
@@ -574,6 +575,7 @@ def itest(
     )
     sys.exit(returncode)
 
+
 @qserv.command()
 @option_qserv_image()
 @option_mariadb_image(
@@ -650,6 +652,7 @@ def itest_http(
     )
     sys.exit(returncode)
 
+
 @qserv.command()
 @option_qserv_image()
 @option_qserv_root()
@@ -711,6 +714,7 @@ def itest_rm(project: str, dry: bool) -> None:
     """Remove volumes created by itest."""
     launch.itest_rm(project, dry)
 
+
 @qserv.command()
 @option_qserv_image()
 @option_qserv_root()
@@ -742,6 +746,7 @@ def prepare_data(
     )
     sys.exit(returncode)
 
+
 # These defaults match connection options used in
 # admin/local/docker/compose/docker-compose.yml
 czar_connection_default = "mysql://root:CHANGEME@czar-proxy:3306"
@@ -761,16 +766,16 @@ repl_connection_default = "mysql://root:CHANGEME@repl-mgr-db:3306/qservw_worker"
 )
 @option_worker_connection(
     default=worker_connections_default,
-    help=f"""{option_worker_connection.keywords['help']}
+    help=f"""{option_worker_connection.keywords["help"]}
     The default values work with the default
     {len(worker_connections_default)}-worker docker-compose file:
-    {click.style(worker_connections_default, fg='green', bold=True)}""",
+    {click.style(worker_connections_default, fg="green", bold=True)}""",
 )
 @option_repl_connection(
     default=repl_connection_default,
-    help=f"""{option_repl_connection.keywords['help']}
+    help=f"""{option_repl_connection.keywords["help"]}
     The default value works with the default docker-compose file:
-    {click.style(repl_connection_default, fg='green', bold=True)}""",
+    {click.style(repl_connection_default, fg="green", bold=True)}""",
 )
 @option_qserv_image()
 @option_project()
@@ -900,7 +905,9 @@ def entrypoint_help(
         dry=dry,
     )
 
-@qserv.command(help=f"""Check if an image is in dockerhub.
+
+@qserv.command(
+    help=f"""Check if an image is in dockerhub.
 
     IMAGE is the image name + tag.
 
@@ -918,8 +925,10 @@ def dh_image_exists(image: str) -> None:
     if not (user and token):
         click.echo("QSERV_DH_USER and QSERV_DH_TOKEN must be set to use this command.")
         return
-    click.echo(images.dh_image_exists(
-        image,
-        user,
-        token,
-    ))
+    click.echo(
+        images.dh_image_exists(
+            image,
+            user,
+            token,
+        )
+    )

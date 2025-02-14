@@ -11,7 +11,7 @@ from lsst.db.engineFactory import getEngineFromArgs
 
 def dbparam(x):
     if x is None:
-        return 'NULL'
+        return "NULL"
     elif isinstance(x, str):
         return "'" + x + "'"
     else:
@@ -32,9 +32,7 @@ def angSep(ra1, dec1, ra2, dec2):
 def ptInSphEllipse(ra, dec, ra_cen, dec_cen, smaa, smia, ang):
     ra = math.radians(ra)
     dec = math.radians(dec)
-    v = (math.cos(ra) * math.cos(dec),
-         math.sin(ra) * math.cos(dec),
-         math.sin(dec))
+    v = (math.cos(ra) * math.cos(dec), math.sin(ra) * math.cos(dec), math.sin(dec))
     lon = math.radians(ra_cen)
     lat = math.radians(dec_cen)
     ang = math.radians(ang)
@@ -73,20 +71,19 @@ def flatten(l, ltypes=(list, tuple)):
                 i -= 1
                 break
             else:
-                l[i:i + 1] = l[i]
+                l[i : i + 1] = l[i]
         i += 1
     return ltype(l)
 
 
 class MySqlUdfTestCase(unittest.TestCase):
-    """Tests MySQL UDFs.
-    """
+    """Tests MySQL UDFs."""
 
     def setUp(self):
         global _options
-        engine = getEngineFromArgs(username=_options.user,
-                                   password=_options.password,
-                                   query={"unix_socket": _options.socketFile})
+        engine = getEngineFromArgs(
+            username=_options.user, password=_options.password, query={"unix_socket": _options.socketFile}
+        )
         self._conn = engine.connect()
 
     def tearDown(self):
@@ -95,8 +92,7 @@ class MySqlUdfTestCase(unittest.TestCase):
     def _query(self, query, result):
         qresult = self._conn.execute(query)
         rows = qresult.fetchall()
-        self.assertEqual(rows[0][0], result, query +
-                         " did not return %s." % dbparam(result))
+        self.assertEqual(rows[0][0], result, query + " did not return %s." % dbparam(result))
 
     def _angSep(self, result, *args):
         args = tuple(dbparam(arg) for arg in args)
@@ -111,7 +107,7 @@ class MySqlUdfTestCase(unittest.TestCase):
 
     def testAngSep(self):
         for i in range(4):
-            a = [0.0]*4
+            a = [0.0] * 4
             a[i] = None
             self._angSep(None, *a)
         for d in (-91.0, 91.0):
@@ -120,10 +116,12 @@ class MySqlUdfTestCase(unittest.TestCase):
         for d in (0.0, 90.0, -90.0):
             self._angSep(0.0, 0.0, d, 0.0, d)
         for i in range(100):
-            args = [random.uniform(0.0, 360.0),
-                    random.uniform(-90.0, 90.0),
-                    random.uniform(0.0, 360.0),
-                    random.uniform(-90.0, 90.0)]
+            args = [
+                random.uniform(0.0, 360.0),
+                random.uniform(-90.0, 90.0),
+                random.uniform(0.0, 360.0),
+                random.uniform(-90.0, 90.0),
+            ]
             self._angSep(angSep(*args), *args)
 
     def _ptInSphBox(self, result, *args):
@@ -133,12 +131,12 @@ class MySqlUdfTestCase(unittest.TestCase):
 
     def testPtInSphBox(self):
         for i in range(6):
-            a = [0.0]*6
+            a = [0.0] * 6
             a[i] = None
             self._ptInSphBox(0, *a)
         for d in (-91.0, 91.0):
             for i in (1, 3, 5):
-                a = [0.0]*6
+                a = [0.0] * 6
                 a[i] = d
                 self._ptInSphBox(None, *a)
         for ra_min, ra_max in ((370.0, 10.0), (50.0, -90.0), (400.0, -400.0)):
@@ -155,7 +153,7 @@ class MySqlUdfTestCase(unittest.TestCase):
 
     def testPtInSphCircle(self):
         for i in range(5):
-            a = [0.0]*5
+            a = [0.0] * 5
             a[i] = None
             self._ptInSphCircle(0, *a)
         for d in (-91.0, 91.0):
@@ -170,8 +168,7 @@ class MySqlUdfTestCase(unittest.TestCase):
             for j in range(100):
                 delta = radius / math.cos(math.radians(dec_cen))
                 ra = random.uniform(ra_cen - delta, ra_cen + delta)
-                dec = random.uniform(max(dec_cen - radius, -90.0),
-                                     min(dec_cen + radius, 90.0))
+                dec = random.uniform(max(dec_cen - radius, -90.0), min(dec_cen + radius, 90.0))
                 r = angSep(ra_cen, dec_cen, ra, dec)
                 if r < radius - 1e-9:
                     self._ptInSphCircle(1, ra, dec, ra_cen, dec_cen, radius)
@@ -185,7 +182,7 @@ class MySqlUdfTestCase(unittest.TestCase):
 
     def testPtInSphEllipse(self):
         for i in range(7):
-            a = [0.0]*7
+            a = [0.0] * 7
             a[i] = None
             self._ptInSphEllipse(0, *a)
         for d in (-91.0, 91.0):
@@ -204,8 +201,7 @@ class MySqlUdfTestCase(unittest.TestCase):
                 smaaDeg = smaa / 3600.0
                 delta = smaaDeg / math.cos(math.radians(dec_cen))
                 ra = random.uniform(ra_cen - delta, ra_cen + delta)
-                dec = random.uniform(max(dec_cen - smaaDeg, -90.0),
-                                     min(dec_cen + smaaDeg, 90.0))
+                dec = random.uniform(max(dec_cen - smaaDeg, -90.0), min(dec_cen + smaaDeg, 90.0))
                 r = ptInSphEllipse(ra, dec, ra_cen, dec_cen, smaa, smia, ang)
                 if r is True:
                     self._ptInSphEllipse(1, ra, dec, ra_cen, dec_cen, smaa, smia, ang)
@@ -213,7 +209,7 @@ class MySqlUdfTestCase(unittest.TestCase):
                     self._ptInSphEllipse(0, ra, dec, ra_cen, dec_cen, smaa, smia, ang)
 
     def _ptInSphPoly(self, result, *args):
-        args = ', '.join(dbparam(arg) for arg in args)
+        args = ", ".join(dbparam(arg) for arg in args)
         query = "SELECT scisql_s2PtInCPoly(%s)" % args
         self._query(query, result)
 
@@ -230,12 +226,9 @@ class MySqlUdfTestCase(unittest.TestCase):
             self._ptInSphPoly(None, 0.0, 0.0, 0, 0, 90, 0, 0, d)
 
         # test for incorrect number of poly coordinates
-        self.assertRaises(Exception, self._ptInSphPoly,
-                          None, 0.0, 0.0, 0, 0, 90, 0, 60, 45, 30)
-        self.assertRaises(Exception, self._ptInSphPoly,
-                          None, 0.0, 0.0, 0, 0, 90, 0, 60)
-        self.assertRaises(Exception, self._ptInSphPoly,
-                          None, 0.0, 0.0, 0, 0, 90, 0)
+        self.assertRaises(Exception, self._ptInSphPoly, None, 0.0, 0.0, 0, 0, 90, 0, 60, 45, 30)
+        self.assertRaises(Exception, self._ptInSphPoly, None, 0.0, 0.0, 0, 0, 90, 0, 60)
+        self.assertRaises(Exception, self._ptInSphPoly, None, 0.0, 0.0, 0, 0, 90, 0)
 
         # Test for non-exceptional cases
         x = (0, 0)
@@ -244,15 +237,24 @@ class MySqlUdfTestCase(unittest.TestCase):
         ny = (270, 0)
         z = (0, 90)
         nz = (0, -90)
-        tris = [(x, y, z), (y, nx, z), (nx, ny, z), (ny, (360, 0), z),
-                ((360, 0), ny, nz), (ny, nx, nz), (nx, y, nz), (y, x, nz)]
+        tris = [
+            (x, y, z),
+            (y, nx, z),
+            (nx, ny, z),
+            (ny, (360, 0), z),
+            ((360, 0), ny, nz),
+            (ny, nx, nz),
+            (nx, y, nz),
+            (y, x, nz),
+        ]
         for t in tris:
             spec = flatten(t)
             for i in range(100):
                 ra = random.uniform(0.0, 360.0)
                 dec = random.uniform(-90.0, 90.0)
-                if ((t[2][1] > 0 and (dec < 0.0 or ra < t[0][0] or ra > t[1][0])) or
-                        (t[2][1] < 0 and (dec > 0.0 or ra < t[1][0] or ra > t[0][0]))):
+                if (t[2][1] > 0 and (dec < 0.0 or ra < t[0][0] or ra > t[1][0])) or (
+                    t[2][1] < 0 and (dec > 0.0 or ra < t[1][0] or ra > t[0][0])
+                ):
                     self._ptInSphPoly(0, ra, dec, *spec)
                 else:
                     self._ptInSphPoly(1, ra, dec, *spec)
@@ -262,16 +264,20 @@ def main():
     global _options
 
     parser = optparse.OptionParser()
-    parser.add_option("-S", "--socket", dest="socketFile",
-                      default="/tmp/smm.sock",
-                      help="Use socket file FILE to connect to mysql",
-                      metavar="FILE")
-    parser.add_option("-u", "--user", dest="user",
-                      default="qsmaster",
-                      help="User for db login if not %default")
-    parser.add_option("-p", "--password", dest="password",
-                      default="",
-                      help="Password for db login. ('-' prompts)")
+    parser.add_option(
+        "-S",
+        "--socket",
+        dest="socketFile",
+        default="/tmp/smm.sock",
+        help="Use socket file FILE to connect to mysql",
+        metavar="FILE",
+    )
+    parser.add_option(
+        "-u", "--user", dest="user", default="qsmaster", help="User for db login if not %default"
+    )
+    parser.add_option(
+        "-p", "--password", dest="password", default="", help="Password for db login. ('-' prompts)"
+    )
     (_options, args) = parser.parse_args()
     if _options.password == "-":
         _options.password = getpass.getpass()

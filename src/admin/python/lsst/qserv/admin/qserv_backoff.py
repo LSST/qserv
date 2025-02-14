@@ -22,7 +22,6 @@
 
 """Utilities for using the backoff module in qserv."""
 
-
 import backoff
 from functools import partial
 from logging import Logger

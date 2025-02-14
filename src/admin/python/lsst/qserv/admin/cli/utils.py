@@ -18,8 +18,7 @@
 #
 # You should have received a copy of the GNU General Public License
 
-"""Utilities for CLI functions in qserv.
-"""
+"""Utilities for CLI functions in qserv."""
 
 import click
 import click.testing
@@ -114,11 +113,7 @@ def _read_yaml_presets(file: str, cmd_name: str) -> Dict[str, Union[str, int, bo
     return presets.get(cmd_name, dict())
 
 
-def process_targs(
-    ctx: click.Context,
-    param: click.Parameter,
-    vals: List[str]
-) -> Targs:
+def process_targs(ctx: click.Context, param: click.Parameter, vals: List[str]) -> Targs:
     """Helper for the `click.option` that accepts template argument overrides.
 
     On the CLI the option must be used once for each template argument.

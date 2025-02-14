@@ -19,8 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Unit tests for qserv_cli.
-"""
+"""Unit tests for qserv_cli."""
 
 from click.testing import CliRunner
 import os
@@ -127,6 +126,7 @@ def itest_args(**kwargs):
     args.update(kwargs)
     return args
 
+
 def prepare_data_args(**kwargs):
     """Get a safely-mutable dict of the launch.launch kwargs, with all the values set to ANY,
     for use with mock.assert_called_with().
@@ -153,7 +153,6 @@ def prepare_data_args(**kwargs):
     )
     args.update(kwargs)
     return args
-
 
 
 class QservCliTestCase(unittest.TestCase):

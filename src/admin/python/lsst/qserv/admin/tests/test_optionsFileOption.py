@@ -20,8 +20,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-"""Unit tests for the option_options_file CLI option.
-"""
+"""Unit tests for the option_options_file CLI option."""
 
 import click
 from click.testing import CliRunner
@@ -58,7 +57,6 @@ def cmd_bool(foo):
 
 
 class OptionsFileOptionTestCase(unittest.TestCase):
-
     def setUp(self) -> None:
         mock.reset_mock()
 
@@ -81,13 +79,7 @@ class OptionsFileOptionTestCase(unittest.TestCase):
             mock.reset_mock()
             with tempfile.NamedTemporaryFile() as options_file:
                 with open(options_file.name, "w") as f:
-                    f.write(
-                        yaml.dump(
-                            {
-                                cmd_name: {flag: val}
-                            }
-                        )
-                    )
+                    f.write(yaml.dump({cmd_name: {flag: val}}))
                 runner = CliRunner()
                 runner.invoke(cmd, [options_file_flag, options_file.name])
                 mock.assert_called_once_with(val)

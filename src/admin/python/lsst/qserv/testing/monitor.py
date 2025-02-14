@@ -1,5 +1,4 @@
-"""Classes for monitoring of test harness.
-"""
+"""Classes for monitoring of test harness."""
 
 from abc import ABC, abstractmethod
 import logging
@@ -12,8 +11,7 @@ _LOG = logging.getLogger(__name__)
 
 
 class Monitor(ABC):
-    """Interface definition for monitoring.
-    """
+    """Interface definition for monitoring."""
 
     @abstractmethod
     def add_metrics(self, name, tags={}, _ts=None, **kw):
@@ -37,8 +35,7 @@ class Monitor(ABC):
 
     @abstractmethod
     def close(self):
-        """Flush all data and close destination.
-        """
+        """Flush all data and close destination."""
         raise NotImplementedError()
 
 
@@ -56,6 +53,7 @@ class LogMonitor(Monitor):
     tags : `dict` [`str`, `Any`], optional
         Dictionary with tags and tag values to add to all metrics.
     """
+
     def __init__(self, logger, level=logging.INFO, prefix="monitor", tags=None):
         if not isinstance(logger, logging.Logger):
             logger = logging.getLogger(logger)
@@ -78,8 +76,7 @@ class LogMonitor(Monitor):
         values = ", ".join(f"{k}={v}" for k, v in kw.items())
         tags = ", ".join(f"{k}={v}" for k, v in tags.items())
 
-        self._logger.log(self._level, "%s: %s {%s} tags={%s} time=%s",
-                         self._prefix, name, values, tags, _ts)
+        self._logger.log(self._level, "%s: %s {%s} tags={%s} time=%s", self._prefix, name, values, tags, _ts)
 
     def close(self):
         # Docstring inherited from Monitor.
@@ -106,6 +103,7 @@ class InfluxDBFileMonitor(Monitor):
     tags : `dict` [`str`, `Any`], optional
         Dictionary with tags and tag values to add to all metrics.
     """
+
     def __init__(self, path, periodSec=None, dbname=None, tags=None):
         self._path = path
         self._period = periodSec
@@ -150,8 +148,7 @@ class InfluxDBFileMonitor(Monitor):
             self._file.close()
 
     def _open(self):
-        """Open next file
-        """
+        """Open next file"""
         if self._file:
             self._file.close()
 
@@ -207,6 +204,7 @@ class MPMonitor:
             polling by parent process. This number specifies the size of the
             buffer.
         """
+
         def __init__(self, queue, buffer_size=100):
             self._queue = queue
             self._buffer_size = buffer_size
@@ -235,8 +233,7 @@ class MPMonitor:
         self._queue = multiprocessing.Queue()
 
     def child_monitor(self):
-        """Make instance of Monitor for use by sub-process
-        """
+        """Make instance of Monitor for use by sub-process"""
         return MPMonitor.ChildMonitor(self._queue)
 
     def process(self, period):
@@ -248,6 +245,7 @@ class MPMonitor:
             Time period in seconds to run. If it is None just process queue
             until it's empty and return.
         """
+
         def _forward_metrics(items):
             for item in items:
                 name, tags, _ts, kw = item

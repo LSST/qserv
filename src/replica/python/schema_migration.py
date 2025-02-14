@@ -18,8 +18,7 @@
 #
 # You should have received a copy of the GNU General Public License
 
-"""Module defining methods used in schema migration of the Replication system's database.
-"""
+"""Module defining methods used in schema migration of the Replication system's database."""
 
 __all__ = ["make_migration_manager"]
 
@@ -39,6 +38,7 @@ from lsst.qserv.schema import (
 _log = logging.getLogger(__name__)
 
 database = "qservReplica"
+
 
 class MasterReplicationMigrationManager(SchemaMigMgr):
     """Class implementing schema migration for the master replication
@@ -73,7 +73,7 @@ class MasterReplicationMigrationManager(SchemaMigMgr):
         # Initial database schema implementation did not have version number stored at all,
         # and we call this version 0. Since version=1 version number is stored in
         # QMetadata table with key="version"
-        if not self.tableExists(database, 'QMetadata'):
+        if not self.tableExists(database, "QMetadata"):
             return 0
 
         self.connection.database = database
@@ -100,11 +100,11 @@ class MasterReplicationMigrationManager(SchemaMigMgr):
         current = self.current_version()
         if current != version:
             raise RuntimeError(
-                f"Failed to update version of database {database} to {version}, current version is {current}.")
+                f"Failed to update version of database {database} to {version}, current version is {current}."
+            )
 
     def _create_database(self) -> None:
-        """Create the replication controller database.
-        """
+        """Create the replication controller database."""
         with closing(self.connection.cursor()) as cursor:
             cursor.execute(f"CREATE DATABASE {database};")
             warnings = cursor.fetchwarnings()
@@ -114,8 +114,7 @@ class MasterReplicationMigrationManager(SchemaMigMgr):
         self.connection.commit()
 
     def _create_users(self) -> None:
-        """Create the users for the replication controller database.
-        """
+        """Create the users for the replication controller database."""
         if not self.repl_connection:
             raise RuntimeError(
                 "A non-admin replication database connection uri must be provided to initialize the "

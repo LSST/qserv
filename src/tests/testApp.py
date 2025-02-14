@@ -21,6 +21,7 @@
 """
 This is an out-of-date test harness for the app.py functions in qserv/master.
 """
+
 import lsst.qserv.master as qMaster
 import unittest
 
@@ -56,6 +57,7 @@ class AppTest(unittest.TestCase):
             for i in range(sz):
                 c = cvec.get(i)
                 yield c.name + "-->" + ",".join(vecGen(c))
+
         print("\n".join(vecConGen(cvec)))
 
         for i in range(3):

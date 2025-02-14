@@ -46,7 +46,6 @@ query_mode_qserv_detached = "qserv_detached"
 
 
 class ITestQuery:
-
     """Represents a query to execute, with utilities for loading the query from a file.
 
     Parameters
@@ -354,7 +353,6 @@ class ITestQuery:
 
 
 class ITestQueryHttp:
-
     """Represents a query to execute, with utilities for loading the query from a file.
 
     Parameters
@@ -519,12 +517,16 @@ class ITestQueryHttp:
         _log.debug("run_attached_http qserv:%s", qserv)
 
         # Submit the query, check and analyze the completion status
-        svc = str(urljoin(connection, '/query'))
-        req = requests.post(svc, json={'query': query, 'database': database, 'binary_encoding': 'hex'}, verify=False)
+        svc = str(urljoin(connection, "/query"))
+        req = requests.post(
+            svc, json={"query": query, "database": database, "binary_encoding": "hex"}, verify=False
+        )
         req.raise_for_status()
         res = req.json()
-        if res['success'] == 0:
-            raise RuntimeError(f"Failed to execute the attached query: {query}, server serror: {res['error']}")
+        if res["success"] == 0:
+            raise RuntimeError(
+                f"Failed to execute the attached query: {query}, server serror: {res['error']}"
+            )
         self._write_result(self.out_file_t.format(mode=query_mode_qserv_attached), res)
 
     def run_detached_http(self, connection: str, database: str) -> None:
@@ -543,13 +545,15 @@ class ITestQueryHttp:
         _log.debug("run_detached_http qserv:%s", qserv)
 
         # Submit the query via the async service, check and analyze the completion status
-        svc = str(urljoin(connection, '/query-async'))
-        req = requests.post(svc, json={'query': query, 'database': database}, verify=False)
+        svc = str(urljoin(connection, "/query-async"))
+        req = requests.post(svc, json={"query": query, "database": database}, verify=False)
         req.raise_for_status()
         res = req.json()
-        if res['success'] == 0:
-            raise RuntimeError(f"Failed to execute the detached query: {query}, server serror: {res['error']}")
-        query_id = res['queryId']
+        if res["success"] == 0:
+            raise RuntimeError(
+                f"Failed to execute the detached query: {query}, server serror: {res['error']}"
+            )
+        query_id = res["queryId"]
 
         # Wait for the completion of the query by periodically checking the query status
         _log.debug(f"SQLCmd.execute waiting for query {query_id} to complete")
@@ -560,9 +564,11 @@ class ITestQueryHttp:
             req = requests.get(svc, verify=False)
             req.raise_for_status()
             res = req.json()
-            if res['success'] == 0:
-                raise RuntimeError(f"Failed to check a status of the detached query: {query_id}, server serror: {res['error']}")
-            status = res['status']['status']
+            if res["success"] == 0:
+                raise RuntimeError(
+                    f"Failed to check a status of the detached query: {query_id}, server serror: {res['error']}"
+                )
+            status = res["status"]["status"]
             _log.debug("SQLCmd.execute query status = %s", status)
             if status == "COMPLETED":
                 break
@@ -574,27 +580,31 @@ class ITestQueryHttp:
         req = requests.get(svc, verify=False)
         req.raise_for_status()
         res = req.json()
-        if res['success'] == 0:
-            raise RuntimeError(f"Failed to retrieve a result set of the detached query: {query_id}, server serror: {res['error']}")
+        if res["success"] == 0:
+            raise RuntimeError(
+                f"Failed to retrieve a result set of the detached query: {query_id}, server serror: {res['error']}"
+            )
         self._write_result(self.out_file_t.format(mode=query_mode_qserv_detached), res)
 
     def _write_result(self, outfile: str, res: Any) -> None:
         _log.debug("_write_result out_file:%s", outfile)
         os.makedirs(os.path.dirname(outfile), exist_ok=True)
         with open(outfile, mode="w", encoding="utf-8") as f:
-            if self.column_names and len(res['rows']) != 0:
-                f.write('\t'.join(coldef['column'] for coldef in res['schema']))
-                f.write('\n')
-            for row in res['rows']:
-                line : str = ''
+            if self.column_names and len(res["rows"]) != 0:
+                f.write("\t".join(coldef["column"] for coldef in res["schema"]))
+                f.write("\n")
+            for row in res["rows"]:
+                line: str = ""
                 for col_idx in range(0, len(row)):
-                    if col_idx != 0: line = line + '\t'
+                    if col_idx != 0:
+                        line = line + "\t"
                     # This prefix needs to be added to make the binary string compatible with
                     # the output [produced by MySQL and Qserv.
-                    if res['schema'][col_idx]['is_binary']: line = line + '0x'
+                    if res["schema"][col_idx]["is_binary"]:
+                        line = line + "0x"
                     line = line + row[col_idx]
                 f.write(line)
-                f.write('\n')
+                f.write("\n")
         if self.sort_result:
             self._sort(outfile)
 
@@ -758,7 +768,7 @@ class ITestCaseHttp:
             skip_numbers,
         )
         # Supress the warning about the self-signed certificate
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning) 
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def run(self) -> None:
         """Run the test queries in a test case.
@@ -955,6 +965,7 @@ def run_queries_http(
     for case in get_cases():
         case.run()
 
+
 def compareQueryResults(run_cases: List[str], outputs_dir: str) -> List[ITestCaseResult]:
     """Compare results from runs with different modes.
 
@@ -1006,6 +1017,7 @@ def compareQueryResults(run_cases: List[str], outputs_dir: str) -> List[ITestCas
 
     return results
 
+
 def run_http_ingest(
     http_frontend_uri: str,
     keep_results: bool,
@@ -1021,23 +1033,23 @@ def run_http_ingest(
     """
 
     schema = [
-        {"name": "id",     "type": "INT"},
-        {"name": "val",    "type": "VARCHAR(32)"},
+        {"name": "id", "type": "INT"},
+        {"name": "val", "type": "VARCHAR(32)"},
         {"name": "active", "type": "BOOL"},
     ]
     indexes = [
-        {"index": "idx_id",
-         "spec": "UNIQUE",
-         "comment": "The unique primary key index.",
-         "columns": [
-             {"columnn": "id", "length": 0, "ascending": 1}
-         ]},
-        {"index": "idx_val",
-         "spec": "DEFAULT",
-         "comment": "The non-unique index on the string values.",
-         "columns": [
-             {"columnn": "val", "length": 32, "ascending": 1}
-         ]},
+        {
+            "index": "idx_id",
+            "spec": "UNIQUE",
+            "comment": "The unique primary key index.",
+            "columns": [{"columnn": "id", "length": 0, "ascending": 1}],
+        },
+        {
+            "index": "idx_val",
+            "spec": "DEFAULT",
+            "comment": "The non-unique index on the string values.",
+            "columns": [{"columnn": "val", "length": 32, "ascending": 1}],
+        },
     ]
     rows = [
         ["1", "Andy", "1"],
@@ -1065,7 +1077,9 @@ def run_http_ingest(
     try:
         _http_ingest_data_json(http_frontend_uri, database, table_json, schema, indexes, rows)
     except Exception as e:
-        _log.error("Failed to ingest data into table: %s of user database: %s, error: %s", table_json, database, e)
+        _log.error(
+            "Failed to ingest data into table: %s of user database: %s, error: %s", table_json, database, e
+        )
         return False
     try:
         _http_query_table(http_frontend_uri, database, table_json, rows)
@@ -1077,7 +1091,9 @@ def run_http_ingest(
     try:
         _http_ingest_data_csv(http_frontend_uri, database, table_csv, schema, indexes, rows)
     except Exception as e:
-        _log.error("Failed to ingest data into table: %s of user database: %s, error: %s", table_csv, database, e)
+        _log.error(
+            "Failed to ingest data into table: %s of user database: %s, error: %s", table_csv, database, e
+        )
         return False
     try:
         _http_query_table(http_frontend_uri, database, table_csv, rows)
@@ -1100,6 +1116,7 @@ def run_http_ingest(
             return False
 
     return True
+
 
 def _http_delete_database(
     http_frontend_uri: str,
@@ -1125,6 +1142,7 @@ def _http_delete_database(
     if res["success"] == 0:
         error = res["error"]
         raise RuntimeError(f"Failed to delete user database: {database}, error: {error}")
+
 
 def _http_delete_table(
     http_frontend_uri: str,
@@ -1154,6 +1172,7 @@ def _http_delete_table(
         error = res["error"]
         raise RuntimeError(f"Failed to delete table: {table} from user database: {database}, error: {error}")
 
+
 def _http_ingest_data_json(
     http_frontend_uri: str,
     database: str,
@@ -1180,7 +1199,7 @@ def _http_ingest_data_json(
     _log.debug("Ingesting JSON data into table: %s of user database: %s", table, database)
     data = {
         "version": repl_api_version,
-        "database" : database,
+        "database": database,
         "table": table,
         "schema": schema,
         "indexes": indexes,
@@ -1192,7 +1211,10 @@ def _http_ingest_data_json(
     res = req.json()
     if res["success"] == 0:
         error = res["error"]
-        raise RuntimeError(f"Failed to create and load the table: {table} in user database {database}, error: {error}")
+        raise RuntimeError(
+            f"Failed to create and load the table: {table} in user database {database}, error: {error}"
+        )
+
 
 def _http_ingest_data_csv(
     http_frontend_uri: str,
@@ -1236,9 +1258,9 @@ def _http_ingest_data_csv(
             csv_writer.writerow(row)
 
     encoder = MultipartEncoder(
-        fields = {
+        fields={
             "version": (None, str(repl_api_version)),
-            "database" : (None, database),
+            "database": (None, database),
             "table": (None, table),
             "fields_terminated_by": (None, ","),
             "schema": (schema_file, open(schema_file_path, "rb"), "application/json"),
@@ -1247,12 +1269,15 @@ def _http_ingest_data_csv(
         }
     )
     url = str(urljoin(http_frontend_uri, "/ingest/csv"))
-    req = requests.post(url, data=encoder, headers={'Content-Type': encoder.content_type}, verify=False)
+    req = requests.post(url, data=encoder, headers={"Content-Type": encoder.content_type}, verify=False)
     req.raise_for_status()
     res = req.json()
     if res["success"] == 0:
         error = res["error"]
-        raise RuntimeError(f"Failed to create and load the table: {table} in user database {database}, error: {error}")
+        raise RuntimeError(
+            f"Failed to create and load the table: {table} in user database {database}, error: {error}"
+        )
+
 
 def _http_query_table(
     http_frontend_uri: str,
@@ -1276,7 +1301,7 @@ def _http_query_table(
     _log.debug("Querying table: %s of user database: %s", table, database)
     data = {
         "version": repl_api_version,
-        "database" : database,
+        "database": database,
         "query": f"SELECT `id`,`val`,`active` FROM `{table}` ORDER BY id ASC",
     }
     url = str(urljoin(http_frontend_uri, "/query"))
@@ -1288,4 +1313,6 @@ def _http_query_table(
         raise RuntimeError(f"Failed to query the table: {table} in user database: {database}, error: {error}")
     received_rows = res["rows"]
     if received_rows != expected_rows:
-        raise RuntimeError(f"Query result mismatch for table: {table} in user database: {database}, expected: {expected_rows}, got: {received_rows}")
+        raise RuntimeError(
+            f"Query result mismatch for table: {table} in user database: {database}, expected: {expected_rows}, got: {received_rows}"
+        )

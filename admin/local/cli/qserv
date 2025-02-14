@@ -57,6 +57,7 @@ def import_and_run():
     # errors that require exiting
     try:
         from lsst.qserv.admin.qservCli.qserv_cli import qserv
+
         sys.exit(qserv())
     except QservSubprocessError:
         sys.exit(1)

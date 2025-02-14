@@ -26,7 +26,6 @@ upstream dependencies, i.e. `lsst.utls` depends on numpy, but we don't need
 numpy for the `lsst.utils` functions used by `lsst.log`
 """
 
-
 import sys
 
 
@@ -74,17 +73,19 @@ def continueClass(cls):
     return orig
 
 
-INTRINSIC_SPECIAL_ATTRIBUTES = frozenset((
-    "__qualname__",
-    "__module__",
-    "__metaclass__",
-    "__dict__",
-    "__weakref__",
-    "__class__",
-    "__subclasshook__",
-    "__name__",
-    "__doc__",
-))
+INTRINSIC_SPECIAL_ATTRIBUTES = frozenset(
+    (
+        "__qualname__",
+        "__module__",
+        "__metaclass__",
+        "__dict__",
+        "__weakref__",
+        "__class__",
+        "__subclasshook__",
+        "__name__",
+        "__doc__",
+    )
+)
 
 
 def isAttributeSafeToTransfer(name, value):
@@ -95,7 +96,8 @@ def isAttributeSafeToTransfer(name, value):
     classes, leaving only those explicitly defined in a class decorated by
     `continueClass` or registered with an instance of `TemplateMeta`.
     """
-    if name.startswith("__") and (value is getattr(object, name, None)
-                                  or name in INTRINSIC_SPECIAL_ATTRIBUTES):
+    if name.startswith("__") and (
+        value is getattr(object, name, None) or name in INTRINSIC_SPECIAL_ATTRIBUTES
+    ):
         return False
     return True

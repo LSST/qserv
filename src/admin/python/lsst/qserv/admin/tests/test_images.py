@@ -19,8 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Unit tests for the images module.
-"""
+"""Unit tests for the images module."""
 
 import unittest
 from unittest.mock import patch
@@ -31,7 +30,6 @@ import images
 
 
 class GetMostRecentTestCase(unittest.TestCase):
-
     # Our git_log function calls `git log a..b`, so if b is newer than a it will
     # return a list of shas, and if a is newer then it will return nothing.
     # Simulate that here by treating a and b alphabeticlly.

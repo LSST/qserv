@@ -22,7 +22,6 @@
 
 "Mysql utilities."
 
-
 import logging
 import mysql.connector
 from typing import cast

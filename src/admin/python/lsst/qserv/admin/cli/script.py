@@ -471,7 +471,6 @@ def enter_worker_xrootd(
     save_template_cfg({"mysqld_user_qserv": mysqld_user_qserv})
     save_template_cfg({"mysqld_user_qserv_password": mysqld_user_qserv_password})
 
-
     smig_worker(db_admin_uri, update=False)
 
     # TODO worker (and manager) xrootd+cmsd pair should "share" the cfg file
@@ -655,15 +654,14 @@ def enter_proxy(
     sys.exit(_run(args=None, cmd=cmd, env=env))
 
 
-
 def enter_czar_http(
     targs: Targs,
     db_uri: str,
     czar_cfg_file: str,
     czar_cfg_path: str,
     log_cfg_file: str,
-    http_ssl_cert_file : str,
-    http_ssl_private_key_file : str,
+    http_ssl_cert_file: str,
+    http_ssl_private_key_file: str,
     cmd: str,
 ) -> None:
     """Entrypoint script for the proxy container.
@@ -715,8 +713,11 @@ def enter_czar_http(
     # check if the SSL certificate and private key files exist and create
     # them if they don't.
     if not os.path.exists(http_ssl_cert_file) or not os.path.exists(http_ssl_private_key_file):
-        _log.info("Generating self-signed SSL/TLS certificate %s and private key %s for HTTPS",
-                  http_ssl_cert_file, http_ssl_private_key_file)
+        _log.info(
+            "Generating self-signed SSL/TLS certificate %s and private key %s for HTTPS",
+            http_ssl_cert_file,
+            http_ssl_private_key_file,
+        )
         country = "US"
         state = "California"
         loc = "Menlo Park"
@@ -725,16 +726,29 @@ def enter_czar_http(
         hostname = socket.gethostbyaddr(socket.gethostname())[0]  # FQDN if available
         subj = f"/C={country}/ST={state}/L={loc}/O={org}/OU={org_unit}/CN={hostname}"
         openssl_cmd = [
-            "openssl", "req",
+            "openssl",
+            "req",
             "-x509",
-            "-newkey", "rsa:4096",
-            "-out", http_ssl_cert_file,
-            "-keyout", http_ssl_private_key_file,
+            "-newkey",
+            "rsa:4096",
+            "-out",
+            http_ssl_cert_file,
+            "-keyout",
+            http_ssl_private_key_file,
             "-sha256",
-            "-days", "365",
+            "-days",
+            "365",
             "-nodes",
-            "-subj", subj]
-        ret = subprocess.run(openssl_cmd, env=dict(os.environ,), cwd="/home/qserv")
+            "-subj",
+            subj,
+        ]
+        ret = subprocess.run(
+            openssl_cmd,
+            env=dict(
+                os.environ,
+            ),
+            cwd="/home/qserv",
+        )
         if ret.returncode != 0:
             raise RuntimeError("Failed to create SSL certificate and private key files.")
 
@@ -746,7 +760,6 @@ def enter_czar_http(
     )
 
     sys.exit(_run(args=None, cmd=cmd, env=env))
-
 
 
 def enter_replication_controller(

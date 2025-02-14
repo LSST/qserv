@@ -65,6 +65,7 @@ def wait_for_replication_system(repl_ctrl_uri: str) -> None:
 class DbServiceNotReady(RuntimeError):
     pass
 
+
 @backoff.on_exception(
     exception=(DbServiceNotReady, mysql.connector.errors.DatabaseError, MySQLInterfaceError),
     wait_gen=backoff.expo,
@@ -387,9 +388,8 @@ def run_integration_tests_http_ingest(
         )
     return True
 
-def prepare_data(
-    tests_yaml: str
-) -> bool:
+
+def prepare_data(tests_yaml: str) -> bool:
     """Top level script to unzip and partition test datasets
 
     Parameters
@@ -411,9 +411,6 @@ def prepare_data(
     if not os.path.exists(qserv_testdata_dir):
         raise RuntimeError("qserv_testdata sources are not present.")
 
-    itest_load.prepare_data(
-        test_cases_data=tests_data["test_cases"]
-    )
+    itest_load.prepare_data(test_cases_data=tests_data["test_cases"])
 
     return True
-

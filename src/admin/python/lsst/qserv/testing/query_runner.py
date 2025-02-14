@@ -1,5 +1,4 @@
-"""Class which runs queries sequentially.
-"""
+"""Class which runs queries sequentially."""
 
 __all__ = ["QueryRunner"]
 
@@ -35,8 +34,17 @@ class QueryRunner:
         Monitoring instance
     """
 
-    def __init__(self, queries, maxRate, connectionFactory, runnerId, arraysize=None,
-                 queryCountLimit=None, runTimeLimit=None, monitor=None):
+    def __init__(
+        self,
+        queries,
+        maxRate,
+        connectionFactory,
+        runnerId,
+        arraysize=None,
+        queryCountLimit=None,
+        runTimeLimit=None,
+        monitor=None,
+    ):
         self._queries = queries
         self._queryKeys = list(queries.keys())
         self._maxRate = maxRate
@@ -48,30 +56,32 @@ class QueryRunner:
         self._monitor = monitor
 
     def __call__(self):
-
         conn = self._connectionFactory()
         cursor = conn.cursor()
 
         n_queries = 0
-        exec_time_cum = 0.
-        result_time_cum = 0.
-        query_time_cum = 0.
-        sleep_time_cum = 0.
+        exec_time_cum = 0.0
+        result_time_cum = 0.0
+        query_time_cum = 0.0
+        sleep_time_cum = 0.0
 
         t_start = time.time()
 
         while True:
-
             if self._queryCountLimit is not None and n_queries > self._queryCountLimit:
                 # stop right here
-                _LOG.debug("runner=%s: stopping due to query count limit: %s",
-                           self._runnerId, self._queryCountLimit)
+                _LOG.debug(
+                    "runner=%s: stopping due to query count limit: %s", self._runnerId, self._queryCountLimit
+                )
                 break
 
             if self._runTimeLimit is not None:
                 if time.time() - t_start > self._runTimeLimit:
-                    _LOG.debug("runner=%s: stopping due to run time limit: %s sec",
-                               self._runnerId, self._runTimeLimit)
+                    _LOG.debug(
+                        "runner=%s: stopping due to run time limit: %s sec",
+                        self._runnerId,
+                        self._runTimeLimit,
+                    )
                     break
 
             # chose one query randomly
@@ -83,7 +93,7 @@ class QueryRunner:
             if self._maxRate is not None:
                 now = time.time()
                 t_next = t_start + n_queries / self._maxRate
-                sleep_time = max(t_next - now, 0.)
+                sleep_time = max(t_next - now, 0.0)
                 if sleep_time > 0:
                     _LOG.debug("runner=%s: sleeping for %s seconds", self._runnerId, sleep_time)
                     time.sleep(sleep_time)
@@ -95,7 +105,7 @@ class QueryRunner:
                     tags={
                         "qid": qkey,
                         "runner": self._runnerId,
-                    }
+                    },
                 )
 
             t_qstart = time.time()
@@ -121,7 +131,7 @@ class QueryRunner:
                     tags={
                         "qid": qkey,
                         "runner": self._runnerId,
-                    }
+                    },
                 )
 
             n_rows = cursor.rowcount
@@ -139,10 +149,15 @@ class QueryRunner:
 
             result_size = row_size * n_rows
 
-            _LOG.debug("runner=%s: query execution time = %s sec, result fetch time = %s sec",
-                       self._runnerId, t_executed - t_qstart, t_qend - t_executed)
-            _LOG.debug("runner=%s: row count = %s, result size = %s (approx)",
-                       self._runnerId, n_rows, result_size)
+            _LOG.debug(
+                "runner=%s: query execution time = %s sec, result fetch time = %s sec",
+                self._runnerId,
+                t_executed - t_qstart,
+                t_qend - t_executed,
+            )
+            _LOG.debug(
+                "runner=%s: row count = %s, result size = %s (approx)", self._runnerId, n_rows, result_size
+            )
 
             n_queries += 1
 
@@ -155,7 +170,6 @@ class QueryRunner:
             sleep_time_cum += sleep_time
 
             if self._monitor:
-
                 # current query timing metrics
                 self._monitor.add_metrics(
                     "query_time",
@@ -166,7 +180,7 @@ class QueryRunner:
                     tags={
                         "qid": qkey,
                         "runner": self._runnerId,
-                    }
+                    },
                 )
 
                 # cumulative time metrics
@@ -178,7 +192,7 @@ class QueryRunner:
                     sleep=sleep_time_cum,
                     tags={
                         "runner": self._runnerId,
-                    }
+                    },
                 )
 
                 # query rate
@@ -187,7 +201,7 @@ class QueryRunner:
                     value=rate,
                     tags={
                         "runner": self._runnerId,
-                    }
+                    },
                 )
 
                 # total query count
@@ -196,7 +210,7 @@ class QueryRunner:
                     count=n_queries,
                     tags={
                         "runner": self._runnerId,
-                    }
+                    },
                 )
 
                 # total time (just linear function)
@@ -205,7 +219,7 @@ class QueryRunner:
                     value=total_time,
                     tags={
                         "runner": self._runnerId,
-                    }
+                    },
                 )
 
         # because this runs in a subprocess we need to cleanup

@@ -30,7 +30,6 @@ from lsst.qserv.admin.cli.render_targs import (
 
 
 class GetVarsTestCase(unittest.TestCase):
-
     def test(self):
         self.assertEqual(_get_vars("{{foo}}"), ["foo"])
         self.assertEqual(_get_vars("abc {{foo}}"), ["foo"])
@@ -45,7 +44,6 @@ class GetVarsTestCase(unittest.TestCase):
 
 
 class RenderTargsTestCase(unittest.TestCase):
-
     def testMutualReference(self):
         """Test for failure when targs refer directly to each other."""
         with self.assertRaises(UnresolvableTemplate) as r:
@@ -84,30 +82,22 @@ class RenderTargsTestCase(unittest.TestCase):
     def testList(self):
         """Verify that lists can be used as values and manipulated by the template."""
         self.assertEqual(
-            render_targs({"a": "{{b|join(' ')}}", "b": ["foo", "bar"]}),
-            {"a": "foo bar", "b": ["foo", "bar"]}
+            render_targs({"a": "{{b|join(' ')}}", "b": ["foo", "bar"]}), {"a": "foo bar", "b": ["foo", "bar"]}
         )
 
     def testResolves(self):
         """Verify that a dict with legal values resolves correctly."""
         self.assertEqual(
-            render_targs({"a": "{{ b }}", "b": "{{c}}", "c": "d"}),
-            {"a": "d", "b": "d", "c": "d"}
+            render_targs({"a": "{{ b }}", "b": "{{c}}", "c": "d"}), {"a": "d", "b": "d", "c": "d"}
         )
 
     def testNone(self):
         """Test that a dict with None as a value resolves correctly."""
-        self.assertEqual(
-            render_targs({"a": None}),
-            {"a": None}
-        )
+        self.assertEqual(render_targs({"a": None}), {"a": None})
 
     def testBool(self):
         """Test that a dict with a bool as a value resolves correctly."""
-        self.assertEqual(
-            render_targs({"a": True}),
-            {"a": True}
-        )
+        self.assertEqual(render_targs({"a": True}), {"a": True})
 
     def testVarWithSpace(self):
         """Verify spaces are not allowed inside of jinja template variables.

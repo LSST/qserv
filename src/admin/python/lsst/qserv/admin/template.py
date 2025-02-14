@@ -104,10 +104,7 @@ def apply_template_cfg(template: str, targs: Optional[Targs] = None) -> str:
         raise
 
 
-def apply_template_cfg_file(
-    src: str,
-    dest: str,
-    targs: Optional[Targs] = None) -> None:
+def apply_template_cfg_file(src: str, dest: str, targs: Optional[Targs] = None) -> None:
     """Open and read a template file, apply the config values to it, and write
     the rendered version to a file.
 

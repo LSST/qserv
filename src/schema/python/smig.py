@@ -68,9 +68,7 @@ def _load_migration_mgr(
 
     # load module "lsst.qserv.<module>.schema_migration"
     try:
-        mod_instance = importlib.import_module(
-            "lsst.qserv." + mod_name + "." + _mig_module_name
-        )
+        mod_instance = importlib.import_module("lsst.qserv." + mod_name + "." + _mig_module_name)
     except ImportError:
         logging.error(
             "Failed to load %s module from lsst.qserv.%s package",
@@ -186,7 +184,7 @@ def smig(
         If the module does not have a migration manager factory method.
     ValueErrors
         If the config_file's 'technology' parameter specifies an unrecognized
-        techology for database connection.    """
+        techology for database connection."""
 
     # if not connection:  # and not config_file:
     #     raise RuntimeError("A connection or config file is required.")
@@ -231,16 +229,22 @@ def smig(
             tag = " (X)" if migration.from_version >= current else ""
             return f"{migration.from_version} -> {migration.to_version} : {migration.name}{tag}"
 
-        _log.info(f"Known migrations for {module}: "
-                f"{', '.join(format_migration(migration) for migration in mgr.migrations)}")
+        _log.info(
+            f"Known migrations for {module}: "
+            f"{', '.join(format_migration(migration) for migration in mgr.migrations)}"
+        )
 
         if check:
             return 0 if mgr.current_version() == mgr.latest_version() else 1
 
-        if (mgr.current_version() != Uninitialized and
-            mgr.current_version() != mgr.latest_version() and
-            update == False):
-            raise SchemaUpdateRequired(f"Can not upgrade {module} from version {mgr.current_version()} without upgrade=True.")
+        if (
+            mgr.current_version() != Uninitialized
+            and mgr.current_version() != mgr.latest_version()
+            and update == False
+        ):
+            raise SchemaUpdateRequired(
+                f"Can not upgrade {module} from version {mgr.current_version()} without upgrade=True."
+            )
 
         if not mgr.migrations:
             raise RuntimeError(f"Did not find any migrations for {module}")
@@ -261,12 +265,18 @@ class VersionMismatchError(RuntimeError):
     """Rasing a VersionMismatchError indicates that the schema do not match yet.
     This can be handled by @backoff which may retry later.
     """
+
     def __init__(self, module: str, current: Union[int, Type[Uninitialized]], latest: Version):
         super().__init__(f"Module {module} schema is at version {current}, latest is {latest}")
 
 
 @backoff.on_exception(
-    exception=(VersionMismatchError, mysql.connector.errors.DatabaseError, MySQLInterfaceError, mysql.connector.errors.ProgrammingError),
+    exception=(
+        VersionMismatchError,
+        mysql.connector.errors.DatabaseError,
+        MySQLInterfaceError,
+        mysql.connector.errors.ProgrammingError,
+    ),
     wait_gen=backoff.expo,
     on_backoff=on_backoff(log=_log),
     max_time=max_backoff_sec,

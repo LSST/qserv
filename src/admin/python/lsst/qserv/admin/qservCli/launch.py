@@ -58,12 +58,10 @@ _log = logging.getLogger(__name__)
 
 
 ITestVolumes = namedtuple("ITestVolumes", "db_data, db_lib, exe")
-def make_itest_volumes(project : str) -> ITestVolumes:
-    return ITestVolumes(
-        project + "_itest_db_data",
-        project + "_itest_db_lib",
-        project + "_itest_exe"
-    )
+
+
+def make_itest_volumes(project: str) -> ITestVolumes:
+    return ITestVolumes(project + "_itest_db_data", project + "_itest_db_lib", project + "_itest_exe")
 
 
 def do_pull_image(image_name: str, dh_user: Optional[str], dh_token: Optional[str], dry: bool) -> bool:
@@ -208,12 +206,7 @@ def submodules_initalized(qserv_root: str) -> bool:
 
 
 def cmake(
-    qserv_root: str,
-    qserv_build_root: str,
-    build_image: str,
-    user: str,
-    run_cmake: Optional[bool],
-    dry: bool
+    qserv_root: str, qserv_build_root: str, build_image: str, user: str, run_cmake: Optional[bool], dry: bool
 ) -> None:
     """Run cmake on qserv, optionally if needed.
 
@@ -238,7 +231,8 @@ def cmake(
     if run_cmake is False or (run_cmake is None and build_dir_exists):
         _log.debug(
             "run_cmake is %s, the build dir %s.",
-            run_cmake, "exists" if build_dir_exists else "does not exist",
+            run_cmake,
+            "exists" if build_dir_exists else "does not exist",
         )
         return
 
@@ -378,12 +372,7 @@ def mypy(
 
 
 def clang_format(
-    clang_format_mode: str,
-    qserv_root: str,
-    qserv_build_root: str,
-    build_image: str,
-    user: str,
-    dry: bool
+    clang_format_mode: str, qserv_root: str, qserv_build_root: str, build_image: str, user: str, dry: bool
 ) -> None:
     if clang_format_mode == "check":
         print("Checking all .h and .cc files in 'src' with clang-format...")
@@ -392,8 +381,10 @@ def clang_format(
     else:
         raise RuntimeError(f"Unexpected value for clang_format_mode: {clang_format_mode}")
 
-    cmd = (f"docker run --init --rm -u {user} --mount {root_mount(qserv_root, qserv_build_root, user)} "
-          f"-w {src_dir(qserv_build_root.format(user=user))} {build_image} ")
+    cmd = (
+        f"docker run --init --rm -u {user} --mount {root_mount(qserv_root, qserv_build_root, user)} "
+        f"-w {src_dir(qserv_build_root.format(user=user))} {build_image} "
+    )
     find_cmd = cmd + "find . -name *.h -o -name *.cc"
     args = find_cmd.split()
     result = subproc.run(args, capture_stdout=True, encoding="utf-8")
@@ -549,33 +540,36 @@ def build_docs(
     upload_cmd = None
     if upload:
         upload_vars = (
-            f'-e LTD_USERNAME={ltd_user} -e LTD_PASSWORD={ltd_password} -e '
-            f'GITHUB_EVENT_NAME={gh_event} -e GITHUB_HEAD_REF={gh_head_ref} -e GITHUB_REF={gh_ref} '
+            f"-e LTD_USERNAME={ltd_user} -e LTD_PASSWORD={ltd_password} -e "
+            f"GITHUB_EVENT_NAME={gh_event} -e GITHUB_HEAD_REF={gh_head_ref} -e GITHUB_REF={gh_ref} "
         ).split()
-        upload_cmd = f" && ltd upload --product qserv --gh --dir {doc_dir(qserv_build_root.format(user=user))}"
+        upload_cmd = (
+            f" && ltd upload --product qserv --gh --dir {doc_dir(qserv_build_root.format(user=user))}"
+        )
     args = [
         "docker",
         "run",
     ]
     if upload_vars:
         args.extend(upload_vars)
-    args.extend([
-        "-u",
-        user,
-        "--mount",
-        root_mount(qserv_root, qserv_build_root, user),
-        "-w",
-        build_dir(qserv_build_root.format(user=user)),
-        build_image,
-        "/bin/bash",
-        "-c",
-        f"make {'docs-linkcheck ' if linkcheck else ''}docs-html{' ' + upload_cmd if upload_cmd else ''}",
-    ])
+    args.extend(
+        [
+            "-u",
+            user,
+            "--mount",
+            root_mount(qserv_root, qserv_build_root, user),
+            "-w",
+            build_dir(qserv_build_root.format(user=user)),
+            build_image,
+            "/bin/bash",
+            "-c",
+            f"make {'docs-linkcheck ' if linkcheck else ''}docs-html{' ' + upload_cmd if upload_cmd else ''}",
+        ]
+    )
     if dry:
         print(" ".join(args))
         return
     subprocess.run(args, check=True)
-
 
 
 def build_build_image(
@@ -1176,6 +1170,7 @@ def integration_test_http(
     result = subprocess.run(args)
     return result.returncode
 
+
 def integration_test_http_ingest(
     qserv_root: str,
     itest_container_http_ingest: str,
@@ -1271,6 +1266,7 @@ def integration_test_http_ingest(
     result = subprocess.run(args)
     return result.returncode
 
+
 def itest(
     qserv_root: str,
     mariadb_image: str,
@@ -1316,7 +1312,6 @@ def itest(
         dry,
     )
     try:
-
         returncode = integration_test(
             qserv_root,
             itest_container,
@@ -1363,8 +1358,7 @@ def itest_http(
     wait: int,
     remove: bool,
 ) -> int:
-    """Run integration tests of the HTTP frontend.
-    """
+    """Run integration tests of the HTTP frontend."""
     itest_volumes = make_itest_volumes(project)
     itest_ref(
         qserv_root,
@@ -1376,7 +1370,6 @@ def itest_http(
         dry,
     )
     try:
-
         returncode = integration_test_http(
             qserv_root,
             itest_http_container,
@@ -1401,6 +1394,7 @@ def itest_http(
         stop_db_returncode = stop_itest_ref(itest_ref_container, dry) if remove else 0
     return returncode or stop_db_returncode
 
+
 def itest_http_ingest(
     qserv_root: str,
     itest_http_ingest_container: str,
@@ -1415,8 +1409,7 @@ def itest_http_ingest(
     wait: int,
     remove: bool,
 ) -> int:
-    """Run integration tests of ingesting user tables via the HTTP frontend.
-    """
+    """Run integration tests of ingesting user tables via the HTTP frontend."""
     itest_volumes = make_itest_volumes(project)
     returncode = integration_test_http_ingest(
         qserv_root,
@@ -1513,7 +1506,7 @@ def prepare_data(
         "--mount",
         f"src={os.path.join(qserv_root, testdata_subdir)},dst={tests_data['qserv-testdata-dir']},type=bind",
         "--mount",
-        f"src={outdir},dst={tmp_data_dir},type=bind"
+        f"src={outdir},dst={tmp_data_dir},type=bind",
     ]
 
     add_network_option(args, project)

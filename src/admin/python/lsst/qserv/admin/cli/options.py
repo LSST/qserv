@@ -18,9 +18,7 @@
 #
 # You should have received a copy of the GNU General Public License
 
-"""Shared options for CLI functions in qserv.
-"""
-
+"""Shared options for CLI functions in qserv."""
 
 from abc import abstractmethod
 import click
@@ -208,7 +206,7 @@ option_vnid_config = partial(
     click.option,
     "--vnid-config",
     help="The config parameters used by the qserv cmsd to get the vnid from the specified "
-    " source (static string, a file or worker database)."
+    " source (static string, a file or worker database).",
 )
 
 
@@ -296,23 +294,16 @@ option_compare_results = partial(
 )
 
 
-option_db_uri = partial(
-    click.option,
-    "--db-uri",
-    help="The URI to the database."
-)
+option_db_uri = partial(click.option, "--db-uri", help="The URI to the database.")
 
 
-option_db_admin_uri = partial(
-    click.option,
-    "--db-admin-uri",
-    help="The admin URI to the database."
-)
+option_db_admin_uri = partial(click.option, "--db-admin-uri", help="The admin URI to the database.")
 
 
 option_options_file = partial(
     click.option,
-    "--options-file", "-@",
+    "--options-file",
+    "-@",
     expose_value=False,  # This option should not be forwarded
     help="""Path to a YAML file containing overrides of command line options.
 The YAML should be organized as a hierarchy with subcommand names at the top
@@ -348,7 +339,6 @@ option_targs_file = partial(
 
 
 class options_targs(OptionGroup):  # noqa: N801
-
     @property
     def decorators(self) -> List[Callable]:
         return [

@@ -1,5 +1,4 @@
-"""Configuration classes for testing harness.
-"""
+"""Configuration classes for testing harness."""
 
 __all__ = ["Config", "QueryFactory"]
 
@@ -37,6 +36,7 @@ class _ValueRandomUniform:
     min, max : `float`
         Range for generated numbers.
     """
+
     def __init__(self, min, max):
         self._min = float(min)
         self._max = float(max)
@@ -53,6 +53,7 @@ class _ValueRandomUniformInt:
     min, max : `int`
         Range for generated numbers.
     """
+
     def __init__(self, min, max):
         self._min = float(min)
         self._max = float(max)
@@ -71,6 +72,7 @@ class _ValueIntFromFile:
     mode : `str`, optional
         One of "random" or "sequential".
     """
+
     def __init__(self, path, mode="random"):
         # read all numbers from file as integers
         if path == "/dev/null":
@@ -105,17 +107,17 @@ class QueryFactory:
         Dictionary whose keys are variable names and values are dictionaries
         with a description of how to generate variable value.
     """
+
     def __init__(self, txt, variables=None):
         self._txt = txt
         self._vars = {}
         if variables is not None:
-
             for var, config in variables.items():
                 generator = None
                 if "distribution" in config:
                     if config["distribution"] == "uniform":
-                        min = config.get("min", 0.)
-                        max = config.get("max", 1.)
+                        min = config.get("min", 0.0)
+                        max = config.get("max", 1.0)
                         generator = _ValueRandomUniform(min, max)
                     elif config["distribution"] == "uniform_int":
                         min = config.get("min", 0)
@@ -154,8 +156,8 @@ class Config:
     configs : `list` [`dict`]
         List of dictionaries, cannot be empty.
     """
-    def __init__(self, configs):
 
+    def __init__(self, configs):
         if not configs:
             raise ValueError("empty configurations list")
 
@@ -171,8 +173,9 @@ class Config:
 
         self._classes = classes & querykeys
         if not self._classes:
-            raise ValueError(f"Query classes has no common keys with queries: "
-                             f"queryClasses={classes}, queries={querykeys}")
+            raise ValueError(
+                f"Query classes has no common keys with queries: queryClasses={classes}, queries={querykeys}"
+            )
 
         self._queries = {}
         for qclass in self._classes:

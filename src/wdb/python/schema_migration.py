@@ -19,8 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Module defining methods used in schema migration of Worker metadata database.
-"""
+"""Module defining methods used in schema migration of Worker metadata database."""
 
 __all__ = ["make_migration_manager"]
 
@@ -37,9 +36,9 @@ _log = logging.getLogger(__name__)
 
 database = "qservw_worker"
 
+
 class WdbMigrationManager(SchemaMigMgr):
-    """Class implementing schema migration for Worker metadata database.
-    """
+    """Class implementing schema migration for Worker metadata database."""
 
     def __init__(self, connection: str, scripts_dir: str):
         super().__init__(scripts_dir, connection)
@@ -60,7 +59,7 @@ class WdbMigrationManager(SchemaMigMgr):
         # Initial database schema implementation did not have version number stored at all,
         # and we call this version 0. Since version=1 version number is stored in
         # QMetadata table with key="version"
-        if not self.tableExists(database, 'QMetadata'):
+        if not self.tableExists(database, "QMetadata"):
             return 0
 
         self.connection.database = database
@@ -89,7 +88,8 @@ class WdbMigrationManager(SchemaMigMgr):
         current = self.current_version()
         if current != version:
             raise RuntimeError(
-                f"Failed to update version number in the database to {version}, current version is now {current}")
+                f"Failed to update version number in the database to {version}, current version is now {current}"
+            )
 
     def apply_migrations(self, migrations: Sequence[Migration]) -> Version:
         """Apply migrations.
@@ -107,6 +107,7 @@ class WdbMigrationManager(SchemaMigMgr):
         version = super().apply_migrations(migrations)
         self._set_version(version)
         return Version(version)
+
 
 def make_migration_manager(connection: str, scripts_dir: str) -> SchemaMigMgr:
     """Factory method for admin schema migration manager
