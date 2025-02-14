@@ -1,3 +1,26 @@
-[tool.black]
+[tool.ruff]
 line-length = 110
-target-version = ['py38']
+target-version = "py312"
+extend-include = [
+    "./admin/local/cli/qserv",
+    "./src/admin/bin/entrypoint",
+    "./src/admin/bin/qserv-kraken",
+]
+extend-exclude = [
+    "build/*",
+    "extern/*",
+    "doc/conf.py",
+    "doc/misc/examples/obsolete",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "N",    # pep8-naming
+    "W",    # pycodestyle
+    "UP",   # pyupgrade
+    "RUF",  # Ruff-specific
+]
+ignore = [
+]
