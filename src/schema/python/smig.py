@@ -23,7 +23,6 @@
 import importlib
 import logging
 from contextlib import closing
-from typing import Optional, Type, Union
 
 import backoff
 from _mysql_connector import MySQLInterfaceError
@@ -143,7 +142,7 @@ def smig(
     module: str,
     mig_mgr_args: MigMgrArgs,
     update: bool,
-) -> Optional[int]:
+) -> int | None:
     """Execute schema migration.
 
     Parameters
@@ -221,10 +220,10 @@ def smig(
         )
     ) as mgr:
         current = mgr.current_version()
-        _log.info("Current {} schema version: {}".format(module, current))
+        _log.info(f"Current {module} schema version: {current}")
 
         latest = mgr.latest_version()
-        _log.info("Latest {} schema version: {}".format(module, latest))
+        _log.info(f"Latest {module} schema version: {latest}")
 
         def format_migration(migration: Migration) -> str:
             tag = " (X)" if migration.from_version >= current else ""
@@ -256,9 +255,9 @@ def smig(
             _log.info("No migration was needed")
         else:
             if do_migrate:
-                _log.info("Database was migrated to version {}".format(migrated_to))
+                _log.info(f"Database was migrated to version {migrated_to}")
             else:
-                _log.info("Database would be migrated to version {}".format(migrated_to))
+                _log.info(f"Database would be migrated to version {migrated_to}")
     return None
 
 
@@ -267,7 +266,7 @@ class VersionMismatchError(RuntimeError):
     This can be handled by @backoff which may retry later.
     """
 
-    def __init__(self, module: str, current: Union[int, Type[Uninitialized]], latest: Version):
+    def __init__(self, module: str, current: int | type[Uninitialized], latest: Version):
         super().__init__(f"Module {module} schema is at version {current}, latest is {latest}")
 
 

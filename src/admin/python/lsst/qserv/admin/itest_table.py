@@ -21,7 +21,7 @@
 
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -45,9 +45,9 @@ class LoadTable:
     """
 
     table_name: str
-    ingest_config: Dict[Any, Any]
+    ingest_config: dict[Any, Any]
     data_file: str
-    partition_config_files: List[str]
+    partition_config_files: list[str]
     data_staging_dir: str
     ref_db_table_schema_file: str
 

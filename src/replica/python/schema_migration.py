@@ -24,7 +24,6 @@ __all__ = ["make_migration_manager"]
 
 import logging
 from contextlib import closing
-from typing import Callable, List, Optional
 
 from lsst.qserv.schema import (
     Migration,
@@ -52,7 +51,7 @@ class MasterReplicationMigrationManager(SchemaMigMgr):
         self,
         connection: str,
         scripts_dir: str,
-        repl_connection: Optional[str],
+        repl_connection: str | None,
     ):
         self.repl_connection = repl_connection
         super().__init__(scripts_dir, connection)
@@ -140,7 +139,7 @@ class MasterReplicationMigrationManager(SchemaMigMgr):
                     _log.warn("Warnings were issued when creating user %s.", user)
         self.connection.commit()
 
-    def apply_migrations(self, migrations: List[Migration]) -> Version:
+    def apply_migrations(self, migrations: list[Migration]) -> Version:
         """Apply migrations.
 
         Parameters
@@ -169,7 +168,7 @@ class MasterReplicationMigrationManager(SchemaMigMgr):
 def make_migration_manager(
     connection: str,
     scripts_dir: str,
-    repl_connection: Optional[str] = None,
+    repl_connection: str | None = None,
 ) -> SchemaMigMgr:
     """Factory method for master replication controller schema migration
     manager

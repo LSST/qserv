@@ -19,7 +19,7 @@ def dbparam(x):
         return repr(x)
 
 
-def angSep(ra1, dec1, ra2, dec2):
+def ang_sep(ra1, dec1, ra2, dec2):
     sdt = math.sin(math.radians(ra1 - ra2) * 0.5)
     sdp = math.sin(math.radians(dec1 - dec2) * 0.5)
     cc = math.cos(math.radians(dec1)) * math.cos(math.radians(dec2))
@@ -30,25 +30,25 @@ def angSep(ra1, dec1, ra2, dec2):
         return 2.0 * math.degrees(math.asin(s))
 
 
-def ptInSphEllipse(ra, dec, ra_cen, dec_cen, smaa, smia, ang):
+def pt_in_sph_ellipse(ra, dec, ra_cen, dec_cen, smaa, smia, ang):
     ra = math.radians(ra)
     dec = math.radians(dec)
     v = (math.cos(ra) * math.cos(dec), math.sin(ra) * math.cos(dec), math.sin(dec))
     lon = math.radians(ra_cen)
     lat = math.radians(dec_cen)
     ang = math.radians(ang)
-    sinLon = math.sin(lon)
-    cosLon = math.cos(lon)
-    sinLat = math.sin(lat)
-    cosLat = math.cos(lat)
-    sinAng = math.sin(ang)
-    cosAng = math.cos(ang)
+    sin_lon = math.sin(lon)
+    cod_lon = math.cos(lon)
+    sin_lat = math.sin(lat)
+    cos_lat = math.cos(lat)
+    sin_ang = math.sin(ang)
+    cos_ang = math.cos(ang)
     # get coords of input point in (N,E) basis
-    n = cosLat * v[2] - sinLat * (sinLon * v[1] + cosLon * v[0])
-    e = cosLon * v[1] - sinLon * v[0]
+    n = cos_lat * v[2] - sin_lat * (sin_lon * v[1] + cod_lon * v[0])
+    e = cod_lon * v[1] - sin_lon * v[0]
     # rotate by negated major axis angle
-    x = sinAng * e + cosAng * n
-    y = cosAng * e - sinAng * n
+    x = sin_ang * e + cos_ang * n
+    y = cos_ang * e - sin_ang * n
     # scale by inverse of semi-axis-lengths
     x /= math.radians(smaa / 3600.0)
     y /= math.radians(smia / 3600.0)
@@ -61,20 +61,20 @@ def ptInSphEllipse(ra, dec, ra_cen, dec_cen, smaa, smia, ang):
     return None
 
 
-def flatten(l, ltypes=(list, tuple)):
-    ltype = type(l)
-    l = list(l)
+def flatten(sequence_list, ltypes=(list, tuple)):
+    ltype = type(sequence_list)
+    sequence_list = list(sequence_list)
     i = 0
-    while i < len(l):
-        while isinstance(l[i], ltypes):
-            if not l[i]:
-                l.pop(i)
+    while i < len(sequence_list):
+        while isinstance(sequence_list[i], ltypes):
+            if not sequence_list[i]:
+                sequence_list.pop(i)
                 i -= 1
                 break
             else:
-                l[i : i + 1] = l[i]
+                sequence_list[i : i + 1] = sequence_list[i]
         i += 1
-    return ltype(l)
+    return ltype(sequence_list)
 
 
 class MySqlUdfTestCase(unittest.TestCase):
@@ -95,9 +95,9 @@ class MySqlUdfTestCase(unittest.TestCase):
         rows = qresult.fetchall()
         self.assertEqual(rows[0][0], result, query + " did not return %s." % dbparam(result))
 
-    def _angSep(self, result, *args):
+    def _ang_sep(self, result, *args):
         args = tuple(dbparam(arg) for arg in args)
-        query = "SELECT scisql_angSep(%s, %s, %s, %s)" % args
+        query = "SELECT scisql_ang_sep(%s, %s, %s, %s)" % args
         qresult = self._conn.execute(query)
         rows = qresult.fetchall()
         if result is None:
@@ -106,16 +106,16 @@ class MySqlUdfTestCase(unittest.TestCase):
             msg = query + " not close enough to %s" % dbparam(result)
             self.assertAlmostEqual(rows[0][0], result, 11, msg)
 
-    def testAngSep(self):
+    def testang_sep(self):
         for i in range(4):
             a = [0.0] * 4
             a[i] = None
-            self._angSep(None, *a)
+            self._ang_sep(None, *a)
         for d in (-91.0, 91.0):
-            self._angSep(None, 0.0, d, 0.0, 0.0)
-            self._angSep(None, 0.0, 0.0, 0.0, d)
+            self._ang_sep(None, 0.0, d, 0.0, 0.0)
+            self._ang_sep(None, 0.0, 0.0, 0.0, d)
         for d in (0.0, 90.0, -90.0):
-            self._angSep(0.0, 0.0, d, 0.0, d)
+            self._ang_sep(0.0, 0.0, d, 0.0, d)
         for i in range(100):
             args = [
                 random.uniform(0.0, 360.0),
@@ -123,45 +123,45 @@ class MySqlUdfTestCase(unittest.TestCase):
                 random.uniform(0.0, 360.0),
                 random.uniform(-90.0, 90.0),
             ]
-            self._angSep(angSep(*args), *args)
+            self._ang_sep(ang_sep(*args), *args)
 
-    def _ptInSphBox(self, result, *args):
+    def _pt_in_sph_box(self, result, *args):
         args = tuple(dbparam(arg) for arg in args)
         query = "SELECT scisql_s2PtInBox(%s, %s, %s, %s, %s, %s)" % args
         self._query(query, result)
 
-    def testPtInSphBox(self):
+    def test_pt_in_sph_box(self):
         for i in range(6):
             a = [0.0] * 6
             a[i] = None
-            self._ptInSphBox(0, *a)
+            self._pt_in_sph_box(0, *a)
         for d in (-91.0, 91.0):
             for i in (1, 3, 5):
                 a = [0.0] * 6
                 a[i] = d
-                self._ptInSphBox(None, *a)
+                self._pt_in_sph_box(None, *a)
         for ra_min, ra_max in ((370.0, 10.0), (50.0, -90.0), (400.0, -400.0)):
-            self._ptInSphBox(None, 0.0, 0.0, ra_min, 0.0, ra_max, 0.0)
+            self._pt_in_sph_box(None, 0.0, 0.0, ra_min, 0.0, ra_max, 0.0)
         for ra, dec in ((360.0, 0.5), (720.0, 0.5), (5.0, 0.5), (355.0, 0.5)):
-            self._ptInSphBox(1, ra, dec, 350.0, 0.0, 370.0, 1.0)
+            self._pt_in_sph_box(1, ra, dec, 350.0, 0.0, 370.0, 1.0)
         for ra, dec in ((0.0, 1.1), (0.0, -0.1), (10.1, 0.5), (349.9, 0.5)):
-            self._ptInSphBox(0, ra, dec, 350.0, 0.0, 370.0, 1.0)
+            self._pt_in_sph_box(0, ra, dec, 350.0, 0.0, 370.0, 1.0)
 
-    def _ptInSphCircle(self, result, *args):
+    def _pt_in_sph_circle(self, result, *args):
         args = tuple(dbparam(arg) for arg in args)
         query = "SELECT scisql_s2PtInCircle(%s, %s, %s, %s, %s)" % args
         self._query(query, result)
 
-    def testPtInSphCircle(self):
+    def test_pt_in_sph_circle(self):
         for i in range(5):
             a = [0.0] * 5
             a[i] = None
-            self._ptInSphCircle(0, *a)
+            self._pt_in_sph_circle(0, *a)
         for d in (-91.0, 91.0):
-            self._ptInSphCircle(None, 0.0, d, 0.0, 0.0, 0.0)
-            self._ptInSphCircle(None, 0.0, 0.0, 0.0, d, 0.0)
+            self._pt_in_sph_circle(None, 0.0, d, 0.0, 0.0, 0.0)
+            self._pt_in_sph_circle(None, 0.0, 0.0, 0.0, d, 0.0)
         for r in (-1.0, 181.0):
-            self._ptInSphCircle(None, 0.0, 0.0, 0.0, 0.0, r)
+            self._pt_in_sph_circle(None, 0.0, 0.0, 0.0, 0.0, r)
         for i in range(10):
             ra_cen = random.uniform(0.0, 360.0)
             dec_cen = random.uniform(-90.0, 90.0)
@@ -170,28 +170,28 @@ class MySqlUdfTestCase(unittest.TestCase):
                 delta = radius / math.cos(math.radians(dec_cen))
                 ra = random.uniform(ra_cen - delta, ra_cen + delta)
                 dec = random.uniform(max(dec_cen - radius, -90.0), min(dec_cen + radius, 90.0))
-                r = angSep(ra_cen, dec_cen, ra, dec)
+                r = ang_sep(ra_cen, dec_cen, ra, dec)
                 if r < radius - 1e-9:
-                    self._ptInSphCircle(1, ra, dec, ra_cen, dec_cen, radius)
+                    self._pt_in_sph_circle(1, ra, dec, ra_cen, dec_cen, radius)
                 elif r > radius + 1e-9:
-                    self._ptInSphCircle(0, ra, dec, ra_cen, dec_cen, radius)
+                    self._pt_in_sph_circle(0, ra, dec, ra_cen, dec_cen, radius)
 
-    def _ptInSphEllipse(self, result, *args):
+    def _pt_in_sph_ellipse(self, result, *args):
         args = tuple(dbparam(arg) for arg in args)
         query = "SELECT scisql_s2PtInEllipse(%s, %s, %s, %s, %s, %s, %s)" % args
         self._query(query, result)
 
-    def testPtInSphEllipse(self):
+    def testpt_in_sph_ellipse(self):
         for i in range(7):
             a = [0.0] * 7
             a[i] = None
-            self._ptInSphEllipse(0, *a)
+            self._pt_in_sph_ellipse(0, *a)
         for d in (-91.0, 91.0):
-            self._ptInSphEllipse(None, 0.0, d, 0.0, 0.0, 0.0, 0.0, 0.0)
-            self._ptInSphEllipse(None, 0.0, 0.0, 0.0, d, 0.0, 0.0, 0.0)
-        self._ptInSphEllipse(None, 0.0, 0.0, 0.0, 0.0, 1.0, 2.0, 0.0)
-        self._ptInSphEllipse(None, 0.0, 0.0, 0.0, 0.0, 2.0, -1.0, 0.0)
-        self._ptInSphEllipse(None, 0.0, 0.0, 0.0, 0.0, 36001.0, 1.0, 0.0)
+            self._pt_in_sph_ellipse(None, 0.0, d, 0.0, 0.0, 0.0, 0.0, 0.0)
+            self._pt_in_sph_ellipse(None, 0.0, 0.0, 0.0, d, 0.0, 0.0, 0.0)
+        self._pt_in_sph_ellipse(None, 0.0, 0.0, 0.0, 0.0, 1.0, 2.0, 0.0)
+        self._pt_in_sph_ellipse(None, 0.0, 0.0, 0.0, 0.0, 2.0, -1.0, 0.0)
+        self._pt_in_sph_ellipse(None, 0.0, 0.0, 0.0, 0.0, 36001.0, 1.0, 0.0)
         for i in range(10):
             ra_cen = random.uniform(0.0, 360.0)
             dec_cen = random.uniform(-90.0, 90.0)
@@ -199,37 +199,37 @@ class MySqlUdfTestCase(unittest.TestCase):
             smia = random.uniform(0.00001, smaa)
             ang = random.uniform(-180.0, 180.0)
             for j in range(100):
-                smaaDeg = smaa / 3600.0
-                delta = smaaDeg / math.cos(math.radians(dec_cen))
+                smaa_deg = smaa / 3600.0
+                delta = smaa_deg / math.cos(math.radians(dec_cen))
                 ra = random.uniform(ra_cen - delta, ra_cen + delta)
-                dec = random.uniform(max(dec_cen - smaaDeg, -90.0), min(dec_cen + smaaDeg, 90.0))
-                r = ptInSphEllipse(ra, dec, ra_cen, dec_cen, smaa, smia, ang)
+                dec = random.uniform(max(dec_cen - smaa_deg, -90.0), min(dec_cen + smaa_deg, 90.0))
+                r = pt_in_sph_ellipse(ra, dec, ra_cen, dec_cen, smaa, smia, ang)
                 if r is True:
-                    self._ptInSphEllipse(1, ra, dec, ra_cen, dec_cen, smaa, smia, ang)
+                    self._pt_in_sph_ellipse(1, ra, dec, ra_cen, dec_cen, smaa, smia, ang)
                 elif r is False:
-                    self._ptInSphEllipse(0, ra, dec, ra_cen, dec_cen, smaa, smia, ang)
+                    self._pt_in_sph_ellipse(0, ra, dec, ra_cen, dec_cen, smaa, smia, ang)
 
-    def _ptInSphPoly(self, result, *args):
+    def _pt_in_sph_poly(self, result, *args):
         args = ", ".join(dbparam(arg) for arg in args)
         query = "SELECT scisql_s2PtInCPoly(%s)" % args
         self._query(query, result)
 
-    def testPtInSphPoly(self):
+    def test_pt_in_sph_poly(self):
         # Test for NULL in any argument, returns 0
         for i in range(8):
             a = [0.0, 0.0, 0, 0, 90, 0, 0, 90]
             a[i] = None
-            self._ptInSphPoly(0, *a)
+            self._pt_in_sph_poly(0, *a)
 
         # test for decl outside allowed range, makes NULL
         for d in (-91, 91):
-            self._ptInSphPoly(None, 0.0, d, 0, 0, 90, 0, 0, 90)
-            self._ptInSphPoly(None, 0.0, 0.0, 0, 0, 90, 0, 0, d)
+            self._pt_in_sph_poly(None, 0.0, d, 0, 0, 90, 0, 0, 90)
+            self._pt_in_sph_poly(None, 0.0, 0.0, 0, 0, 90, 0, 0, d)
 
         # test for incorrect number of poly coordinates
-        self.assertRaises(Exception, self._ptInSphPoly, None, 0.0, 0.0, 0, 0, 90, 0, 60, 45, 30)
-        self.assertRaises(Exception, self._ptInSphPoly, None, 0.0, 0.0, 0, 0, 90, 0, 60)
-        self.assertRaises(Exception, self._ptInSphPoly, None, 0.0, 0.0, 0, 0, 90, 0)
+        self.assertRaises(Exception, self._pt_in_sph_poly, None, 0.0, 0.0, 0, 0, 90, 0, 60, 45, 30)
+        self.assertRaises(Exception, self._pt_in_sph_poly, None, 0.0, 0.0, 0, 0, 90, 0, 60)
+        self.assertRaises(Exception, self._pt_in_sph_poly, None, 0.0, 0.0, 0, 0, 90, 0)
 
         # Test for non-exceptional cases
         x = (0, 0)
@@ -256,9 +256,9 @@ class MySqlUdfTestCase(unittest.TestCase):
                 if (t[2][1] > 0 and (dec < 0.0 or ra < t[0][0] or ra > t[1][0])) or (
                     t[2][1] < 0 and (dec > 0.0 or ra < t[1][0] or ra > t[0][0])
                 ):
-                    self._ptInSphPoly(0, ra, dec, *spec)
+                    self._pt_in_sph_poly(0, ra, dec, *spec)
                 else:
-                    self._ptInSphPoly(1, ra, dec, *spec)
+                    self._pt_in_sph_poly(1, ra, dec, *spec)
 
 
 def main():

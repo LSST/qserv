@@ -21,8 +21,6 @@
 
 """Logging definitions and utilities for qserv CLI."""
 
-from typing import Any, List, Tuple
-
 log_level_flag = "--log-level"
 default_log_level = "INFO"
 log_level_choices = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]
@@ -32,7 +30,7 @@ invalid_value_msg = (
 )
 
 
-def log_level_from_args(args: List[str], default: str = default_log_level) -> Tuple[bool, str]:
+def log_level_from_args(args: list[str], default: str = default_log_level) -> tuple[bool, str]:
     """Get the log level from script arguments.
 
     Parameters

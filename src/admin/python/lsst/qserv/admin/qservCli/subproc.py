@@ -22,7 +22,6 @@
 """Utilities for running subprocesses in the qserv CLI"""
 
 import subprocess
-from typing import Dict, List, Optional
 
 
 class QservSubprocessError(BaseException):
@@ -31,12 +30,12 @@ class QservSubprocessError(BaseException):
 
 
 def run(
-    args: List[str],
-    env: Optional[Dict[str, str]] = None,
+    args: list[str],
+    env: dict[str, str] | None = None,
     capture_stdout: bool = False,
-    cwd: Optional[str] = None,
-    errmsg: Optional[str] = None,
-    encoding: Optional[str] = None,
+    cwd: str | None = None,
+    errmsg: str | None = None,
+    encoding: str | None = None,
 ) -> subprocess.CompletedProcess:
     """Run a command in a subprocess. Raise a QservSubprocessError if the
     result of the subprocess execution was not 0.

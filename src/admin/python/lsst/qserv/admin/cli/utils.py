@@ -24,7 +24,8 @@ import copy
 import logging
 import os
 import traceback
-from typing import Any, Dict, List, Sequence, Tuple, Union, cast
+from typing import Any, cast
+from collections.abc import Sequence
 
 import click
 import click.testing
@@ -33,10 +34,10 @@ import yaml
 _log = logging.getLogger(__name__)
 
 
-Targs = Dict[str, Any]
+Targs = dict[str, Any]
 
 
-def split_kv(values: Sequence[str]) -> Dict[str, str]:
+def split_kv(values: Sequence[str]) -> dict[str, str]:
     """Split muliple groups of comma-separated key=value pairs into a dict.
 
     Parameters
@@ -60,7 +61,7 @@ def split_kv(values: Sequence[str]) -> Dict[str, str]:
         if pair.count("=") != 1:
             raise RuntimeError(f"Each key-value pair must be separated by '='.")
     # split each pair on the equal sign:
-    split_pairs = (cast(Tuple[str, str], pair.split("=")) for pair in pairs)
+    split_pairs = (cast(tuple[str, str], pair.split("=")) for pair in pairs)
     # and finally, make a dict:
     return dict(split_pairs)
 
@@ -91,7 +92,7 @@ def yaml_presets(ctx: click.Context, param: click.core.Option, value: str) -> No
         ctx.default_map.update(overrides)
 
 
-def _read_yaml_presets(file: str, cmd_name: str) -> Dict[str, Union[str, int, bool]]:
+def _read_yaml_presets(file: str, cmd_name: str) -> dict[str, str | int | bool]:
     """Read file command line overrides from YAML config file.
 
     Parameters
@@ -113,7 +114,7 @@ def _read_yaml_presets(file: str, cmd_name: str) -> Dict[str, Union[str, int, bo
     return presets.get(cmd_name, dict())
 
 
-def process_targs(ctx: click.Context, param: click.Parameter, vals: List[str]) -> Targs:
+def process_targs(ctx: click.Context, param: click.Parameter, vals: list[str]) -> Targs:
     """Helper for the `click.option` that accepts template argument overrides.
 
     On the CLI the option must be used once for each template argument.
@@ -141,7 +142,7 @@ def process_targs(ctx: click.Context, param: click.Parameter, vals: List[str]) -
     RuntimeError
         If the value does not contain exactly one equal sign.
     """
-    kvs = list((pair.split("=", maxsplit=1) for pair in vals))
+    kvs = list(pair.split("=", maxsplit=1) for pair in vals)
     if any([len(kv) != 2 for kv in kvs]):
         raise RuntimeError("Each argument to --targs must be a key-value pair with exactly one '='.")
     # if the value ends with a comma it should be a list but remove the trailing

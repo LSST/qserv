@@ -24,7 +24,7 @@
 __all__ = ["make_migration_manager"]
 
 
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 from ..schema import Migration, SchemaMigMgr, Uninitialized
 
@@ -35,7 +35,7 @@ class AdminMigrationManager(SchemaMigMgr):
     def __init__(self, connection: str, scripts_dir: str):
         super().__init__(scripts_dir, connection)
 
-    def current_version(self) -> Optional[int]:
+    def current_version(self) -> int | None:
         """Returns current schema version.
 
         Returns

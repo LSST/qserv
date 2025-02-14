@@ -24,14 +24,15 @@
 
 from functools import partial
 from logging import Logger
-from typing import Any, Callable, Dict
+from typing import Any
+from collections.abc import Callable
 
 import backoff
 
 max_backoff_sec = 5 * 60
 
 
-def on_backoff(log: Logger) -> Callable[[Dict[str, Any]], None]:
+def on_backoff(log: Logger) -> Callable[[dict[str, Any]], None]:
     """Factory to make a callback handler that logs information about a
     backoff. To be used with the `on_backoff` parameter of a
     `backoff.on_exception` function decorator.
@@ -47,7 +48,7 @@ def on_backoff(log: Logger) -> Callable[[Dict[str, Any]], None]:
         A function that can be passed to `on_backoff`.
     """
 
-    def handler(details: Dict[Any, Any]) -> None:
+    def handler(details: dict[Any, Any]) -> None:
         """Handler for `backoff.on_exception`.
 
         Parameters

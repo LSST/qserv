@@ -3,7 +3,7 @@
 __all__ = ["make_migration_manager"]
 
 import logging
-from typing import Sequence
+from collections.abc import Sequence
 
 import backoff
 from lsst.qserv.admin.qserv_backoff import max_backoff_sec, on_backoff

@@ -26,7 +26,6 @@ information.
 """
 
 import sys
-from typing import List, Optional
 
 import click
 
@@ -128,7 +127,7 @@ help_order = [
 class QservCommandGroup(click.Group):
     """Group class for custom qserv command behaviors."""
 
-    def list_commands(self, ctx: click.Context) -> List[str]:
+    def list_commands(self, ctx: click.Context) -> list[str]:
         """List the qserv commands in the order specified by help_order."""
         # make sure that all the commands are named in our help_order list:
         missing = set(help_order).symmetric_difference(self.commands.keys())
@@ -209,7 +208,7 @@ def build(
     qserv_build_root: str,
     unit_test: bool,
     dry: bool,
-    jobs: Optional[int],
+    jobs: int | None,
     run_cmake: bool,
     run_make: bool,
     run_mypy: bool,
@@ -421,7 +420,7 @@ def run_dev(
     qserv_root: str,
     test_container: str,
     qserv_image: str,
-    bind: List[str],
+    bind: list[str],
     project: str,
     dry: bool,
 ) -> None:
@@ -531,15 +530,15 @@ def itest(
     itest_container: str,
     itest_ref_container: str,
     qserv_image: str,
-    bind: List[str],
+    bind: list[str],
     itest_file: str,
     dry: bool,
     project: str,
     unload: bool,
-    load: Optional[bool],
+    load: bool | None,
     reload: bool,
     load_http: bool,
-    cases: List[str],
+    cases: list[str],
     run_tests: bool,
     tests_yaml: str,
     compare_results: bool,
@@ -608,15 +607,15 @@ def itest_http(
     itest_http_container: str,
     itest_ref_container: str,
     qserv_image: str,
-    bind: List[str],
+    bind: list[str],
     itest_file: str,
     dry: bool,
     project: str,
     unload: bool,
-    load: Optional[bool],
+    load: bool | None,
     reload: bool,
     load_http: bool,
-    cases: List[str],
+    cases: list[str],
     run_tests: bool,
     tests_yaml: str,
     compare_results: bool,
@@ -674,7 +673,7 @@ def itest_http_ingest(
     qserv_root: str,
     itest_http_ingest_container: str,
     qserv_image: str,
-    bind: List[str],
+    bind: list[str],
     itest_file: str,
     dry: bool,
     project: str,
@@ -779,7 +778,7 @@ repl_connection_default = "mysql://root:CHANGEME@repl-mgr-db:3306/qservw_worker"
 @option_dry()
 def update_schema(
     czar_connection: str,
-    worker_connections: List[str],
+    worker_connections: list[str],
     repl_connection: str,
     qserv_image: str,
     project: str,
@@ -880,7 +879,7 @@ def down(
 )
 @option_dry()
 def entrypoint_help(
-    command: Optional[str],
+    command: str | None,
     qserv_image: str,
     entrypoint: bool,
     spawned: bool,

@@ -19,7 +19,6 @@
 # You should have received a copy of the GNU General Public License
 
 
-import json
 import logging
 import os
 import shlex
@@ -30,10 +29,9 @@ import time
 from contextlib import closing
 from functools import partial
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Sequence, Union
+from collections.abc import Callable, Sequence
 
 import backoff
-import jinja2
 from sqlalchemy.engine.url import URL, make_url
 
 import mysql.connector
@@ -41,12 +39,11 @@ import mysql.connector
 from ...schema import MigMgrArgs, SchemaUpdateRequired, smig, smig_block
 from ..itest import ITestResults
 from ..itest_table import LoadTable
-from ..mysql_connection import mysql_connection
 from ..qserv_backoff import on_backoff
 from ..replicationInterface import ReplicationInterface
 from ..template import apply_template_cfg_file, save_template_cfg
 from . import _integration_test, options
-from .utils import Targs, split_kv
+from .utils import Targs
 
 smig_dir_env_var = "QSERV_SMIG_DIRECTORY"
 default_smig_dir = "/usr/local/qserv/smig"
@@ -240,7 +237,7 @@ def smig_czar(connection: str, update: bool) -> None:
 
 
 def smig_replication_controller(
-    db_uri: Optional[str],
+    db_uri: str | None,
     db_admin_uri: str,
     update: bool,
 ) -> None:
@@ -873,7 +870,7 @@ def enter_replication_registry(
     sys.exit(_run(args=None, cmd=cmd, env=env, run=run))
 
 
-def smig_update(czar_connection: str, worker_connections: List[str], repl_connection: str) -> None:
+def smig_update(czar_connection: str, worker_connections: list[str], repl_connection: str) -> None:
     """Update smig on nodes that need it.
 
     All connection strings are in format mysql://user:pass@host:port/database
@@ -897,10 +894,10 @@ def smig_update(czar_connection: str, worker_connections: List[str], repl_connec
 
 
 def _run(
-    args: Optional[Sequence[Union[str, int]]],
-    cmd: Optional[str] = None,
-    env: Optional[Dict[str, str]] = None,
-    debug_port: Optional[int] = None,
+    args: Sequence[str | int] | None,
+    cmd: str | None = None,
+    env: dict[str, str] | None = None,
+    debug_port: int | None = None,
     run: bool = True,
     check_returncode: bool = False,
 ) -> int:
@@ -1030,7 +1027,7 @@ def load_simple(repl_ctrl_uri: str, auth_key: str, load_http: bool) -> None:
         ],
     )
     data_file = os.path.join(Path(__file__).parent.absolute(), "chunk_0.txt")
-    partition_config_files = List[str]()
+    partition_config_files = list[str]()
     data_staging_dir = ""
     ref_db_table_schema_file = ""
     table = LoadTable(
@@ -1063,10 +1060,10 @@ def load_simple(repl_ctrl_uri: str, auth_key: str, load_http: bool) -> None:
 def integration_test(
     repl_connection: str,
     unload: bool,
-    load: Optional[bool],
+    load: bool | None,
     reload: bool,
     load_http: bool,
-    cases: List[str],
+    cases: list[str],
     run_tests: bool,
     tests_yaml: str,
     compare_results: bool,
@@ -1091,10 +1088,10 @@ def integration_test(
 def integration_test_http(
     repl_connection: str,
     unload: bool,
-    load: Optional[bool],
+    load: bool | None,
     reload: bool,
     load_http: bool,
-    cases: List[str],
+    cases: list[str],
     run_tests: bool,
     tests_yaml: str,
     compare_results: bool,

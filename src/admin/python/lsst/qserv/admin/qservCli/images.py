@@ -25,7 +25,6 @@
 import logging
 import subprocess
 from copy import copy
-from typing import List, Optional
 
 import requests
 
@@ -41,7 +40,7 @@ auth_header = "Bearer {token}"
 _log = logging.getLogger(__name__)
 
 
-def get_description(dockerfiles: Optional[List[str]], cwd: str) -> str:
+def get_description(dockerfiles: list[str] | None, cwd: str) -> str:
     """Get the git description of the commit that contains the most recent
     change to any of the given dockerfiles, or of the commit of the most
     recent tag if it is more recent than the dockerfile changes.
@@ -65,7 +64,7 @@ def get_description(dockerfiles: Optional[List[str]], cwd: str) -> str:
     if dockerfiles is not None:
         shas = [get_last_change(fname, cwd) for fname in dockerfiles]
         shas.append(last_git_tag(cwd))
-        sha: Optional[str] = get_most_recent(shas, cwd)
+        sha: str | None = get_most_recent(shas, cwd)
     else:
         sha = None
     tag = describe(sha, cwd)
@@ -108,7 +107,7 @@ def last_git_tag(cwd: str) -> str:
     return res.stdout.decode().strip()
 
 
-def describe(sha: Optional[str], cwd: str) -> str:
+def describe(sha: str | None, cwd: str) -> str:
     """Get the description of the change from `git describe`.
 
     Parameters
@@ -177,7 +176,7 @@ def get_last_change(fname: str, cwd: str) -> str:
     return sha
 
 
-def git_log(a: str, b: str, cwd: str) -> List[str]:
+def git_log(a: str, b: str, cwd: str) -> list[str]:
     """Get the commits between two shas.
 
     Parameters
@@ -204,7 +203,7 @@ def git_log(a: str, b: str, cwd: str) -> List[str]:
     return res.stdout.strip().split()
 
 
-def get_most_recent(shas: List[str], cwd: str) -> str:
+def get_most_recent(shas: list[str], cwd: str) -> str:
     """Get the most recent sha of a given list of shas.
 
     Parameters
@@ -236,7 +235,7 @@ def get_most_recent(shas: List[str], cwd: str) -> str:
     return newest
 
 
-def dh_get_repo_tags(repository: str, token: str) -> List[str]:
+def dh_get_repo_tags(repository: str, token: str) -> list[str]:
     """Get the tags associated with a repository in dockerhub.
 
     Parameters
@@ -370,11 +369,11 @@ def dh_push_image(image_name: str, dry: bool) -> None:
 
 def build_image(
     image_name: str,
-    target: Optional[str],
+    target: str | None,
     run_dir: str,
     dry: bool,
-    options: Optional[List[str]] = None,
-    dockerfile: Optional[str] = None,
+    options: list[str] | None = None,
+    dockerfile: str | None = None,
 ) -> None:
     """Build the qserv lite-build image.
 

@@ -24,7 +24,6 @@
 import os
 import unittest
 from tempfile import NamedTemporaryFile
-from typing import Dict
 
 import click
 import yaml
@@ -63,7 +62,7 @@ def testFunc(
     test_option1: str,
     test_option2: str,
     test_option3: str,
-    targs: Dict[str, str],
+    targs: dict[str, str],
     targs_file: str,
 ) -> None:
     global targs_result

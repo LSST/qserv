@@ -28,7 +28,7 @@ import getpass
 import logging
 import os
 from functools import partial
-from typing import Callable, List, Optional, Union
+from collections.abc import Callable
 
 import click
 
@@ -55,12 +55,12 @@ class EV:
         True if the value should not be printed or logged.
     """
 
-    def __init__(self, env_var: str, default: Optional[str], private: bool):
+    def __init__(self, env_var: str, default: str | None, private: bool):
         self.env_var = env_var
         self.default = default
         self.private = private
 
-    def val(self) -> Optional[str]:
+    def val(self) -> str | None:
         """Get the value of the environment variable or a default value.
 
         Returns
@@ -71,7 +71,7 @@ class EV:
         return os.getenv(self.env_var, self.default)
 
     @property
-    def var_val(self) -> Optional[str]:
+    def var_val(self) -> str | None:
         """Get the value of the environment variable or return None if the var
         is not defined."""
         return os.getenv(self.env_var, None)
@@ -95,7 +95,7 @@ class EnvVal(EV):
         """Get the description of what the EnvVal is used for, for help output."""
         return self.description
 
-    def val(self) -> Optional[str]:
+    def val(self) -> str | None:
         """Get the value.
 
         Returns
@@ -134,7 +134,7 @@ class FlagEnvVal(EV):
         The option flag.
     """
 
-    def __init__(self, opt: str, env_var: str, default: Optional[str]):
+    def __init__(self, opt: str, env_var: str, default: str | None):
         super().__init__(env_var, default, private=False)
         self.opt = opt
 
@@ -254,7 +254,7 @@ class ImageName:
         return env_image_tag.val_with_default(get_description(self.dockerfiles, qserv_root))
 
     @property
-    def dockerfiles(self) -> Optional[List[str]]:
+    def dockerfiles(self) -> list[str] | None:
         """Get the path(s) (relative to qserv root) of the dockerfile(s)
         associated with the current image type.
 
@@ -354,8 +354,8 @@ class OptDefault:
 
     def __init__(
         self,
-        opt: List[str],
-        default: Optional[str],
+        opt: list[str],
+        default: str | None,
         ev: FlagEnvVal,
         val: Callable[[str], str],
     ):
@@ -364,7 +364,7 @@ class OptDefault:
         self.ev = ev
         self._val = val
 
-    def val(self) -> Optional[str]:
+    def val(self) -> str | None:
         """Get the value for this default: if the environment variable is
         defined, returns the value derived from that environment variable, or a
         default value (which may be `None`).
@@ -463,7 +463,7 @@ class FlagEnvVals:
         The `FlagEnvVal` instances used by the qserv command.
     """
 
-    def __init__(self, evs: List[Union[FlagEnvVal, EnvVal]]):
+    def __init__(self, evs: list[FlagEnvVal | EnvVal]):
         self.evs = evs
 
     def describe(self) -> str:
@@ -492,7 +492,7 @@ class DefaultValues:
         The `OptDefault` instances used by the qserv command.
     """
 
-    def __init__(self, defaults: List[OptDefault]):
+    def __init__(self, defaults: list[OptDefault]):
         self.defaults = defaults
 
     def describe(self) -> str:

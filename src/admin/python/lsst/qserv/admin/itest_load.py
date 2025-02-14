@@ -30,7 +30,8 @@ import tarfile
 from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, Dict, Generator, List, NamedTuple, Optional, Tuple, Union, cast
+from typing import Any, NamedTuple, cast
+from collections.abc import Generator
 
 import backoff
 import yaml
@@ -66,7 +67,7 @@ def execute(cursor: MySQLCursorAbstract, stmt: str, multi: bool = False) -> None
     results = []
     # cursors may contain results objects (if multi==True) or a MySQLCursor (if
     # multi==False)
-    cursors: List[Any] = []
+    cursors: list[Any] = []
 
     if multi:
         cursors = cursor.execute(stmt, multi=True)  # type: ignore
@@ -77,9 +78,7 @@ def execute(cursor: MySQLCursorAbstract, stmt: str, multi: bool = False) -> None
     for cursor in cursors:
         # Cast here because MySQLCursorAbtract does not have with_rows for some reason, even though both of
         # its subclasses do...
-        cursor = cast(
-            Union[mysql.connector.cursor.MySQLCursor, mysql.connector.cursor_cext.CMySQLCursor], cursor
-        )
+        cursor = cast(mysql.connector.cursor.MySQLCursor | mysql.connector.cursor_cext.CMySQLCursor, cursor)
         if cursor.with_rows:
             for row in cursor.fetchall():
                 results.append(row)
@@ -187,10 +186,10 @@ class LoadDb:
     """Contains information about a database to be loaded."""
 
     class TablePartition(NamedTuple):
-        configs_t: List[str]
+        configs_t: list[str]
         output_t: str
 
-    def __init__(self, load_db_cfg: Dict[Any, Any]):
+    def __init__(self, load_db_cfg: dict[Any, Any]):
         # The path to the root of the database files.
         self.root = load_db_cfg["root"]
 
@@ -300,7 +299,7 @@ def _partition(staging_dir: str, table: LoadTable, data_file: str) -> None:
         f.write(partition_info)
 
 
-def _prep_table_data(load_table: LoadTable, dest_dir: str) -> Tuple[str, str]:
+def _prep_table_data(load_table: LoadTable, dest_dir: str) -> tuple[str, str]:
     """Unzip and partition, if needed, input data for a table.
 
     Parameters
@@ -432,7 +431,7 @@ def _load_database(
 
 
 def _remove_database(
-    case_data: Dict[Any, Any],
+    case_data: dict[Any, Any],
     ref_db_connection: str,
     repl_ctrl_uri: str,
     auth_key: str,
@@ -465,7 +464,7 @@ def _remove_database(
             execute(cursor, sql)
 
 
-def _get_cases(cases: Optional[List[str]], test_cases_data: List[Dict[Any, Any]]) -> List[Dict[Any, Any]]:
+def _get_cases(cases: list[str] | None, test_cases_data: list[dict[Any, Any]]) -> list[dict[Any, Any]]:
     """Get the test case data for the cases listed in cases.
 
     Parameters
@@ -495,7 +494,7 @@ def _get_cases(cases: Optional[List[str]], test_cases_data: List[Dict[Any, Any]]
 
 
 def prepare_data(
-    test_cases_data: List[Dict[Any, Any]],
+    test_cases_data: list[dict[Any, Any]],
 ) -> None:
     """Unzip and partition integration test dataset(s) inside a persistent volume
        also R-I system configuration files for input data
@@ -536,11 +535,11 @@ def prepare_data(
 def load(
     repl_ctrl_uri: str,
     ref_db_uri: str,
-    test_cases_data: List[Dict[Any, Any]],
+    test_cases_data: list[dict[Any, Any]],
     ref_db_admin: str,
-    load: Optional[bool],
+    load: bool | None,
     load_http: bool,
-    cases: Optional[List[str]],
+    cases: list[str] | None,
     auth_key: str,
     admin_auth_key: str,
     remove: bool = False,
@@ -598,11 +597,11 @@ def load(
 def remove(
     repl_ctrl_uri: str,
     ref_db_uri: str,
-    test_cases_data: List[Dict[Any, Any]],
+    test_cases_data: list[dict[Any, Any]],
     ref_db_admin: str,
     auth_key: str,
     admin_auth_key: str,
-    cases: Optional[List[str]] = None,
+    cases: list[str] | None = None,
 ) -> None:
     """Remove integration test data from qserv.
 

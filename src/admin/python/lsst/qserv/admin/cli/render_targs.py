@@ -23,7 +23,6 @@
 values in values passed into the `entrypoint` command line."""
 
 from copy import copy
-from typing import List
 
 import jinja2
 
@@ -42,7 +41,7 @@ def _format_targs(targs: Targs) -> str:
     return ", ".join([f"{k}={v}" for k, v in targs.items()])
 
 
-def _get_vars(val: str) -> List[str]:
+def _get_vars(val: str) -> list[str]:
     """Get variable names from a value that contains template variables.
 
     Parameters

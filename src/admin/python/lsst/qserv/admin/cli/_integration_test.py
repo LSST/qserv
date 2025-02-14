@@ -20,10 +20,7 @@
 
 import logging
 import os
-import shutil
-import subprocess
 from contextlib import closing
-from typing import List, Optional
 from urllib.parse import urlparse
 
 import backoff
@@ -91,7 +88,7 @@ def wait_for_db_service(db_uri: str, checkdb: str) -> None:
     """
     parsed = urlparse(db_uri)
 
-    def get_databases() -> List[str]:
+    def get_databases() -> list[str]:
         """Get the names of the databases in the database service."""
         with closing(
             mysql.connector.connect(
@@ -103,7 +100,7 @@ def wait_for_db_service(db_uri: str, checkdb: str) -> None:
         ) as connection:
             with closing(connection.cursor()) as cursor:
                 cursor.execute("show databases;")
-                result: List[str] = []
+                result: list[str] = []
                 return [str(db) for (db,) in cursor.fetchall()]
 
     databases = get_databases()
@@ -114,10 +111,10 @@ def wait_for_db_service(db_uri: str, checkdb: str) -> None:
 
 def run_integration_tests(
     unload: bool,
-    load: Optional[bool],
+    load: bool | None,
     reload: bool,
     load_http: bool,
-    cases: List[str],
+    cases: list[str],
     run_tests: bool,
     tests_yaml: str,
     compare_results: bool,
@@ -234,10 +231,10 @@ def run_integration_tests(
 
 def run_integration_tests_http(
     unload: bool,
-    load: Optional[bool],
+    load: bool | None,
     reload: bool,
     load_http: bool,
-    cases: List[str],
+    cases: list[str],
     run_tests: bool,
     tests_yaml: str,
     compare_results: bool,

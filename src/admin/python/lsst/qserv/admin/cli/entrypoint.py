@@ -27,7 +27,8 @@ import sys
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
+from collections.abc import Callable
 
 import click
 from click.decorators import pass_context
@@ -126,7 +127,7 @@ admin_worker_db_help = "Admin URI to the worker database. " + socket_option_help
 
 @dataclass
 class CommandInfo:
-    default_cmd: Optional[str] = None
+    default_cmd: str | None = None
 
 
 # Commands are in the ordered dict in "help order" - the order they
@@ -267,9 +268,9 @@ class EntrypointCommandExArgs(click.Command):
         command type polymorphism.)
         """
 
-        extended_args: List[str] = field(default_factory=list)
+        extended_args: list[str] = field(default_factory=list)
 
-    def parse_args(self, ctx: click.Context, args: List[str]) -> List[str]:
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
         """Remove args after "--" and put them in the context, then parse as
         normal.
         """
@@ -289,7 +290,7 @@ class EntrypointCommandGroup(click.Group):
     * Provides ordering for list of subcommands in --help
     """
 
-    def list_commands(self, ctx: click.Context) -> List[str]:
+    def list_commands(self, ctx: click.Context) -> list[str]:
         """List the qserv commands in the order specified by help_order.
 
         Returns
@@ -337,7 +338,7 @@ class options_cms(OptionGroup):  # noqa: N801
     """
 
     @property
-    def decorators(self) -> List[Callable]:
+    def decorators(self) -> list[Callable]:
         return [
             option_cmd(),
             option_cmd_default(),
@@ -382,10 +383,10 @@ def load_simple(repl_ctrl_uri: str, repl_auth_key: str, load_http: bool) -> None
 def integration_test(
     repl_connection: str,
     unload: bool,
-    load: Optional[bool],
+    load: bool | None,
     reload: bool,
     load_http: bool,
-    cases: List[str],
+    cases: list[str],
     run_tests: bool,
     tests_yaml: str,
     compare_results: bool,
@@ -426,10 +427,10 @@ def integration_test(
 def integration_test_http(
     repl_connection: str,
     unload: bool,
-    load: Optional[bool],
+    load: bool | None,
     reload: bool,
     load_http: bool,
-    cases: List[str],
+    cases: list[str],
     run_tests: bool,
     tests_yaml: str,
     compare_results: bool,
@@ -1026,7 +1027,7 @@ def watcher(
 @option_worker_connection()
 @option_repl_connection()
 @option_options_file()
-def smig_update(czar_connection: str, worker_connections: List[str], repl_connection: str) -> None:
+def smig_update(czar_connection: str, worker_connections: list[str], repl_connection: str) -> None:
     """Run schema update on nodes."""
     script.smig_update(
         czar_connection=czar_connection,

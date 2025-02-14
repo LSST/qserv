@@ -33,7 +33,7 @@
 # This reuses some (large?) portions from Serge's loader.py
 import optparse
 import os
-from itertools import chain, imap, izip, repeat
+from itertools import chain, imap, repeat
 from textwrap import dedent
 
 import loader  # Assume loader.py is co-located. :)

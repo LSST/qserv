@@ -22,7 +22,7 @@
 
 from abc import abstractmethod
 from functools import partial
-from typing import Callable, List
+from collections.abc import Callable
 
 import click
 
@@ -35,7 +35,7 @@ class OptionGroup:
 
     @property
     @abstractmethod
-    def decorators(self) -> List[Callable]:
+    def decorators(self) -> list[Callable]:
         pass
 
     def __call__(self, f: Callable) -> Callable:
@@ -341,7 +341,7 @@ option_targs_file = partial(
 
 class options_targs(OptionGroup):  # noqa: N801
     @property
-    def decorators(self) -> List[Callable]:
+    def decorators(self) -> list[Callable]:
         return [
             option_targs(),
             option_targs_file(),

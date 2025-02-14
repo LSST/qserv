@@ -25,7 +25,8 @@ import logging
 from collections import namedtuple
 from contextlib import closing
 from time import sleep
-from typing import Any, List, Sequence, Set, Type, Union
+from typing import Any
+from collections.abc import Sequence
 
 import requests
 
@@ -90,17 +91,17 @@ class Watcher:
         show_query: bool,
     ):
         self.cluster_id = cluster_id
-        self.prev_failed_ids: Set[str] = set()
+        self.prev_failed_ids: set[str] = set()
         self.first_check = True
         self.qserv = qserv
         self.timeout_sec = timeout_sec
         self.interval_sec = interval_sec
         self.show_query = show_query
-        self.notify_url: Union[None, Type[NotifyUrlError], str] = self._get_notify_url(notify_url_file)
+        self.notify_url: None | type[NotifyUrlError] | str = self._get_notify_url(notify_url_file)
 
-    def _get_notify_url(self, notify_url_file: str) -> Union[Type[NotifyUrlError], str]:
+    def _get_notify_url(self, notify_url_file: str) -> type[NotifyUrlError] | str:
         _log.debug(f"Reading notify url {notify_url_file}")
-        notify_url: Union[Type[NotifyUrlError], str] = NotifyUrlError
+        notify_url: type[NotifyUrlError] | str = NotifyUrlError
         try:
             with open(notify_url_file) as f:
                 notify_url = f.read()
@@ -110,7 +111,7 @@ class Watcher:
             _log.error(f"Could not get notify url from {notify_url_file}")
         return notify_url
 
-    def alert(self, check_failures: List[CheckFailure]) -> None:
+    def alert(self, check_failures: list[CheckFailure]) -> None:
         """Send an alert for queries that failed the timeout."""
         if self.first_check:
             msg = first_check_msg_t.format(
@@ -181,7 +182,7 @@ class Watcher:
             _log.error(f"Failed to execute the query {stmt} at {uri}, exception: {e}")
         return results
 
-    def check(self) -> List[CheckFailure]:
+    def check(self) -> list[CheckFailure]:
         """Check that no queries have been running for longer than a given time.
 
         Returns
