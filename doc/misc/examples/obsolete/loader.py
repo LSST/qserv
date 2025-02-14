@@ -450,7 +450,7 @@ class SqlActions:
     def close(self):
         try:
             self.cursor.close()
-        except:
+        except Exception:
             pass
         self.conn.close()
 
@@ -685,7 +685,7 @@ def loadWorker(args):
         if partTable:
             try:
                 act.dropTable(partTable)
-            except:
+            except Exception:
                 pass
         act.close()
 
@@ -897,7 +897,7 @@ def main():
         if master in workers:
             serverParams = workerParams
         else:
-            serverParams = workerParams + [masterParams]
+            serverParams = [*workerParams, masterParams]
         if opts.dropDatabase:
             if opts.verbose:
                 print("Dropping database %s on master and workers" % opts.database)

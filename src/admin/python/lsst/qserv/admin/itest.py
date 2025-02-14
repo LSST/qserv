@@ -26,9 +26,9 @@ import re
 import shutil
 import subprocess
 import time
+from collections.abc import Collection, Generator, Sequence
 from filecmp import dircmp
 from typing import Any, TextIO
-from collections.abc import Collection, Generator, Sequence
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -568,7 +568,8 @@ class ITestQueryHttp:
             res = req.json()
             if res["success"] == 0:
                 raise RuntimeError(
-                    f"Failed to check a status of the detached query: {query_id}, server serror: {res['error']}"
+                    f"Failed to check a status of the detached query: {query_id}, server serror: "
+                    f"{res['error']}"
                 )
             status = res["status"]["status"]
             _log.debug("SQLCmd.execute query status = %s", status)
@@ -584,7 +585,8 @@ class ITestQueryHttp:
         res = req.json()
         if res["success"] == 0:
             raise RuntimeError(
-                f"Failed to retrieve a result set of the detached query: {query_id}, server serror: {res['error']}"
+                f"Failed to retrieve a result set of the detached query: {query_id}, server serror: "
+                f"{res['error']}"
             )
         self._write_result(self.out_file_t.format(mode=query_mode_qserv_detached), res)
 
@@ -862,7 +864,7 @@ class ITestResults:
             else:
                 ret += "\nThere were no results to compare."
         for result in self.test_case_results:
-            ret += f"\n{str(result)}"
+            ret += f"\n{result!s}"
         return ret
 
 
@@ -1316,5 +1318,6 @@ def _http_query_table(
     received_rows = res["rows"]
     if received_rows != expected_rows:
         raise RuntimeError(
-            f"Query result mismatch for table: {table} in user database: {database}, expected: {expected_rows}, got: {received_rows}"
+            f"Query result mismatch for table: {table} in user database: {database}, "
+            f"expected: {expected_rows}, got: {received_rows}"
         )

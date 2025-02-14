@@ -129,7 +129,7 @@ class MasterReplicationMigrationManager(SchemaMigMgr):
             f"CREATE USER IF NOT EXISTS {user}@'%';",
             f"GRANT ALL ON {database}.* TO  {user}@localhost;",
             f"GRANT ALL ON {database}.* TO  {user}@'%';",
-            f"FLUSH PRIVILEGES;",
+            "FLUSH PRIVILEGES;",
         ]:
             with closing(self.connection.cursor()) as cursor:
                 _log.info(f"executing: {stmt}")

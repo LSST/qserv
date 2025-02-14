@@ -769,7 +769,7 @@ def run_build(
         f"docker run --init {'--rm' if rm else ''} {'-it' if enter else ''} --name {build_container_name} "
         f"-u {user} "
         f"{'' if enter else '-d'} --mount {root_mount(qserv_root, qserv_build_root, user)} "
-        f"{'--cap-add sys_admin --cap-add sys_ptrace --security-opt seccomp=unconfined' if debuggable else ''} "
+        f"{'--cap-add sys_admin --cap-add sys_ptrace --security-opt seccomp=unconfined' if debuggable else ''} "  # noqa: E501
         f"-w {build_dir(qserv_build_root.format(user=user))} {user_build_image} "
         f"{'/bin/bash' if enter else ''}"
     )
@@ -1025,9 +1025,9 @@ def integration_test(
     def add_flag_if(val: bool | None, true_flag: str, false_flag: str, args: list[str]) -> None:
         """Add a do-or-do-not flag to `args` if `val` is `True` or `False`, do
         not add if `val` is `None`."""
-        if val == True:
+        if val is True:
             args.append(true_flag)
-        elif val == False:
+        elif val is False:
             args.append(false_flag)
 
     add_flag_if(load, "--load", "--no-load", args)
@@ -1150,9 +1150,9 @@ def integration_test_http(
     def add_flag_if(val: bool | None, true_flag: str, false_flag: str, args: list[str]) -> None:
         """Add a do-or-do-not flag to `args` if `val` is `True` or `False`, do
         not add if `val` is `None`."""
-        if val == True:
+        if val is True:
             args.append(true_flag)
-        elif val == False:
+        elif val is False:
             args.append(false_flag)
 
     add_flag_if(load, "--load", "--no-load", args)

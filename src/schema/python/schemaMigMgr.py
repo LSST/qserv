@@ -336,7 +336,8 @@ class SchemaMigMgr(metaclass=ABCMeta):
                         stmt = env.get_template(migration.name).render(get_template_cfg())
                     except jinja2.exceptions.UndefinedError as e:
                         raise RuntimeError(
-                            f"A template parameter is missing from the configuration for {migration.filepath}: {e.message}"
+                            "A template parameter is missing from the configuration for "
+                            f"{migration.filepath}: {e.message}"
                         ) from e
                 else:
                     with open(migration.filepath) as f:
@@ -344,8 +345,8 @@ class SchemaMigMgr(metaclass=ABCMeta):
                 _log.debug(f"Migration statement: {stmt}")
                 if stmt:
                     for result in cursor.execute(stmt, multi=True):  # type: ignore
-                        # Cast here because MySQLCursorAbtract does not have with_rows for some reason, even though both of
-                        # its subclasses do...
+                        # Cast here because MySQLCursorAbtract does not have with_rows for some reason, even
+                        # though both of its subclasses do...
                         result = cast(
                             mysql.connector.cursor.MySQLCursor | mysql.connector.cursor_cext.CMySQLCursor,
                             result,
@@ -571,7 +572,9 @@ class SchemaMigMgr(metaclass=ABCMeta):
         """
         with closing(self.connection.cursor()) as cursor:
             cursor.execute(
-                f"SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = '{dbName}' AND TABLE_NAME = '{tableName}'"
+                f"SELECT 1 FROM information_schema.TABLES "
+                f"WHERE TABLE_SCHEMA = '{dbName}' "
+                f"AND TABLE_NAME = '{tableName}'"
             )
             if not cursor.fetchone():
                 return False

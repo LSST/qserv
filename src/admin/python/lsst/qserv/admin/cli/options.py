@@ -21,8 +21,8 @@
 """Shared options for CLI functions in qserv."""
 
 from abc import abstractmethod
-from functools import partial
 from collections.abc import Callable
+from functools import partial
 
 import click
 
@@ -339,7 +339,7 @@ option_targs_file = partial(
 )
 
 
-class options_targs(OptionGroup):  # noqa: N801
+class options_targs(OptionGroup):
     @property
     def decorators(self) -> list[Callable]:
         return [

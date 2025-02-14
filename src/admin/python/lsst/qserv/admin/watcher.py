@@ -23,10 +23,10 @@
 
 import logging
 from collections import namedtuple
+from collections.abc import Sequence
 from contextlib import closing
 from time import sleep
 from typing import Any
-from collections.abc import Sequence
 
 import requests
 
@@ -34,17 +34,23 @@ _log = logging.getLogger(__name__)
 
 try:
     from .mysql_connection import mysql_connection
-except:
+except Exception:
     _log.warning("Could not import mysql.connection")
 
 
 CheckFailure = namedtuple("CheckFailure", "query_id execution_time query")
 
-start_msg_t = "Starting watcher on *{cluster_id}*. Will notify for queries running longer than {timeout_sec} seconds, polling every {interval_sec} seconds."
+start_msg_t = (
+    "Starting watcher on *{cluster_id}*. Will notify for queries running longer than {timeout_sec} seconds, "
+    "polling every {interval_sec} seconds."
+)
 
 stop_msg_t = "Stopping watcher on *{cluster_id}*."
 
-first_check_msg_t = "On *{cluster_id}* during the first check the following query ids had already exceeded the {timeout_sec} second timeout: {ids}"
+first_check_msg_t = (
+    "On *{cluster_id}* during the first check the following query ids had already exceeded the "
+    "{timeout_sec} second timeout: {ids}"
+)
 
 msg_prefix_t = "On *{cluster_id}* the following queries exceeded the {timeout_sec} second timeout:\n"
 show_query_msg_t = "- Query '{query}' id {id} has been running for {time} seconds.\n"
@@ -106,7 +112,7 @@ class Watcher:
             with open(notify_url_file) as f:
                 notify_url = f.read()
             _log.debug(f"Notify url: {notify_url}")
-        except:
+        except Exception:
             notify_url = NotifyUrlError
             _log.error(f"Could not get notify url from {notify_url_file}")
         return notify_url
@@ -175,7 +181,7 @@ class Watcher:
         try:
             with closing(mysql_connection(uri)) as cnx:
                 with closing(cnx.cursor()) as cursor:
-                    res = cursor.execute(stmt)
+                    cursor.execute(stmt)
                     results = cursor.fetchall()
         except Exception as e:
             results = []

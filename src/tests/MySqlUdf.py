@@ -93,17 +93,17 @@ class MySqlUdfTestCase(unittest.TestCase):
     def _query(self, query, result):
         qresult = self._conn.execute(query)
         rows = qresult.fetchall()
-        self.assertEqual(rows[0][0], result, query + " did not return %s." % dbparam(result))
+        self.assertEqual(rows[0][0], result, query + f" did not return {dbparam(result)}.")
 
     def _ang_sep(self, result, *args):
         args = tuple(dbparam(arg) for arg in args)
-        query = "SELECT scisql_ang_sep(%s, %s, %s, %s)" % args
+        query = f"SELECT scisql_ang_sep({args[0]}, {args[1]}, {args[2]}, {args[3]})"
         qresult = self._conn.execute(query)
         rows = qresult.fetchall()
         if result is None:
             self.assertEqual(rows[0][0], result, query + " did not return NULL.")
         else:
-            msg = query + " not close enough to %s" % dbparam(result)
+            msg = query + f" not close enough to {dbparam(result)}"
             self.assertAlmostEqual(rows[0][0], result, 11, msg)
 
     def testang_sep(self):
@@ -127,7 +127,7 @@ class MySqlUdfTestCase(unittest.TestCase):
 
     def _pt_in_sph_box(self, result, *args):
         args = tuple(dbparam(arg) for arg in args)
-        query = "SELECT scisql_s2PtInBox(%s, %s, %s, %s, %s, %s)" % args
+        query = f"SELECT scisql_s2PtInBox({args[0]}, {args[1]}, {args[2]}, {args[3]}, {args[4]}, {args[5]})"
         self._query(query, result)
 
     def test_pt_in_sph_box(self):
@@ -149,7 +149,7 @@ class MySqlUdfTestCase(unittest.TestCase):
 
     def _pt_in_sph_circle(self, result, *args):
         args = tuple(dbparam(arg) for arg in args)
-        query = "SELECT scisql_s2PtInCircle(%s, %s, %s, %s, %s)" % args
+        query = f"SELECT scisql_s2PtInCircle({args[0]}, {args[1]}, {args[2]}, {args[3]}, {args[4]})"
         self._query(query, result)
 
     def test_pt_in_sph_circle(self):
@@ -178,7 +178,10 @@ class MySqlUdfTestCase(unittest.TestCase):
 
     def _pt_in_sph_ellipse(self, result, *args):
         args = tuple(dbparam(arg) for arg in args)
-        query = "SELECT scisql_s2PtInEllipse(%s, %s, %s, %s, %s, %s, %s)" % args
+        query = (
+            f"SELECT scisql_s2PtInEllipse({args[0]}, {args[1]}, {args[2]}, {args[3]}, {args[4]}, "
+            f"{args[5]}, {args[6]})"
+        )
         self._query(query, result)
 
     def testpt_in_sph_ellipse(self):
@@ -211,7 +214,7 @@ class MySqlUdfTestCase(unittest.TestCase):
 
     def _pt_in_sph_poly(self, result, *args):
         args = ", ".join(dbparam(arg) for arg in args)
-        query = "SELECT scisql_s2PtInCPoly(%s)" % args
+        query = f"SELECT scisql_s2PtInCPoly({args[0]})"
         self._query(query, result)
 
     def test_pt_in_sph_poly(self):

@@ -27,11 +27,11 @@ import os
 import shutil
 import subprocess
 import tarfile
+from collections.abc import Generator
 from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, NamedTuple, cast
-from collections.abc import Generator
 
 import backoff
 import yaml
@@ -108,8 +108,14 @@ def _create_ref_db(ref_db_admin: str, name: str) -> None:
         The name of the database to create.
     """
     statements = [
-        "CREATE USER IF NOT EXISTS '{{ mysqld_user_qserv }}'@'localhost' IDENTIFIED BY '{{ mysqld_user_qserv_password }}';",
-        "CREATE USER IF NOT EXISTS '{{ mysqld_user_qserv }}'@'%' IDENTIFIED BY '{{ mysqld_user_qserv_password }}';",
+        (
+            "CREATE USER IF NOT EXISTS '{{ mysqld_user_qserv }}'@'localhost' "
+            "IDENTIFIED BY '{{ mysqld_user_qserv_password }}';"
+        ),
+        (
+            "CREATE USER IF NOT EXISTS '{{ mysqld_user_qserv }}'@'%' "
+            "IDENTIFIED BY '{{ mysqld_user_qserv_password }}';"
+        ),
         "CREATE DATABASE IF NOT EXISTS {name};",
         "GRANT ALL ON {name}.* TO '{{ mysqld_user_qserv }}'@'localhost';",
         "GRANT ALL ON {name}.* TO '{{ mysqld_user_qserv }}'@'%';",
@@ -312,11 +318,13 @@ def _prep_table_data(load_table: LoadTable, dest_dir: str) -> tuple[str, str]:
     Returns
     -------
     staging_dir : `str`
-        The absolute path to a folder that has been used to stage files used during processing that do not need to be kept.
+        The absolute path to a folder that has been used to stage files used
+        during processing that do not need to be kept.
     data_file : `str`
-        The absolute path to the file that contains the table data. (It may have been unzipped to a location different than in table.)
+        The absolute path to the file that contains the table data.
+        (It may have been unzipped to a location different than in table.)
     """
-    _log.info(f"_prep_table_data(1): dest_dir: %s load_table.data_file: %s", dest_dir, load_table.data_file)
+    _log.info("_prep_table_data(1): dest_dir: %s load_table.data_file: %s", dest_dir, load_table.data_file)
     if load_table.is_gzipped:
         data_file = os.path.join(dest_dir, os.path.splitext(os.path.basename(load_table.data_file))[0])
         unzip(source=load_table.data_file, destination=data_file)
@@ -326,7 +334,7 @@ def _prep_table_data(load_table: LoadTable, dest_dir: str) -> tuple[str, str]:
     staging_dir = os.path.join(dest_dir, load_table.data_staging_dir)
     if load_table.is_partitioned:
         _partition(staging_dir, load_table, data_file)
-    _log.info(f"_prep_table_data(2): staging_dir: %s data_file: %s", staging_dir, data_file)
+    _log.info("_prep_table_data(2): staging_dir: %s data_file: %s", staging_dir, data_file)
     return staging_dir, data_file
 
 
@@ -359,7 +367,7 @@ def _load_database(
         The protocol to use for loading the data.
     """
     _log.info(
-        f"Loading database %s for test %s auth_key %s admin_auth_key %s",
+        "Loading database %s for test %s auth_key %s admin_auth_key %s",
         load_db.name,
         load_db.id,
         auth_key,
@@ -582,7 +590,7 @@ def load(
     qserv_dbs = ReplicationInterface(repl_ctrl_uri).get_databases()
     for case_data in cases_data:
         load_db = LoadDb(case_data)
-        if load == True or (load is None and load_db.name not in qserv_dbs):
+        if load is True or (load is None and load_db.name not in qserv_dbs):
             _load_database(
                 load_db,
                 ref_db_uri,

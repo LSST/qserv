@@ -100,7 +100,6 @@ def wait_for_db_service(db_uri: str, checkdb: str) -> None:
         ) as connection:
             with closing(connection.cursor()) as cursor:
                 cursor.execute("show databases;")
-                result: list[str] = []
                 return [str(db) for (db,) in cursor.fetchall()]
 
     databases = get_databases()
@@ -173,7 +172,7 @@ def run_integration_tests(
     if not os.path.exists(qserv_testdata_dir):
         raise RuntimeError("qserv_testdata sources are not present.")
 
-    if unload or load != False or reload or run_tests:
+    if unload or load is not False or reload or run_tests:
         wait_for_db_service(tests_data["reference-db-admin-uri"], "mysql")
         wait_for_db_service(tests_data["czar-db-admin-uri"], "qservMeta")
         wait_for_replication_system(tests_data["replication-controller-uri"])
@@ -194,7 +193,7 @@ def run_integration_tests(
             cases=cases,
         )
 
-    if load != False or reload:
+    if load is not False or reload:
         itest_load.load(
             repl_ctrl_uri=tests_data["replication-controller-uri"],
             ref_db_uri=tests_data["reference-db-uri"],
@@ -293,7 +292,7 @@ def run_integration_tests_http(
     if not os.path.exists(qserv_testdata_dir):
         raise RuntimeError("qserv_testdata sources are not present.")
 
-    if unload or load != False or reload or run_tests:
+    if unload or load is not False or reload or run_tests:
         wait_for_db_service(tests_data["reference-db-admin-uri"], "mysql")
         wait_for_db_service(tests_data["czar-db-admin-uri"], "qservMeta")
         wait_for_replication_system(tests_data["replication-controller-uri"])
@@ -314,7 +313,7 @@ def run_integration_tests_http(
             cases=cases,
         )
 
-    if load != False or reload:
+    if load is not False or reload:
         itest_load.load(
             repl_ctrl_uri=tests_data["replication-controller-uri"],
             ref_db_uri=tests_data["reference-db-uri"],

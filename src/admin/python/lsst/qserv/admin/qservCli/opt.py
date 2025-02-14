@@ -27,8 +27,8 @@ information.
 import getpass
 import logging
 import os
-from functools import partial
 from collections.abc import Callable
+from functools import partial
 
 import click
 
@@ -185,7 +185,7 @@ class ImageName:
     run_base_dockerfile = "admin/tools/docker/base/Dockerfile"
     mariadb_dockerfile = "admin/tools/docker/mariadb/Dockerfile"
 
-    image_types = ["qserv", "run-base", "mariadb", "build-base", "build-user"]
+    image_types = ("qserv", "run-base", "mariadb", "build-base", "build-user")
 
     def __init__(self, image: str):
         if image not in self.image_types:
@@ -448,7 +448,7 @@ compose_file_default = OptDefault(
 )
 build_container_default = OptDefault(
     opt=["--build-container-name"],
-    default=f"build_container",
+    default="build_container",
     ev=env_project,
     val=lambda ev_val: f"{ev_val}_build",
 )
@@ -475,10 +475,10 @@ class FlagEnvVals:
         for ev in self.evs:
             ret += indent
             ret += f"{click.style(ev.env_var, bold=True)} "
-            ret += f"({click.style('***' if ev.private else ev.var_val) if ev.var_val else click.style('Not defined', fg='red')}) "
+            ret += f"({click.style('***' if ev.private else ev.var_val) if ev.var_val else click.style('Not defined', fg='red')}) "  # noqa: E501
             ret += f"for {click.style(ev.used_for)} "
             ret += f"(default: {click.style(ev.default, fg='blue')}) "
-            ret += f"is {click.style('***' if ev.private else ev.val(), fg='green', bold=True) if ev.val() else click.style('None', fg='red')}."
+            ret += f"is {click.style('***' if ev.private else ev.val(), fg='green', bold=True) if ev.val() else click.style('None', fg='red')}."  # noqa: E501
             ret += "\n"
         return ret
 
@@ -786,7 +786,10 @@ option_cmake = partial(
     click.option,
     "--cmake/--no-cmake",
     "run_cmake",
-    help="Force cmake to run or not run, before running make. By default runs cmake if the build folder does not exist yet.",
+    help=(
+        "Force cmake to run or not run, before running make. By default runs cmake if the build folder "
+        "does not exist yet."
+    ),
     is_flag=True,
     default=None,
 )

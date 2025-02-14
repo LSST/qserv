@@ -903,7 +903,7 @@ def entrypoint_help(
 
 
 @qserv.command(
-    help=f"""Check if an image is in dockerhub.
+    help="""Check if an image is in dockerhub.
 
     IMAGE is the image name + tag.
 

@@ -59,7 +59,7 @@ def split_kv(values: Sequence[str]) -> dict[str, str]:
     # verify each pair has exactly one equal sign
     for pair in pairs:
         if pair.count("=") != 1:
-            raise RuntimeError(f"Each key-value pair must be separated by '='.")
+            raise RuntimeError("Each key-value pair must be separated by '='.")
     # split each pair on the equal sign:
     split_pairs = (cast(tuple[str, str], pair.split("=")) for pair in pairs)
     # and finally, make a dict:

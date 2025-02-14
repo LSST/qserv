@@ -164,7 +164,7 @@ def get_last_change(fname: str, cwd: str) -> str:
         The sha of the commit that contains the most recent change.
     """
     args = ["git", "log", "--pretty=format:%H", "--max-count=1", fname]
-    _log.debug(f"running %s", " ".join(args))
+    _log.debug("running %s", " ".join(args))
     res = subproc.run(
         args,
         cwd=cwd,
@@ -172,7 +172,7 @@ def get_last_change(fname: str, cwd: str) -> str:
         errmsg=f"Failed to get git sha of most recent change to {fname}.",
     )
     sha = res.stdout.decode().strip()
-    _log.debug(f"The most recent change to %s was in %s", fname, sha)
+    _log.debug("The most recent change to %s was in %s", fname, sha)
     return sha
 
 
@@ -231,7 +231,7 @@ def get_most_recent(shas: list[str], cwd: str) -> str:
             history = git_log(other, newest, cwd)
             if not history:
                 raise RuntimeError(f"Could not establish a relationship between shas {newest} and {other}.")
-    _log.debug(f"The newest sha out of %s is %s", shas, newest)
+    _log.debug("The newest sha out of %s is %s", shas, newest)
     return newest
 
 
@@ -261,7 +261,7 @@ def dh_get_repo_tags(repository: str, token: str) -> list[str]:
     # Raise if there was a failure getting the token.
     res.raise_for_status()
     tags = [str(t) for t in res.json()["tags"]]
-    _log.debug(f"The tags in dockerhub for %s are: %s", repository, tags)
+    _log.debug("The tags in dockerhub for %s are: %s", repository, tags)
     return tags
 
 
@@ -408,4 +408,4 @@ def build_image(
         print(f"cd {run_dir}; {' '.join(args)}; cd -")
     else:
         _log.debug('Running "%s" from directory %s', " ".join(args), run_dir)
-        result = subproc.run(args, cwd=run_dir)
+        subproc.run(args, cwd=run_dir)

@@ -240,7 +240,7 @@ def smig(
         if (
             mgr.current_version() != Uninitialized
             and mgr.current_version() != mgr.latest_version()
-            and update == False
+            and update is False
         ):
             raise SchemaUpdateRequired(
                 f"Can not upgrade {module} from version {mgr.current_version()} without upgrade=True."

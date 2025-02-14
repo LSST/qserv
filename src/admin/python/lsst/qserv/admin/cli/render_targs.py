@@ -103,7 +103,7 @@ def render_targs(targs: Targs) -> Targs:
                         rendered[k] = r
                         changed = True
                 except jinja2.exceptions.UndefinedError as e:
-                    raise UnresolvableTemplate(f"Missing template value: {str(e)}")
+                    raise UnresolvableTemplate(f"Missing template value: {e!s}")
         if not changed:
             break
     if any([isinstance(v, str) and "{{" in v for v in rendered.values()]):

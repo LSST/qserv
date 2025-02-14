@@ -101,7 +101,7 @@ def apply_template_cfg(template: str, targs: Targs | None = None) -> str:
         else:
             return t.render(**get_template_cfg())
     except jinja2.exceptions.UndefinedError as e:
-        _log.error(f"Missing template value: {str(e)}")
+        _log.error(f"Missing template value: {e!s}")
         raise
 
 

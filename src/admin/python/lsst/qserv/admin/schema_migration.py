@@ -52,7 +52,7 @@ class AdminMigrationManager(SchemaMigMgr):
         result = cursor.fetchone()
         try:
             count = result[0]
-        except:
+        except Exception:
             raise RuntimeError(f"Could not extract version from query result: {result}.")
         return Uninitialized if count == 0 else 0
 

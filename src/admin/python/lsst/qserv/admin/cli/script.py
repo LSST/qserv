@@ -26,10 +26,10 @@ import socket
 import subprocess
 import sys
 import time
+from collections.abc import Callable, Sequence
 from contextlib import closing
 from functools import partial
 from pathlib import Path
-from collections.abc import Callable, Sequence
 
 import backoff
 from sqlalchemy.engine.url import URL, make_url
@@ -855,9 +855,9 @@ def enter_replication_registry(
         block=True,
     )
 
-    # N.B. When the replication controller smigs the replication database, if it is migrating from Uninitialized
-    # it will also set initial configuration values in the replication database. It sets the schema
-    # version of the replica database *after* setting the config values, which allows us to wait here
+    # N.B. When the replication controller smigs the replication database, if it is migrating from
+    # Uninitialized it will also set initial configuration values in the replication database. It sets the
+    # schema version of the replica database *after* setting the config values, which allows us to wait here
     # on the schema version to be sure that there are values in the database.
     _do_smig_block(replication_controller_smig_dir, "replica", db_uri)
 
@@ -939,7 +939,7 @@ def _run(
     if args:
         str_args = [str(a) for a in args]
         if debug_port:
-            str_args = ["gdbserver", f"localhost:{debug_port}"] + str_args
+            str_args = ["gdbserver", f"localhost:{debug_port}", *str_args]
         if not run:
             print(" ".join(str_args))
             return 0

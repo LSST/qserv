@@ -298,7 +298,7 @@ class ReplicationInterface:
             The transaction id obtained by calling `start_transaction`.
         """
         _log.debug("commit_transaction transaction_id: %s", transaction_id)
-        res = _put(
+        _put(
             url=f"http://{self.repl_ctrl.hostname}:{self.repl_ctrl.port}/ingest/trans/{transaction_id}?abort=0",
             data=json.dumps(
                 dict(
@@ -370,8 +370,10 @@ class ReplicationInterface:
             ),
         )
         return [
-            ChunkLocation(l["chunk"], l["host"], str(l["port"]), l["http_host"], str(l["http_port"]))
-            for l in res["location"]
+            ChunkLocation(
+                loc["chunk"], loc["host"], str(loc["port"]), loc["http_host"], str(loc["http_port"])
+            )
+            for loc in res["location"]
         ]
 
     def ingest_regular_table(self, transaction_id: int) -> list[RegularLocation]:

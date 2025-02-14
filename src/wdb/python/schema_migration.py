@@ -89,7 +89,8 @@ class WdbMigrationManager(SchemaMigMgr):
         current = self.current_version()
         if current != version:
             raise RuntimeError(
-                f"Failed to update version number in the database to {version}, current version is now {current}"
+                f"Failed to update version number in the database to {version}, "
+                f"current version is now {current}"
             )
 
     def apply_migrations(self, migrations: Sequence[Migration]) -> Version:
