@@ -26,6 +26,7 @@ for more information.
 """
 
 import sys
+
 from lsst.qserv.admin.cli.entrypoint import entrypoint
 
 if __name__ == "__main__":

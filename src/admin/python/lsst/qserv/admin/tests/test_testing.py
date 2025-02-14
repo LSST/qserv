@@ -30,7 +30,6 @@ import unittest
 
 from lsst.qserv.testing import config, mock_db, monitor, query_runner, runner_mgr
 
-
 logging.basicConfig(level=logging.INFO)
 
 _CFG1 = """

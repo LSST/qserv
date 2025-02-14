@@ -19,20 +19,21 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import backoff
 import copy
-from .qserv_backoff import max_backoff_sec, on_backoff
 import json
 import logging
 import os
+import subprocess
+from typing import Any, Callable, Dict, Generator, List, NamedTuple, Optional, Tuple
+from urllib.parse import urlparse
+
+import backoff
 from requests import delete, get, post, put
 from requests.exceptions import ConnectionError
 from requests_toolbelt.multipart.encoder import MultipartEncoder
-import subprocess
-from .itest_table import LoadTable
-from typing import Any, Callable, Dict, Generator, List, Optional, NamedTuple, Tuple
-from urllib.parse import urlparse
 
+from .itest_table import LoadTable
+from .qserv_backoff import max_backoff_sec, on_backoff
 
 chunk_file_t = "chunk_{chunk_id}.txt"
 chunk_overlap_file_t = "chunk_{chunk_id}_overlap.txt"

@@ -22,8 +22,9 @@
 This is an out-of-date test harness for the app.py functions in qserv/master.
 """
 
-import lsst.qserv.master as qMaster
 import unittest
+
+import lsst.qserv.master as qMaster
 
 
 class AppTest(unittest.TestCase):

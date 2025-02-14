@@ -34,8 +34,9 @@ from typing import Callable, Dict, List, Optional, Sequence, Union
 
 import backoff
 import jinja2
-import mysql.connector
 from sqlalchemy.engine.url import URL, make_url
+
+import mysql.connector
 
 from ...schema import MigMgrArgs, SchemaUpdateRequired, smig, smig_block
 from ..itest import ITestResults

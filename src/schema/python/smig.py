@@ -20,17 +20,18 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import backoff
-from contextlib import closing
 import importlib
 import logging
-import mysql.connector
-from _mysql_connector import MySQLInterfaceError
+from contextlib import closing
 from typing import Optional, Type, Union
+
+import backoff
+from _mysql_connector import MySQLInterfaceError
+
+import mysql.connector
 
 from ..admin.qserv_backoff import max_backoff_sec, on_backoff
 from . import MigMgrArgs, Migration, SchemaMigMgr, SchemaUpdateRequired, Uninitialized, Version
-
 
 _mig_module_name = "schema_migration"
 _factory_method_name = "make_migration_manager"

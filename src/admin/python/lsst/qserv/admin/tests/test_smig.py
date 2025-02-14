@@ -22,14 +22,13 @@
 """Unit tests for smig."""
 
 import os
-from tempfile import TemporaryDirectory
 import unittest
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from lsst.qserv.admin.cli import script
 from lsst.qserv.qmeta.schema_migration import QMetaMigrationManager
 from lsst.qserv.schema import SchemaMigMgr, SchemaUpdateRequired, Uninitialized
-
 
 migration_files = [
     "migrate-0-to-1.sql",

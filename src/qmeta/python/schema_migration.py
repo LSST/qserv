@@ -2,14 +2,14 @@
 
 __all__ = ["make_migration_manager"]
 
-import backoff
 import logging
-import mysql.connector
 from typing import Sequence
 
+import backoff
 from lsst.qserv.admin.qserv_backoff import max_backoff_sec, on_backoff
 from lsst.qserv.schema import Migration, SchemaMigMgr, Uninitialized, Version
 
+import mysql.connector
 
 _log = logging.getLogger(__name__)
 

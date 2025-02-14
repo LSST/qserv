@@ -20,26 +20,28 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-from pathlib import Path
-import tarfile
-import backoff
-from contextlib import closing
 import gzip
 import json
 import logging
-import mysql.connector
-from mysql.connector.abstracts import MySQLConnectionAbstract, MySQLCursorAbstract
 import os
 import shutil
 import subprocess
+import tarfile
+from contextlib import closing
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Dict, Generator, List, NamedTuple, Optional, Tuple, Union, cast
+
+import backoff
 import yaml
 
+import mysql.connector
+from mysql.connector.abstracts import MySQLConnectionAbstract, MySQLCursorAbstract
+
 from .constants import tmp_data_dir
-from .qserv_backoff import on_backoff, max_backoff_sec
 from .itest_table import LoadTable
 from .mysql_connection import mysql_connection
+from .qserv_backoff import max_backoff_sec, on_backoff
 from .replicationInterface import ReplicationInterface
 from .template import apply_template_cfg
 

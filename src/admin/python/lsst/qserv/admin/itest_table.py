@@ -20,9 +20,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
-from typing import Any, Dict, List
-
 from dataclasses import dataclass
+from typing import Any, Dict, List
 
 
 @dataclass

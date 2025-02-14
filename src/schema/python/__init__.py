@@ -1,6 +1,6 @@
 from .schemaMigMgr import (
-    MigMgrArgs,
     MigMatch,
+    MigMgrArgs,
     Migration,
     SchemaMigMgr,
     SchemaUpdateRequired,

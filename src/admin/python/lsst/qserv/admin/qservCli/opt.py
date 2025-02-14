@@ -24,16 +24,15 @@ there will be a CLI command called qserv. Use `qserv --help` to for more
 information.
 """
 
-import click
-from functools import partial
 import getpass
 import logging
 import os
+from functools import partial
 from typing import Callable, List, Optional, Union
 
+import click
 
 from .images import get_description
-
 
 _log = logging.getLogger(__name__)
 

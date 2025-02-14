@@ -19,7 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from collections import namedtuple
 import getpass
 import grp
 import logging
@@ -27,22 +26,22 @@ import os
 import pwd
 import subprocess
 import time
-from urllib.parse import urlparse
-import yaml
+from collections import namedtuple
 from typing import Dict, List, Optional
+from urllib.parse import urlparse
 
+import yaml
+
+from ..constants import tmp_data_dir
+from . import images, subproc
 from .opt import (
     env_dashboard_port,
+    env_dh_token,
+    env_dh_user,
     env_http_frontend_port,
     env_mariadb_image,
     env_qserv_image,
-    env_dh_user,
-    env_dh_token,
 )
-from ..constants import tmp_data_dir
-from . import images
-from . import subproc
-
 
 # The location where the lite-build and run-base images should be built from:
 base_image_build_subdir = "admin/tools/docker/base"

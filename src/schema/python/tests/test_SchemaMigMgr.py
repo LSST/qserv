@@ -21,8 +21,8 @@
 
 
 import os
-from tempfile import TemporaryDirectory
 import unittest
+from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock
 
 from lsst.qserv.schema import MigMatch, Migration, SchemaMigMgr, Uninitialized, Version

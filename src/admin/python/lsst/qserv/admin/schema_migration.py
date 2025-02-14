@@ -26,7 +26,6 @@ __all__ = ["make_migration_manager"]
 
 from typing import Optional, Sequence
 
-
 from ..schema import Migration, SchemaMigMgr, Uninitialized
 
 

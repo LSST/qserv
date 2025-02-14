@@ -19,11 +19,12 @@
 # You should have received a copy of the GNU General Public License
 
 
-import jinja2
 import logging
 import os
 import stat
 from typing import Any, Dict, List, Optional, Sequence, Union
+
+import jinja2
 import yaml
 
 from .cli.utils import Targs

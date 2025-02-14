@@ -21,17 +21,17 @@
 
 """Unit tests for the utils module."""
 
-import click
-from click.decorators import pass_context
-from click.testing import CliRunner
 import os
+import unittest
 from tempfile import NamedTemporaryFile
 from typing import Dict
-import unittest
-import yaml
 
+import click
+import yaml
+from click.decorators import pass_context
+from click.testing import CliRunner
 from lsst.qserv.admin.cli import utils
-from lsst.qserv.admin.cli.options import options_targs, option_targs_file
+from lsst.qserv.admin.cli.options import option_targs_file, options_targs
 
 
 class SplitKvTestCase(unittest.TestCase):

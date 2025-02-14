@@ -29,7 +29,6 @@ import logging
 import os
 import sys
 
-
 # Adding the src/admin/python path to sys.path allows options declared in
 # src/admin/cli/options.py to be imported and used by the qserv command.
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src/admin/python")))

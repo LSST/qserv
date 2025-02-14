@@ -3,11 +3,11 @@
 __all__ = ["RunnerManager"]
 
 import logging
-from multiprocessing import Process
 import time
+from multiprocessing import Process
 
-from .query_runner import QueryRunner
 from .monitor import MPMonitor
+from .query_runner import QueryRunner
 
 _LOG = logging.getLogger(__name__)
 

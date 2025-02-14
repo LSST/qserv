@@ -20,15 +20,15 @@
 
 """Utilities for CLI functions in qserv."""
 
-import click
-import click.testing
 import copy
 import logging
 import os
 import traceback
-from typing import Any, cast, Dict, List, Sequence, Tuple, Union
-import yaml
+from typing import Any, Dict, List, Sequence, Tuple, Union, cast
 
+import click
+import click.testing
+import yaml
 
 _log = logging.getLogger(__name__)
 

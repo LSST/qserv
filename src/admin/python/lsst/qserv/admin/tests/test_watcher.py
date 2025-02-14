@@ -21,13 +21,14 @@
 
 """Unit tests for test_watcher."""
 
-from collections import namedtuple
-import requests
 import unittest
+from collections import namedtuple
 from unittest.mock import patch
 
+import requests
 from lsst.qserv.admin.watcher import (
     CheckFailure,
+    Watcher,
     first_check_msg_t,
     msg_prefix_t,
     notify_data,
@@ -36,9 +37,7 @@ from lsst.qserv.admin.watcher import (
     show_query_msg_t,
     start_msg_t,
     stop_msg_t,
-    Watcher,
 )
-
 
 res_42_43 = [
     (42, "EXECUTING", "unused_summitted_time", 700, "SELECT objectId from Object"),

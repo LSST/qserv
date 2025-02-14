@@ -22,18 +22,17 @@
 
 __all__ = ["make_migration_manager"]
 
-from contextlib import closing
 import logging
-from sqlalchemy.engine.url import make_url
+from contextlib import closing
 from typing import Callable, List, Optional
 
 from lsst.qserv.schema import (
     Migration,
     SchemaMigMgr,
-    Version,
     Uninitialized,
+    Version,
 )
-
+from sqlalchemy.engine.url import make_url
 
 _log = logging.getLogger(__name__)
 

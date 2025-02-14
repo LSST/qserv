@@ -19,13 +19,13 @@
 # You should have received a copy of the GNU General Public License
 
 
-import jinja2
 import unittest
 
+import jinja2
 from lsst.qserv.admin.cli.render_targs import (
+    UnresolvableTemplate,
     _get_vars,
     render_targs,
-    UnresolvableTemplate,
 )
 
 

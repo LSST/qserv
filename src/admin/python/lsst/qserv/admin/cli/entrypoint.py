@@ -21,59 +21,57 @@
 
 """Command line tool for launching qserv components inside a qserv container."""
 
-import click
-from collections import OrderedDict
-from dataclasses import dataclass, field
-from functools import partial
 import logging
 import os
 import sys
+from collections import OrderedDict
+from dataclasses import dataclass, field
+from functools import partial
 from typing import Any, Callable, Dict, List, Optional
 
+import click
 from click.decorators import pass_context
 
+from ..watcher import watch
+from . import script, utils
 from .options import (
+    OptionGroup,
     option_case,
     option_cmd,
     option_cmsd_manager_name,
     option_compare_results,
     option_czar_connection,
-    option_db_uri,
     option_db_admin_uri,
     option_db_qserv_user,
+    option_db_uri,
     option_debug,
+    option_keep_results,
     option_load,
+    option_load_http,
     option_log_cfg_file,
     option_log_level,
-    OptionGroup,
-    option_options_file,
     option_mysql_monitor_password,
+    option_options_file,
     option_reload,
-    option_load_http,
-    option_repl_auth_key,
     option_repl_admin_auth_key,
+    option_repl_auth_key,
     option_repl_connection,
+    option_repl_http_port,
     option_repl_instance_id,
     option_repl_registry_host,
     option_repl_registry_port,
-    option_repl_http_port,
     option_results_dirname,
     option_results_protocol,
     option_run,
     option_run_tests,
-    option_keep_results,
-    options_targs,
     option_tests_yaml,
     option_unload,
     option_vnid_config,
     option_worker_connection,
     option_xrootd_manager,
+    options_targs,
 )
-from . import utils
 from .render_targs import render_targs
-from . import script
-from ..watcher import watch
-
 
 _log = logging.getLogger(__name__)
 

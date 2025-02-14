@@ -23,8 +23,9 @@
 values in values passed into the `entrypoint` command line."""
 
 from copy import copy
-import jinja2
 from typing import List
+
+import jinja2
 
 from .utils import Targs
 

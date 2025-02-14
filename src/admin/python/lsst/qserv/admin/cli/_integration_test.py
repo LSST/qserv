@@ -18,28 +18,28 @@
 #
 # You should have received a copy of the GNU General Public License
 
-import backoff
-from contextlib import closing
 import logging
-import mysql.connector
+import os
+import shutil
+import subprocess
+from contextlib import closing
+from typing import List, Optional
+from urllib.parse import urlparse
+
+import backoff
+import requests
+import yaml
 
 # MySQLInterfaceError can get thrown, we need to catch it.
 # It's not exposed as a public python object but *is* used in mysql.connector unit tests.
 from _mysql_connector import MySQLInterfaceError
-import os
-import requests
-import shutil
-import subprocess
-from typing import List, Optional
-from urllib.parse import urlparse
-import yaml
 
-from .. import itest_load
+import mysql.connector
+
+from .. import itest, itest_load
 from ..qserv_backoff import max_backoff_sec, on_backoff
 from ..replicationInterface import ReplicationInterface
 from ..template import save_template_cfg
-from .. import itest
-
 
 _log = logging.getLogger(__name__)
 

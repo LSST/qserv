@@ -27,7 +27,6 @@ __all__ = ["make_migration_manager"]
 
 from lsst.qserv.schema import SchemaMigMgr, Uninitialized, Version
 
-
 database = "qservResult"
 
 

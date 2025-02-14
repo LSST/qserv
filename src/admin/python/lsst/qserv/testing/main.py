@@ -11,8 +11,8 @@ import os
 
 import MySQLdb
 
-from .config import Config
 from . import mock_db
+from .config import Config
 from .monitor import InfluxDBFileMonitor, LogMonitor
 from .runner_mgr import RunnerManager
 

@@ -22,13 +22,13 @@
 
 """Unit tests for the option_options_file CLI option."""
 
-import click
-from click.testing import CliRunner
-from unittest.mock import MagicMock
 import tempfile
 import unittest
-import yaml
+from unittest.mock import MagicMock
 
+import click
+import yaml
+from click.testing import CliRunner
 from lsst.qserv.admin.cli.options import option_options_file
 
 defaultStrFoo = "bar"

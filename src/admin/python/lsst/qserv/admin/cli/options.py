@@ -21,9 +21,10 @@
 """Shared options for CLI functions in qserv."""
 
 from abc import abstractmethod
-import click
 from functools import partial
 from typing import Callable, List
+
+import click
 
 from .utils import process_targs, yaml_presets
 

@@ -6,6 +6,7 @@ import optparse
 import random
 import sys
 import unittest
+
 from lsst.db.engineFactory import getEngineFromArgs
 
 

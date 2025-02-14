@@ -26,8 +26,8 @@ import unittest
 from lsst.qserv.admin.qservCli.qserv_log import (
     default_log_level,
     invalid_value_msg,
-    log_level_from_args,
     log_level_choices,
+    log_level_from_args,
     missing_argument_msg,
 )
 

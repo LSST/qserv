@@ -19,20 +19,21 @@
 # You should have received a copy of the GNU General Public License
 
 import csv
-from filecmp import dircmp
 import json
 import logging
-import urllib3
-import requests
-from requests_toolbelt.multipart.encoder import MultipartEncoder
 import os
 import re
 import shutil
-import time
-from typing import Any, Collection, Dict, Generator, List, Optional, Sequence, TextIO, Union
 import subprocess
-from urllib.parse import urljoin
-from urllib.parse import urlparse
+import time
+from filecmp import dircmp
+from typing import Any, Collection, Dict, Generator, List, Optional, Sequence, TextIO, Union
+from urllib.parse import urljoin, urlparse
+
+import requests
+import urllib3
+from requests_toolbelt.multipart.encoder import MultipartEncoder
+
 from .replicationInterface import repl_api_version
 
 _log = logging.getLogger(__name__)

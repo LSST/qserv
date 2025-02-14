@@ -23,16 +23,17 @@
 #
 
 import getpass
-from glob import glob
-from itertools import cycle, groupby
-import MySQLdb as sql
 import optparse
 import os
 import os.path
 import re
-from textwrap import dedent
 import time
 import warnings
+from glob import glob
+from itertools import cycle, groupby
+from textwrap import dedent
+
+import MySQLdb as sql
 
 # -- Parallelization --------
 

@@ -26,26 +26,26 @@ from __future__ import annotations
 
 __all__ = ["SchemaMigMgr", "Uninitialized"]
 
+import logging
+import os
+import re
 from abc import ABCMeta, abstractmethod
-import backoff
 from contextlib import closing
 from dataclasses import dataclass
+from typing import Callable, Dict, List, Optional, Type, Union, cast
+
+import backoff
 import jinja2
-import logging
-import mysql.connector
-from typing import Callable, Dict, Union, cast
 
 # MySQLInterfaceError can get thrown, we need to catch it.
 # It's not exposed as a public python object but *is* used in mysql.connector unit tests.
 from _mysql_connector import MySQLInterfaceError
-import os
-import re
 from sqlalchemy.engine.url import make_url
-from typing import Callable, List, Optional, Type, Union
 
-from ..admin.template import get_template_cfg
+import mysql.connector
+
 from ..admin.qserv_backoff import max_backoff_sec, on_backoff
-
+from ..admin.template import get_template_cfg
 
 _log = logging.getLogger(__name__)
 database_error_connection_refused_code = 2003

@@ -27,7 +27,6 @@ __all__ = ["make_migration_manager"]
 
 from ..schema import SchemaMigMgr, Uninitialized, Version
 
-
 database = "qservCssData"
 
 

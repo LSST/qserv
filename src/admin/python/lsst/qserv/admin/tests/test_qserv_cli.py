@@ -21,11 +21,11 @@
 
 """Unit tests for qserv_cli."""
 
-from click.testing import CliRunner
 import os
 import unittest
-from unittest.mock import patch, ANY
+from unittest.mock import ANY, patch
 
+from click.testing import CliRunner
 from lsst.qserv.admin.qservCli import launch
 from lsst.qserv.admin.qservCli.qserv_cli import qserv
 

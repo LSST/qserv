@@ -6,8 +6,8 @@ import contextlib
 import logging
 import random
 
-import yaml
 import numpy as np
+import yaml
 
 _LOG = logging.getLogger(__name__)
 

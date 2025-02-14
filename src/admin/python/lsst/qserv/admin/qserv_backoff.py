@@ -22,11 +22,11 @@
 
 """Utilities for using the backoff module in qserv."""
 
-import backoff
 from functools import partial
 from logging import Logger
 from typing import Any, Callable, Dict
 
+import backoff
 
 max_backoff_sec = 5 * 60
 

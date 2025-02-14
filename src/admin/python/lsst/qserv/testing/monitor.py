@@ -1,11 +1,10 @@
 """Classes for monitoring of test harness."""
 
-from abc import ABC, abstractmethod
 import logging
 import multiprocessing
 import queue
 import time
-
+from abc import ABC, abstractmethod
 
 _LOG = logging.getLogger(__name__)
 

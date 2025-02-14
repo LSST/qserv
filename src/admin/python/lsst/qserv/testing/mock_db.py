@@ -1,10 +1,9 @@
 """Mock for MySQL DBAPI."""
 
-from collections import namedtuple
 import logging
 import re
 import time
-
+from collections import namedtuple
 
 _LOG = logging.getLogger(__name__)
 

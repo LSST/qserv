@@ -21,12 +21,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import logging
 from collections import namedtuple
 from contextlib import closing
-import logging
-import requests
 from time import sleep
-from typing import List, Sequence, Set, Type, Union, Any
+from typing import Any, List, Sequence, Set, Type, Union
+
+import requests
 
 _log = logging.getLogger(__name__)
 

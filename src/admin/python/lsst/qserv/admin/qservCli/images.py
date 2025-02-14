@@ -22,11 +22,12 @@
 
 """Utilities for working with docker images and dockerhub."""
 
-from copy import copy
 import logging
-import requests
 import subprocess
+from copy import copy
 from typing import List, Optional
+
+import requests
 
 from . import subproc
 
