@@ -24,8 +24,8 @@ import copy
 import logging
 import os
 import traceback
-from typing import Any, cast
 from collections.abc import Sequence
+from typing import Any, cast
 
 import click
 import click.testing
@@ -184,7 +184,7 @@ def targs(
     return ret
 
 
-def clickResultMsg(result: click.testing.Result) -> str:
+def click_result_msg(result: click.testing.Result) -> str:
     """Helper for unit tests that use `click.testing.CliRunner`, which
     returns a result object. This accepts a result object and returns a string
     that can be used in a `unittest.assert...` `msg` argument.

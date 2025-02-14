@@ -103,9 +103,9 @@ class InfluxDBFileMonitor(Monitor):
         Dictionary with tags and tag values to add to all metrics.
     """
 
-    def __init__(self, path, periodSec=None, dbname=None, tags=None):
+    def __init__(self, path, period_sec=None, dbname=None, tags=None):
         self._path = path
-        self._period = periodSec
+        self._period = period_sec
         self._dbname = dbname
         self._tags = tags
 

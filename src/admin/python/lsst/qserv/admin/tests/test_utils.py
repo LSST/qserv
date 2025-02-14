@@ -57,7 +57,7 @@ targs_result = None
 @click.option("--test-option3")
 @options_targs()
 @option_targs_file()
-def testFunc(
+def test_func(
     ctx: click.Context,
     test_option1: str,
     test_option2: str,
@@ -80,13 +80,13 @@ class CliTargsTestCase(unittest.TestCase):
         super().__init__(*args, **kwargs)
         self.maxDiff = None
 
-    def test_minimalValues(self):
+    def test_minimal_values(self):
         """Test utils.targs without setting very many values."""
         global targs_result
         targs_result = None
         runner = CliRunner()
-        res = runner.invoke(testFunc)
-        self.assertEqual(res.exit_code, 0, utils.clickResultMsg(res))
+        res = runner.invoke(test_func)
+        self.assertEqual(res.exit_code, 0, utils.click_result_msg(res))
         expected = dict(os.environ)
         expected.update(dict(test_option1=None, test_option2=None, test_option3=None))
         self.assertEqual(targs_result, expected)
@@ -99,7 +99,7 @@ class CliTargsTestCase(unittest.TestCase):
         with NamedTemporaryFile("w") as f:
             yaml.dump({"test_option1": "abcdef", "test_option2": "ghijk"}, f)
             res = runner.invoke(
-                testFunc,
+                test_func,
                 [
                     "--test-option1",
                     "foo",
@@ -114,7 +114,7 @@ class CliTargsTestCase(unittest.TestCase):
                 ],
                 env={"test_option3": "EnvCantGetNoRespect", "another_var_4": "thisOneGetsNoticed"},
             )
-        self.assertEqual(res.exit_code, 0, utils.clickResultMsg(res))
+        self.assertEqual(res.exit_code, 0, utils.click_result_msg(res))
         expected = dict(os.environ)
         # test_option1 is set by an option, overridden by the targs file and by targs; targs wins.
         # test_option2 is set by an option and overridden by the targs file, targs file wins.
@@ -136,7 +136,7 @@ class CliTargsTestCase(unittest.TestCase):
         global targs_result
         runner = CliRunner()
         res = runner.invoke(
-            testFunc,
+            test_func,
             [
                 "--test-option1",
                 "foo",
@@ -148,18 +148,18 @@ class CliTargsTestCase(unittest.TestCase):
                 "test_option2=cheese,guac",
             ],
         )
-        self.assertEqual(res.exit_code, 0, utils.clickResultMsg(res))
+        self.assertEqual(res.exit_code, 0, utils.click_result_msg(res))
         expected = dict(os.environ)
         expected.update(dict(test_option1="beans", test_option2=["cheese", "guac"], test_option3=None))
         self.assertEqual(targs_result, expected)
 
         # more than one equal sign should fail
-        res = runner.invoke(testFunc, "--targs", "test_option1=one=two")
-        self.assertNotEqual(res.exit_code, 0, utils.clickResultMsg(res))
+        res = runner.invoke(test_func, "--targs", "test_option1=one=two")
+        self.assertNotEqual(res.exit_code, 0, utils.click_result_msg(res))
 
         # zero equal signs should fail
-        res = runner.invoke(testFunc, "--targs", "test_option1")
-        self.assertNotEqual(res.exit_code, 0, utils.clickResultMsg(res))
+        res = runner.invoke(test_func, "--targs", "test_option1")
+        self.assertNotEqual(res.exit_code, 0, utils.click_result_msg(res))
 
 
 if __name__ == "__main__":

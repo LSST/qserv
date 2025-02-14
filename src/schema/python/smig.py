@@ -30,7 +30,7 @@ from _mysql_connector import MySQLInterfaceError
 import mysql.connector
 
 from ..admin.qserv_backoff import max_backoff_sec, on_backoff
-from . import MigMgrArgs, Migration, SchemaMigMgr, SchemaUpdateRequired, Uninitialized, Version
+from . import MigMgrArgs, Migration, SchemaMigMgr, SchemaUpdateRequiredError, Uninitialized, Version
 
 _mig_module_name = "schema_migration"
 _factory_method_name = "make_migration_manager"
@@ -242,7 +242,7 @@ def smig(
             and mgr.current_version() != mgr.latest_version()
             and update is False
         ):
-            raise SchemaUpdateRequired(
+            raise SchemaUpdateRequiredError(
                 f"Can not upgrade {module} from version {mgr.current_version()} without upgrade=True."
             )
 

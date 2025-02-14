@@ -23,7 +23,7 @@ import unittest
 
 import jinja2
 from lsst.qserv.admin.cli.render_targs import (
-    UnresolvableTemplate,
+    UnresolvableTemplateError,
     _get_vars,
     render_targs,
 )
@@ -44,62 +44,62 @@ class GetVarsTestCase(unittest.TestCase):
 
 
 class RenderTargsTestCase(unittest.TestCase):
-    def testMutualReference(self):
+    def test_mutual_reference(self):
         """Test for failure when targs refer directly to each other."""
-        with self.assertRaises(UnresolvableTemplate) as r:
+        with self.assertRaises(UnresolvableTemplateError) as r:
             render_targs({"a": "{{b}}", "b": "{{a}}"})
         self.assertIn("a={{b}}, b={{a}}", str(r.exception))
 
-    def testCircularReference(self):
+    def test_circular_reference(self):
         """Test for failure when there is a circular reference in targs."""
-        with self.assertRaises(UnresolvableTemplate) as r:
+        with self.assertRaises(UnresolvableTemplateError) as r:
             render_targs({"a": "{{b}}", "b": "{{c}}", "c": "{{a}}"})
         self.assertIn("a={{b}}, b={{c}}, c={{a}}", str(r.exception))
 
-    def testCircularReference_varWithText(self):
+    def test_circular_reference_var_with_text(self):
         """Test for failure when there is a circular reference in targs."""
-        with self.assertRaises(UnresolvableTemplate) as r:
+        with self.assertRaises(UnresolvableTemplateError) as r:
             render_targs({"a": "{{b}}", "b": "foo {{c}}", "c": "{{a}}"})
         self.assertIn("a={{b}}, b=foo {{c}}, c={{a}}", str(r.exception))
 
-    def testCirularReference_twoVarsWithText(self):
-        with self.assertRaises(UnresolvableTemplate) as r:
+    def test_cirular_reference_two_vars_with_text(self):
+        with self.assertRaises(UnresolvableTemplateError) as r:
             render_targs({"a": "the {{b}}", "b": "only {{a}}"})
         self.assertIn("a=the {{b}}, b=only {{a}}", str(r.exception))
 
-    def testSelfReference(self):
+    def test_self_reference(self):
         """Test for failure when a targ refers to itself."""
-        with self.assertRaises(UnresolvableTemplate) as r:
+        with self.assertRaises(UnresolvableTemplateError) as r:
             render_targs({"a": "{{a}}"})
         self.assertIn("a={{a}}", str(r.exception))
 
-    def testMissingValue(self):
+    def test_missing_value(self):
         """Test for failure when a template value is not provided."""
-        with self.assertRaises(UnresolvableTemplate) as r:
+        with self.assertRaises(UnresolvableTemplateError) as r:
             render_targs({"a": "{{b}}"})
         self.assertIn("Missing template value:", str(r.exception))
 
-    def testList(self):
+    def test_list(self):
         """Verify that lists can be used as values and manipulated by the template."""
         self.assertEqual(
             render_targs({"a": "{{b|join(' ')}}", "b": ["foo", "bar"]}), {"a": "foo bar", "b": ["foo", "bar"]}
         )
 
-    def testResolves(self):
+    def test_resolves(self):
         """Verify that a dict with legal values resolves correctly."""
         self.assertEqual(
             render_targs({"a": "{{ b }}", "b": "{{c}}", "c": "d"}), {"a": "d", "b": "d", "c": "d"}
         )
 
-    def testNone(self):
+    def test_none(self):
         """Test that a dict with None as a value resolves correctly."""
         self.assertEqual(render_targs({"a": None}), {"a": None})
 
-    def testBool(self):
+    def test_bool(self):
         """Test that a dict with a bool as a value resolves correctly."""
         self.assertEqual(render_targs({"a": True}), {"a": True})
 
-    def testVarWithSpace(self):
+    def test_var_with_space(self):
         """Verify spaces are not allowed inside of jinja template variables.
 
         (and we don't expect it)."""

@@ -36,11 +36,11 @@ from sqlalchemy.engine.url import URL, make_url
 
 import mysql.connector
 
-from ...schema import MigMgrArgs, SchemaUpdateRequired, smig, smig_block
+from ...schema import MigMgrArgs, SchemaUpdateRequiredError, smig, smig_block
 from ..itest import ITestResults
 from ..itest_table import LoadTable
 from ..qserv_backoff import on_backoff
-from ..replicationInterface import ReplicationInterface
+from ..replication_interface import ReplicationInterface
 from ..template import apply_template_cfg_file, save_template_cfg
 from . import _integration_test, options
 from .utils import Targs
@@ -73,7 +73,7 @@ def _jitter(f: float) -> float:
 
 
 @backoff.on_exception(
-    exception=SchemaUpdateRequired,
+    exception=SchemaUpdateRequiredError,
     on_backoff=on_backoff(log=_log),
     wait_gen=backoff.constant,
     interval=10,  # Wait 10 seconds between retries.
@@ -148,7 +148,7 @@ def _do_smig_block(module_smig_dir: str, module: str, connection: str) -> None:
     )
 
 
-class InvalidQueryParameter(RuntimeError):
+class InvalidQueryParameterError(RuntimeError):
     """Raised when a URI contains query keys that are not supported for that
     URI.
     """
@@ -208,7 +208,7 @@ def _process_uri(uri: str, query_keys: Sequence[str], option: str, block: bool) 
 
     url = make_url(uri)
     if any(remainders := set(url.query.keys()) - set(query_keys)):
-        raise InvalidQueryParameter(
+        raise InvalidQueryParameterError(
             f"Invalid query key(s) ({remainders}); {option} accepts {query_keys or 'no keys'}."
         )
     if block and url.host and url.port:

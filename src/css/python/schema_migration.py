@@ -46,7 +46,7 @@ class CssMigrationManager(SchemaMigMgr):
         """
 
         # If the css database does not exist then css is Uninitialized.
-        if not self.databaseExists(database):
+        if not self.database_exists(database):
             return Version(Uninitialized)
 
         # css does not have multiple versions yet, so if the database exists

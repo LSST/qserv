@@ -44,14 +44,14 @@ res_42_43 = [
     (43, "EXECUTING", "unused_summitted_time", 702, "SELECT sourceId from Source"),
 ]
 
-checkFailures_42_43 = [
+check_failures_42_43 = [
     CheckFailure(42, 700, "SELECT objectId from Object"),
     CheckFailure(43, 702, "SELECT sourceId from Source"),
 ]
 
 res_44 = (44, "EXECUTING", "unused_submitted_time", 722, "SELECT foo FROM bar")
 
-checkFailure_44 = [
+check_failure_44 = [
     CheckFailure(44, 722, "SELECT foo FROM bar"),
 ]
 
@@ -103,7 +103,7 @@ class WatcherTestCase(unittest.TestCase):
         )
         # verify that the first call to check returns the two expected CheckFailures.
         res = watcher.check()
-        self.assertEqual(res, checkFailures_42_43)
+        self.assertEqual(res, check_failures_42_43)
         # verify that the query ids have been cached
         self.assertEqual(watcher.prev_failed_ids, set([42, 43]))
         # verify that the second call to check does not return the two previoiusly seen CheckFailures.
@@ -113,7 +113,7 @@ class WatcherTestCase(unittest.TestCase):
         # add another result row and verify that check returns the new row and not the old ones.
         query_results.append(res_44)
         res = watcher.check()
-        self.assertEqual(res, checkFailure_44)
+        self.assertEqual(res, check_failure_44)
 
     @patch.object(Watcher, "notify")
     def test_notify(self, mock_notify):
@@ -131,7 +131,7 @@ class WatcherTestCase(unittest.TestCase):
             interval_sec=1,
             show_query=False,
         )
-        watcher.alert(checkFailures_42_43)
+        watcher.alert(check_failures_42_43)
         mock_notify.assert_called_with(
             msg=first_check_msg_t.format(cluster_id=cluster_id, timeout_sec=timeout_sec, ids=("42, 43"))
         )
@@ -139,17 +139,17 @@ class WatcherTestCase(unittest.TestCase):
         # manually set it here (instead of mocking check and inventing a way
         # to only run the watch loop n times.)
         watcher.first_check = False
-        watcher.alert(checkFailure_44)
+        watcher.alert(check_failure_44)
         prefix = msg_prefix_t.format(cluster_id=cluster_id, timeout_sec=timeout_sec)
-        cf = checkFailure_44[0]
+        cf = check_failure_44[0]
         query_msg = query_msg_t.format(id=cf.query_id, time=cf.execution_time)
         mock_notify.assert_called_with(msg=prefix + query_msg)
         # run the same alert again (normally the same query id would be squelched by
         # `check` but we are bypassing that here) with show_query=True and verify:
         watcher.show_query = True
-        watcher.alert(checkFailure_44)
+        watcher.alert(check_failure_44)
         prefix = msg_prefix_t.format(cluster_id=cluster_id, timeout_sec=timeout_sec)
-        cf = checkFailure_44[0]
+        cf = check_failure_44[0]
         query_msg = show_query_msg_t.format(id=cf.query_id, time=cf.execution_time, query=cf.query)
         mock_notify.assert_called_with(msg=prefix + query_msg)
 

@@ -91,14 +91,14 @@ option_instance_id = partial(
 )
 
 
-logLevelChoices = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]
+log_level_choices = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]
 option_log_level = partial(
     click.option,
     "--log-level",
     default="INFO",
-    type=click.Choice(logLevelChoices, case_sensitive=False),
+    type=click.Choice(log_level_choices, case_sensitive=False),
     callback=lambda ctx, par, val: val.upper(),
-    help=f"The logging level for the entrypoint tool. Supported levels are [{'|'.join(logLevelChoices)}]",
+    help=f"The logging level for the entrypoint tool. Supported levels are [{'|'.join(log_level_choices)}]",
 )
 
 
@@ -181,13 +181,13 @@ option_results_dirname = partial(
 )
 
 
-resultProtocolChoices = ["XROOT", "HTTP"]
+result_protocol_choices = ["XROOT", "HTTP"]
 option_results_protocol = partial(
     click.option,
     "--results-protocol",
-    help=f"Result delivery protocol. Allowed options are [{'|'.join(resultProtocolChoices)}]",
+    help=f"Result delivery protocol. Allowed options are [{'|'.join(result_protocol_choices)}]",
     default="HTTP",
-    type=click.Choice(resultProtocolChoices, case_sensitive=False),
+    type=click.Choice(result_protocol_choices, case_sensitive=False),
     show_default=True,
 )
 
@@ -339,7 +339,7 @@ option_targs_file = partial(
 )
 
 
-class options_targs(OptionGroup):
+class options_targs(OptionGroup):  # noqa: N801
     @property
     def decorators(self) -> list[Callable]:
         return [

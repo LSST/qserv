@@ -55,7 +55,7 @@ database_error_connection_refused_code = 2003
 MigMgrArgs = dict[str, Callable[[], None] | str | None]
 
 
-class SchemaUpdateRequired(RuntimeError):
+class SchemaUpdateRequiredError(RuntimeError):
     """Error that indicates that a schema update is required.
 
     It may be raised when the update could not be performed because necessary
@@ -97,11 +97,11 @@ class Version:
         return Version(other)
 
     @staticmethod
-    def _validateOther(other: object) -> bool:
+    def _validate_other(other: object) -> bool:
         return isinstance(other, int | Version) or other is Uninitialized
 
     @staticmethod
-    def _otherVal(other: object) -> int | type[Uninitialized]:
+    def _other_val(other: object) -> int | type[Uninitialized]:
         """Get the value of the other value. May be a ``Version`` instance,
         ``Uninitialized``, or an ``int``.
 
@@ -116,29 +116,29 @@ class Version:
         raise NotImplementedError(f"_otherVal is not implemented for the type of {other}")
 
     def __lt__(self, other: object) -> bool:
-        if not self._validateOther(other):
+        if not self._validate_other(other):
             return NotImplemented
-        otherVal = self._otherVal(other)
-        if self.value is Uninitialized and otherVal is not Uninitialized:
+        other_val = self._other_val(other)
+        if self.value is Uninitialized and other_val is not Uninitialized:
             return True
-        if isinstance(self.value, int) and isinstance(otherVal, int):
-            return self.value < otherVal
+        if isinstance(self.value, int) and isinstance(other_val, int):
+            return self.value < other_val
         return False
 
     def __gt__(self, other: object) -> bool:
-        if not self._validateOther(other):
+        if not self._validate_other(other):
             return NotImplemented
         return not self.__lt__(other) and not self.__eq__(other)
 
     def __ge__(self, other: object) -> bool:
-        if not self._validateOther(other):
+        if not self._validate_other(other):
             return NotImplemented
         return not self < other
 
     def __eq__(self, other: object) -> bool:
-        if not self._validateOther(other):
+        if not self._validate_other(other):
             return NotImplemented
-        other = self._otherVal(other)
+        other = self._other_val(other)
         if self.value is Uninitialized and other is Uninitialized:
             return True
         if self.value is Uninitialized or other is Uninitialized:
@@ -536,7 +536,7 @@ class SchemaMigMgr(metaclass=ABCMeta):
                     )
         return migrations
 
-    def databaseExists(self, dbName: str) -> bool:
+    def database_exists(self, dbname: str) -> bool:
         """Determine if a database exists
 
         Parameters
@@ -551,11 +551,11 @@ class SchemaMigMgr(metaclass=ABCMeta):
         """
         with closing(self.connection.cursor()) as cursor:
             cursor.execute("SHOW DATABASES")
-            if (dbName,) in cursor.fetchall():
+            if (dbname,) in cursor.fetchall():
                 return True
         return False
 
-    def tableExists(self, dbName: str, tableName: str) -> bool:
+    def table_exists(self, dbname: str, tablename: str) -> bool:
         """Determine if a table exists
 
         Parameters
@@ -573,8 +573,8 @@ class SchemaMigMgr(metaclass=ABCMeta):
         with closing(self.connection.cursor()) as cursor:
             cursor.execute(
                 f"SELECT 1 FROM information_schema.TABLES "
-                f"WHERE TABLE_SCHEMA = '{dbName}' "
-                f"AND TABLE_NAME = '{tableName}'"
+                f"WHERE TABLE_SCHEMA = '{dbname}' "
+                f"AND TABLE_NAME = '{tablename}'"
             )
             if not cursor.fetchone():
                 return False

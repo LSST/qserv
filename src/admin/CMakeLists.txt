@@ -35,7 +35,7 @@ add_test(NAME test_utils
 )
 
 add_test(NAME test_options_file_option
-  COMMAND python3 -m unittest lsst.qserv.admin.tests.test_optionsFileOption
+  COMMAND python3 -m unittest lsst.qserv.admin.tests.test_options_file_option
   WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/python/
 )
 

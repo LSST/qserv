@@ -19,7 +19,7 @@ from .runner_mgr import RunnerManager
 _LOG = logging.getLogger(__name__)
 
 
-def _logConfig(level, slot):
+def _log_config(level, slot):
     levels = {0: logging.WARNING, 1: logging.INFO, 2: logging.DEBUG}
     if slot is None:
         simple_format = "%(asctime)s %(levelname)7s %(name)s -- %(message)s"
@@ -146,7 +146,7 @@ def main():
             args.num_slots = num_slots
             args.slot = int(slot)
 
-    _logConfig(args.verbose, args.slot)
+    _log_config(args.verbose, args.slot)
 
     # build/split config
     cfg = Config.from_yaml(args.config)
@@ -158,9 +158,9 @@ def main():
 
     # connection factory
     if args.dummy_db:
-        connFactory = mock_db.connect
+        conn_factory = mock_db.connect
     else:
-        connFactory = functools.partial(
+        conn_factory = functools.partial(
             MySQLdb.connect, host=args.host, port=args.port, user=args.user, passwd=args.password, db=args.db
         )
 
@@ -173,10 +173,10 @@ def main():
         slot = "" if args.slot is None else str(args.slot)
         fname = args.influxdb_file_name.replace("%S", slot)
         monitor = InfluxDBFileMonitor(
-            fname, periodSec=args.monitor_rollover, dbname=args.influxdb_db, tags=tags
+            fname, period_sec=args.monitor_rollover, dbname=args.influxdb_db, tags=tags
         )
 
-    mgr = RunnerManager(cfg, connFactory, args.slot, runTimeLimit=args.time_limit, monitor=monitor)
+    mgr = RunnerManager(cfg, conn_factory, args.slot, runtime_limit=args.time_limit, monitor=monitor)
     mgr.run()
 
     if monitor:

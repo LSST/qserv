@@ -46,7 +46,7 @@ class RprocMigrationManager(SchemaMigMgr):
         """
 
         # If the database does not exist then it's Uninitialized.
-        if not self.databaseExists(database):
+        if not self.database_exists(database):
             return Uninitialized
 
         # The database does not have multiple versions yet, so if it doesn't exists

@@ -43,7 +43,7 @@ from .constants import tmp_data_dir
 from .itest_table import LoadTable
 from .mysql_connection import mysql_connection
 from .qserv_backoff import max_backoff_sec, on_backoff
-from .replicationInterface import ReplicationInterface
+from .replication_interface import ReplicationInterface
 from .template import apply_template_cfg
 
 qserv_data_dir = "/qserv/data"

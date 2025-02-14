@@ -35,7 +35,7 @@ import requests
 import urllib3
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 
-from .replicationInterface import repl_api_version
+from .replication_interface import repl_api_version
 
 _log = logging.getLogger(__name__)
 
@@ -156,9 +156,9 @@ class ITestQuery:
             The path to a file whose lines will be sorted.
         """
         with open(file, "r+b") as f:
-            sortedLines = sorted(f.readlines())
+            sorted_lines = sorted(f.readlines())
             f.seek(0)
-            f.writelines(sortedLines)
+            f.writelines(sorted_lines)
 
     def run_detached(self, connection: str, qserv: bool, database: str) -> None:
         """Run the query on the db at connection using SUBMIT, and then fetch
@@ -327,7 +327,7 @@ class ITestQuery:
         query : `str`
             The query text.
         """
-        qText = []
+        qtext = []
         for line in query_t.split("\n"):
             # squeeze/strip spaces
             line = line.strip()
@@ -337,18 +337,18 @@ class ITestQuery:
                 pass
             elif with_qserv and line.startswith("-- withQserv"):
                 # strip the "-- withQserv" text
-                qText.append(line[13:])
+                qtext.append(line[13:])
             elif line.endswith("-- noQserv"):
                 if with_qserv:
                     # skip this line
                     pass
                 else:
                     # strip the "-- noQserv" text
-                    qText.append(line[:-10])
+                    qtext.append(line[:-10])
             elif not line.startswith("--"):
                 # append all non-commented lines
-                qText.append(line)
-        query = " ".join(qText)
+                qtext.append(line)
+        query = " ".join(qtext)
         if database:
             query = query.format(DBTAG_A=f"{database}.")
         return query
@@ -463,9 +463,9 @@ class ITestQueryHttp:
             The path to a file whose lines will be sorted.
         """
         with open(file, "r+b") as f:
-            sortedLines = sorted(f.readlines())
+            sorted_lines = sorted(f.readlines())
             f.seek(0)
-            f.writelines(sortedLines)
+            f.writelines(sorted_lines)
 
     def run_attached(self, connection: str, database: str) -> None:
         """Run the query on the db at the given connection
@@ -665,7 +665,7 @@ class ITestQueryHttp:
         query : `str`
             The query text.
         """
-        qText = []
+        qtext = []
         for line in query_t.split("\n"):
             # squeeze/strip spaces
             line = line.strip()
@@ -675,18 +675,18 @@ class ITestQueryHttp:
                 pass
             elif with_qserv and line.startswith("-- withQserv"):
                 # strip the "-- withQserv" text
-                qText.append(line[13:])
+                qtext.append(line[13:])
             elif line.endswith("-- noQserv"):
                 if with_qserv:
                     # skip this line
                     pass
                 else:
                     # strip the "-- noQserv" text
-                    qText.append(line[:-10])
+                    qtext.append(line[:-10])
             elif not line.startswith("--"):
                 # append all non-commented lines
-                qText.append(line)
-        query = " ".join(qText)
+                qtext.append(line)
+        query = " ".join(qtext)
         if database:
             query = query.format(DBTAG_A=f"{database}.")
         return query
@@ -970,7 +970,7 @@ def run_queries_http(
         case.run()
 
 
-def compareQueryResults(run_cases: list[str], outputs_dir: str) -> list[ITestCaseResult]:
+def compare_query_results(run_cases: list[str], outputs_dir: str) -> list[ITestCaseResult]:
     """Compare results from runs with different modes.
 
     Parameters

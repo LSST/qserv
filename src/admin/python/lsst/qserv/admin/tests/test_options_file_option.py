@@ -31,12 +31,12 @@ import yaml
 from click.testing import CliRunner
 from lsst.qserv.admin.cli.options import option_options_file
 
-defaultStrFoo = "bar"
+default_str_foo = "bar"
 mock = MagicMock()
 
 
 @click.command()
-@click.option("--foo", default=defaultStrFoo)
+@click.option("--foo", default=default_str_foo)
 @option_options_file()
 def cmd_str(foo):
     mock(foo)
@@ -60,17 +60,17 @@ class OptionsFileOptionTestCase(unittest.TestCase):
     def setUp(self) -> None:
         mock.reset_mock()
 
-    def test_passedVal(self):
+    def test_passed_val(self):
         runner = CliRunner()
         runner.invoke(cmd_str, ["--foo", val := "abc123"])
         mock.assert_called_once_with(val)
 
-    def test_defaultVal(self):
+    def test_default_val(self):
         runner = CliRunner()
         runner.invoke(cmd_str)
-        mock.assert_called_once_with(defaultStrFoo)
+        mock.assert_called_once_with(default_str_foo)
 
-    def test_fileOverrideStr(self):
+    def test_file_override_str(self):
         for cmd, cmd_name, flag, val, options_file_flag in (
             (cmd_str, "cmd-str", "foo", "baz", "-@"),
             (cmd_int, "cmd-int", "foo", 42, "--options-file"),

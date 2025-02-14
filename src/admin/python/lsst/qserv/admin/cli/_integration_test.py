@@ -35,7 +35,7 @@ import mysql.connector
 
 from .. import itest, itest_load
 from ..qserv_backoff import max_backoff_sec, on_backoff
-from ..replicationInterface import ReplicationInterface
+from ..replication_interface import ReplicationInterface
 from ..template import save_template_cfg
 
 _log = logging.getLogger(__name__)
@@ -59,12 +59,12 @@ def wait_for_replication_system(repl_ctrl_uri: str) -> None:
     ReplicationInterface(repl_ctrl_uri).version()
 
 
-class DbServiceNotReady(RuntimeError):
+class DbServiceNotReadyError(RuntimeError):
     pass
 
 
 @backoff.on_exception(
-    exception=(DbServiceNotReady, mysql.connector.errors.DatabaseError, MySQLInterfaceError),
+    exception=(DbServiceNotReadyError, mysql.connector.errors.DatabaseError, MySQLInterfaceError),
     wait_gen=backoff.expo,
     on_backoff=on_backoff(log=_log),
     max_time=max_backoff_sec,
@@ -105,7 +105,7 @@ def wait_for_db_service(db_uri: str, checkdb: str) -> None:
     databases = get_databases()
     if checkdb in databases:
         return
-    raise DbServiceNotReady(f"{checkdb} not in existing databases: {databases}")
+    raise DbServiceNotReadyError(f"{checkdb} not in existing databases: {databases}")
 
 
 def run_integration_tests(
@@ -217,7 +217,7 @@ def run_integration_tests(
         )
 
     if compare_results:
-        test_case_results = itest.compareQueryResults(run_cases=cases, outputs_dir=testdata_output)
+        test_case_results = itest.compare_query_results(run_cases=cases, outputs_dir=testdata_output)
     else:
         test_case_results = []
 
@@ -337,7 +337,7 @@ def run_integration_tests_http(
         )
 
     if compare_results:
-        test_case_results = itest.compareQueryResults(run_cases=cases, outputs_dir=testdata_output)
+        test_case_results = itest.compare_query_results(run_cases=cases, outputs_dir=testdata_output)
     else:
         test_case_results = []
 

@@ -28,7 +28,7 @@ from unittest.mock import patch
 
 from lsst.qserv.admin.cli import script
 from lsst.qserv.qmeta.schema_migration import QMetaMigrationManager
-from lsst.qserv.schema import SchemaMigMgr, SchemaUpdateRequired, Uninitialized
+from lsst.qserv.schema import SchemaMigMgr, SchemaUpdateRequiredError, Uninitialized
 
 migration_files = [
     "migrate-0-to-1.sql",
@@ -104,10 +104,10 @@ class SmigTestCase(unittest.TestCase):
         an error and exits without running smig.
         """
         # UNIT_TEST prevents the backoff function from handling the
-        # SchemaUpdateRequired exception and going into an infinite loop waiting
+        # SchemaUpdateRequiredError exception and going into an infinite loop waiting
         # for someone else to upgrade the schema.
         with patch.dict(os.environ, {"UNIT_TEST": "1", script.smig_dir_env_var: self.qserv_smig_dir}):
-            with self.assertRaises(SchemaUpdateRequired):
+            with self.assertRaises(SchemaUpdateRequiredError):
                 script._do_smig(
                     module_smig_dir=script.qmeta_smig_dir,
                     module="qmeta",

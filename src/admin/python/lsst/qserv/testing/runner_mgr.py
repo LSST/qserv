@@ -31,11 +31,11 @@ class RunnerManager:
         Monitoring instance
     """
 
-    def __init__(self, config, connectionFactory, slot, runTimeLimit=None, monitor=None):
+    def __init__(self, config, connection_factory, slot, runtime_limit=None, monitor=None):
         self._config = config
-        self._connectionFactory = connectionFactory
+        self._connectionFactory = connection_factory
         self._slot = slot
-        self._runTimeLimit = runTimeLimit
+        self._runTimeLimit = runtime_limit
         self._monitor = monitor
 
     def run(self):
@@ -51,42 +51,42 @@ class RunnerManager:
             n_runners = self._config.concurrentQueries(qclass)
             queries = self._config.queries(qclass)
             _LOG.debug("%s runners and %s queries for class %s", n_runners, len(queries), qclass)
-            maxRate = self._config.maxRate(qclass)
+            max_rate = self._config.maxRate(qclass)
             arraysize = self._config.arraysize(qclass)
             for i_runner in range(n_runners):
                 if self._slot is not None:
-                    runnerId = f"{qclass}-{self._slot}-{i_runner}"
+                    runner_id = f"{qclass}-{self._slot}-{i_runner}"
                 else:
-                    runnerId = f"{qclass}-{i_runner}"
+                    runner_id = f"{qclass}-{i_runner}"
 
-                _LOG.debug("Creating runner %s", runnerId)
+                _LOG.debug("Creating runner %s", runner_id)
                 runner = QueryRunner(
                     queries,
-                    maxRate,
+                    max_rate,
                     self._connectionFactory,
-                    runnerId,
+                    runner_id,
                     arraysize,
-                    queryCountLimit=None,
-                    runTimeLimit=self._runTimeLimit,
+                    query_count_limit=None,
+                    run_time_limit=self._runTimeLimit,
                     monitor=monitor.child_monitor() if monitor else None,
                 )
-                runners[runnerId] = runner
+                runners[runner_id] = runner
 
         # start all of them
         processes = {}
-        for runnerId, runner in runners.items():
-            _LOG.info("Starting runner %s", runnerId)
-            proc = Process(target=runner, name=runnerId, daemon=True)
+        for runner_id, runner in runners.items():
+            _LOG.info("Starting runner %s", runner_id)
+            proc = Process(target=runner, name=runner_id, daemon=True)
             proc.start()
-            processes[runnerId] = proc
+            processes[runner_id] = proc
 
         # Now wait until they finish, there is a smarter ways to wait
         # but this is good enough for now.
         while processes:
-            for runnerId, proc in processes.items():
+            for runner_id, proc in processes.items():
                 if not proc.is_alive():
-                    _LOG.info("Runner %s finished", runnerId)
-                    del processes[runnerId]
+                    _LOG.info("Runner %s finished", runner_id)
+                    del processes[runner_id]
                     break
             else:
                 if monitor:

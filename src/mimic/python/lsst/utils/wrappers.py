@@ -29,7 +29,7 @@ numpy for the `lsst.utils` functions used by `lsst.log`
 import sys
 
 
-def continueClass(cls):
+def continue_class(cls):
     """Re-open the decorated class, adding any new definitions into the
     original.
 
@@ -68,7 +68,7 @@ def continueClass(cls):
         # class rather than a classmethod instance we can put on the target
         # class.
         attr = cls.__dict__.get(name, None) or getattr(cls, name)
-        if isAttributeSafeToTransfer(name, attr):
+        if is_attribute_safe_to_transfer(name, attr):
             setattr(orig, name, attr)
     return orig
 
@@ -88,7 +88,7 @@ INTRINSIC_SPECIAL_ATTRIBUTES = frozenset(
 )
 
 
-def isAttributeSafeToTransfer(name, value):
+def is_attribute_safe_to_transfer(name, value):
     """Return True if an attribute is safe to monkeypatch-transfer to another
     class.
 

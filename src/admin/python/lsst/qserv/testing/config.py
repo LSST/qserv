@@ -246,7 +246,7 @@ class Config:
         """
         return self._queries[q_class]
 
-    def concurrentQueries(self, q_class):
+    def concurrent_queries(self, q_class):
         """Return number of concurrent queries for given class.
 
         Parameters
@@ -261,7 +261,7 @@ class Config:
         """
         return self._config["queryClasses"][q_class]["concurrentQueries"]
 
-    def maxRate(self, q_class):
+    def max_rate(self, q_class):
         """Return maximum rate for given class.
 
         Parameters
@@ -317,7 +317,7 @@ class Config:
         """
         overrides = {}
         for q_class in self._classes:
-            n_queries = self.concurrentQueries(q_class)
+            n_queries = self.concurrent_queries(q_class)
             quot, rem = divmod(n_queries, n_workers)
             if i_worker < rem:
                 quot += 1

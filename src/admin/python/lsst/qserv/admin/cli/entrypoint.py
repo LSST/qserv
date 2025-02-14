@@ -334,7 +334,7 @@ option_cmd_default = partial(
 )
 
 
-class options_cms(OptionGroup):
+class options_cms(OptionGroup):  # noqa: N801
     """Applies the option_cmd and the option_cmd_default decorators to a
     click.command function.
     """

@@ -29,7 +29,7 @@ import jinja2
 from .utils import Targs
 
 
-class UnresolvableTemplate(RuntimeError):
+class UnresolvableTemplateError(RuntimeError):
     """Exception class used by `render` when a template value can not be
     resolved."""
 
@@ -92,7 +92,7 @@ def render_targs(targs: Targs) -> Targs:
                 continue
             if "{{" in v:
                 if k in _get_vars(v):
-                    raise UnresolvableTemplate(
+                    raise UnresolvableTemplateError(
                         "Template value may not refer to its own key, directly or as a circualr reference:"
                         + _format_targs(targs)
                     )
@@ -103,9 +103,9 @@ def render_targs(targs: Targs) -> Targs:
                         rendered[k] = r
                         changed = True
                 except jinja2.exceptions.UndefinedError as e:
-                    raise UnresolvableTemplate(f"Missing template value: {e!s}")
+                    raise UnresolvableTemplateError(f"Missing template value: {e!s}")
         if not changed:
             break
     if any([isinstance(v, str) and "{{" in v for v in rendered.values()]):
-        raise UnresolvableTemplate(f"Could not resolve inputs {targs}, they became: {rendered}")
+        raise UnresolvableTemplateError(f"Could not resolve inputs {targs}, they became: {rendered}")
     return rendered

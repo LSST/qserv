@@ -22,10 +22,10 @@
 
 """Utilities for using the backoff module in qserv."""
 
+from collections.abc import Callable
 from functools import partial
 from logging import Logger
 from typing import Any
-from collections.abc import Callable
 
 import backoff
 

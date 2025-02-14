@@ -37,15 +37,15 @@ from lsst.qserv.admin.qservCli.qserv_log import log_level_from_args
 from lsst.qserv.admin.qservCli.subproc import QservSubprocessError
 
 if __name__ == "__main__":
-    success, levelMsg = log_level_from_args(sys.argv)
+    success, level_msg = log_level_from_args(sys.argv)
     if success:
         logging.basicConfig(
-            level=levelMsg,
+            level=level_msg,
             format="%(asctime)s %(levelname)-8s %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
         )
     else:
-        print(levelMsg)
+        print(level_msg)
         sys.exit(1)
 
 

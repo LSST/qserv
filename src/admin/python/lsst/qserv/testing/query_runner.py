@@ -37,22 +37,22 @@ class QueryRunner:
     def __init__(
         self,
         queries,
-        maxRate,
-        connectionFactory,
-        runnerId,
+        max_rate,
+        connection_factory,
+        runner_id,
         arraysize=None,
-        queryCountLimit=None,
-        runTimeLimit=None,
+        query_count_limit=None,
+        run_time_limit=None,
         monitor=None,
     ):
         self._queries = queries
         self._queryKeys = list(queries.keys())
-        self._maxRate = maxRate
-        self._connectionFactory = connectionFactory
-        self._runnerId = runnerId
+        self._maxRate = max_rate
+        self._connectionFactory = connection_factory
+        self._runnerId = runner_id
         self._arraysize = arraysize
-        self._queryCountLimit = queryCountLimit
-        self._runTimeLimit = runTimeLimit
+        self._queryCountLimit = query_count_limit
+        self._runTimeLimit = run_time_limit
         self._monitor = monitor
 
     def __call__(self):

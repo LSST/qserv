@@ -65,13 +65,13 @@ class MasterReplicationMigrationManager(SchemaMigMgr):
             The current schema version.
         """
         # If the database does not exist then the version is `Uninitialized`.
-        if not self.databaseExists(database):
+        if not self.database_exists(database):
             return Version(Uninitialized)
 
         # Initial database schema implementation did not have version number stored at all,
         # and we call this version 0. Since version=1 version number is stored in
         # QMetadata table with key="version"
-        if not self.tableExists(database, "QMetadata"):
+        if not self.table_exists(database, "QMetadata"):
             return 0
 
         self.connection.database = database

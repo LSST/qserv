@@ -102,10 +102,10 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(cfg.classes(), {"LV", "FTSObj"})
         self.assertEqual(len(cfg.queries("LV")), 2)
         self.assertEqual(len(cfg.queries("FTSObj")), 3)
-        self.assertEqual(cfg.concurrentQueries("LV"), 80)
-        self.assertEqual(cfg.concurrentQueries("FTSObj"), 12)
-        self.assertEqual(cfg.maxRate("LV"), 100)
-        self.assertIsNone(cfg.maxRate("FTSObj"))
+        self.assertEqual(cfg.concurrent_queries("LV"), 80)
+        self.assertEqual(cfg.concurrent_queries("FTSObj"), 12)
+        self.assertEqual(cfg.max_rate("LV"), 100)
+        self.assertIsNone(cfg.max_rate("FTSObj"))
 
     def test_construct_yaml_two(self):
         # construct with overrides
@@ -118,44 +118,44 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(cfg.classes(), {"LV", "FTSObj"})
         self.assertEqual(len(cfg.queries("LV")), 2)
         self.assertEqual(len(cfg.queries("FTSObj")), 3)
-        self.assertEqual(cfg.concurrentQueries("LV"), 100)
-        self.assertEqual(cfg.concurrentQueries("FTSObj"), 12)
-        self.assertEqual(cfg.maxRate("LV"), 100)
-        self.assertEqual(cfg.maxRate("FTSObj"), 1)
+        self.assertEqual(cfg.concurrent_queries("LV"), 100)
+        self.assertEqual(cfg.concurrent_queries("FTSObj"), 12)
+        self.assertEqual(cfg.max_rate("LV"), 100)
+        self.assertEqual(cfg.max_rate("FTSObj"), 1)
 
     def test_split(self):
         # construct with single YAML
         cfg = config.Config.from_yaml([io.StringIO(_CFG1)])
 
-        self.assertEqual(cfg.concurrentQueries("LV"), 80)
-        self.assertEqual(cfg.concurrentQueries("FTSObj"), 12)
-        self.assertEqual(cfg.maxRate("LV"), 100)
-        self.assertIsNone(cfg.maxRate("FTSObj"))
+        self.assertEqual(cfg.concurrent_queries("LV"), 80)
+        self.assertEqual(cfg.concurrent_queries("FTSObj"), 12)
+        self.assertEqual(cfg.max_rate("LV"), 100)
+        self.assertIsNone(cfg.max_rate("FTSObj"))
 
         cfg0 = cfg.split(3, 0)
         cfg1 = cfg.split(3, 1)
         cfg2 = cfg.split(3, 2)
-        self.assertEqual(cfg0.concurrentQueries("LV"), 27)
-        self.assertEqual(cfg1.concurrentQueries("LV"), 27)
-        self.assertEqual(cfg2.concurrentQueries("LV"), 26)
-        self.assertEqual(cfg0.maxRate("LV"), 100.0)
-        self.assertEqual(cfg1.maxRate("LV"), 100.0)
-        self.assertEqual(cfg2.maxRate("LV"), 100.0)
-        self.assertEqual(cfg0.concurrentQueries("FTSObj"), 4)
-        self.assertEqual(cfg1.concurrentQueries("FTSObj"), 4)
-        self.assertEqual(cfg2.concurrentQueries("FTSObj"), 4)
-        self.assertIsNone(cfg0.maxRate("FTSObj"))
-        self.assertIsNone(cfg1.maxRate("FTSObj"))
-        self.assertIsNone(cfg2.maxRate("FTSObj"))
+        self.assertEqual(cfg0.concurrent_queries("LV"), 27)
+        self.assertEqual(cfg1.concurrent_queries("LV"), 27)
+        self.assertEqual(cfg2.concurrent_queries("LV"), 26)
+        self.assertEqual(cfg0.max_rate("LV"), 100.0)
+        self.assertEqual(cfg1.max_rate("LV"), 100.0)
+        self.assertEqual(cfg2.max_rate("LV"), 100.0)
+        self.assertEqual(cfg0.concurrent_queries("FTSObj"), 4)
+        self.assertEqual(cfg1.concurrent_queries("FTSObj"), 4)
+        self.assertEqual(cfg2.concurrent_queries("FTSObj"), 4)
+        self.assertIsNone(cfg0.max_rate("FTSObj"))
+        self.assertIsNone(cfg1.max_rate("FTSObj"))
+        self.assertIsNone(cfg2.max_rate("FTSObj"))
 
-    def test_ValueRandomUniform(self):
+    def test_value_random_uniform(self):
         gen = config._ValueRandomUniform(1.0, 42.0)
         for i in range(100):
             val = gen()
             self.assertGreaterEqual(val, 1.0)
             self.assertLessEqual(val, 42.0)
 
-    def test_ValueIntFromFile(self):
+    def test_value_int_from_file(self):
         with self.assertRaises(AssertionError):
             # bad mode
             config._ValueIntFromFile("/dev/null", "non-random")
@@ -186,7 +186,7 @@ class TestConfig(unittest.TestCase):
             values = [gen() for i in range(10)]
             self.assertEqual(values, [1, 10, 20, 30, 42, 1, 10, 20, 30, 42])
 
-    def test_QueryFactory(self):
+    def test_query_factory(self):
         cfg = config.Config.from_yaml([io.StringIO(_CFG1)])
 
         for qclass in cfg.classes():
@@ -262,15 +262,15 @@ class TestQueryRunner(unittest.TestCase):
         queries = cfg.queries("LV")
         monit = monitor.LogMonitor("testmonit")
 
-        connectionFactory = mock_db.connect
+        connection_factory = mock_db.connect
         runner = query_runner.QueryRunner(
             queries=queries,
-            maxRate=None,
-            connectionFactory=connectionFactory,
-            runnerId="runner1",
+            max_rate=None,
+            connection_factory=connection_factory,
+            runner_id="runner1",
             arraysize=1000,
-            queryCountLimit=10,
-            runTimeLimit=None,
+            query_count_limit=10,
+            run_time_limit=None,
             monitor=monit,
         )
         runner()
@@ -284,15 +284,15 @@ class TestQueryRunner(unittest.TestCase):
         cfg = config.Config.from_yaml([io.StringIO(_CFG1)])
         queries = cfg.queries("FTSObj")
 
-        connectionFactory = mock_db.connect
+        connection_factory = mock_db.connect
         runner = query_runner.QueryRunner(
             queries=queries,
-            maxRate=None,
-            connectionFactory=connectionFactory,
-            runnerId="runner1",
+            max_rate=None,
+            connection_factory=connection_factory,
+            runner_id="runner1",
             arraysize=1000,
-            queryCountLimit=None,
-            runTimeLimit=1.5,
+            query_count_limit=None,
+            run_time_limit=1.5,
             monitor=None,
         )
         runner()
@@ -307,9 +307,9 @@ class TestRunnerManager(unittest.TestCase):
         be useful.
         """
         cfg = config.Config.from_yaml([io.StringIO(_CFG1)])
-        connectionFactory = mock_db.connect
+        connection_factory = mock_db.connect
         slot = None
-        mgr = runner_mgr.RunnerManager(cfg, connectionFactory, slot, runTimeLimit=1.5, monitor=None)
+        mgr = runner_mgr.RunnerManager(cfg, connection_factory, slot, runtime_limit=1.5, monitor=None)
         mgr.run()
 
     def test_slot_7(self):
@@ -320,9 +320,9 @@ class TestRunnerManager(unittest.TestCase):
         be useful (it should include "slot=7").
         """
         cfg = config.Config.from_yaml([io.StringIO(_CFG1)])
-        connectionFactory = mock_db.connect
+        connection_factory = mock_db.connect
         slot = 7
-        mgr = runner_mgr.RunnerManager(cfg, connectionFactory, slot, runTimeLimit=1.5, monitor=None)
+        mgr = runner_mgr.RunnerManager(cfg, connection_factory, slot, runtime_limit=1.5, monitor=None)
         mgr.run()
 
 
