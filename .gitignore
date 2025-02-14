@@ -16,3 +16,5 @@
 /.vscode/
 /qserv/
 /doc/_build
+/.mypy_cache/
+/.ruff_cache/
