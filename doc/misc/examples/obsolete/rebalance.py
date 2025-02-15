@@ -83,39 +83,29 @@ class RebalanceProgram:
         parser = RebalanceProgram.parser
         (opts, args) = parser.parse_args()
         if len(args) < 1:
-            parser.error(
-                dedent("""Must specify at least one path.
-            (How about . ?)""")
-            )
+            parser.error("Must specify at least one path. (How about . ?)")
         self._pathList = args
         self._opts = opts
         pass
 
-    def _gatherChunkFiles(self):
-        chunkFiles = chain(*imap(loader.findChunkFiles, self._pathList, repeat(self._opts.prefix)))
-        self._chunkFiles = [x for x in chunkFiles]
+    def _gather_chunk_files(self):
+        chunk_files = chain(*imap(loader.find_chunk_files, self._pathList, repeat(self._opts.prefix)))
+        self._chunkFiles = [x for x in chunk_files]
 
-    def _checkGathering(self):
-        checkDupe = set()
-        for l in self._chunkFiles:
-            for f in l:
-                path, name = os.path.split(f)
-                if name in checkDupe:
-                    raise RuntimeError(
-                        dedent(
-                            """\
-                                Found 2 identically named chunk files:
-                                %s and %s"""
-                            % (p, c)
-                        )
-                    )
-                checkDupe.add(name)
+    def _check_gathering(self):
+        check_dupe = set()
+        for fl in self._chunkFiles:
+            for f in fl:
+                _, name = os.path.split(f)
+                if name in check_dupe:
+                    raise RuntimeError(f"Found 2 identically named chunk files named {name}")
+                check_dupe.add(name)
         pass
 
     def _move(self):
-        chunkCount = len(self._chunkFiles)
-        nominal, extra = divmod(chunkCount, self._opts.dirs)
-        print(chunkCount, "in dirs with at least", nominal)
+        chunk_count = len(self._chunkFiles)
+        nominal, extra = divmod(chunk_count, self._opts.dirs)
+        print(chunk_count, "in dirs with at least", nominal)
         start = 0
 
         for i in range(self._opts.dirs):
@@ -125,8 +115,8 @@ class RebalanceProgram:
                 extra -= 1
             stop = start + length
             # print i, "with", stop-start,"files"
-            if stop > chunkCount:
-                stop = chunkCount
+            if stop > chunk_count:
+                stop = chunk_count
             targetdir = self._opts.target + str(i)
             try:
                 os.listdir(targetdir)
@@ -136,15 +126,15 @@ class RebalanceProgram:
 
             for j in range(start, stop):
                 for f in self._chunkFiles[j]:
-                    path, name = os.path.split(f)
+                    _, name = os.path.split(f)
                     print("rename ", f, os.path.join(targetdir, name))
                     os.rename(f, os.path.join(targetdir, name))
             start = stop
         pass
 
     def run(self):
-        self._gatherChunkFiles()
-        self._checkGathering()
+        self._gather_chunk_files()
+        self._check_gathering()
         self._move()
 
 

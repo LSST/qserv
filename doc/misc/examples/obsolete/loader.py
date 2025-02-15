@@ -29,11 +29,12 @@ import os.path
 import re
 import time
 import warnings
+from functools import total_ordering
 from glob import glob
 from itertools import cycle, groupby
 from textwrap import dedent
 
-import MySQLdb as sql
+import mysqlclient
 
 # -- Parallelization --------
 
@@ -51,10 +52,10 @@ class SerialPool:
     """Simple drop-in replacement for a subset of the multiprocessing.Pool
     class; all tasks are run in the same process as the caller."""
 
-    def __init__(self, numWorkers):
+    def __init__(self, num_workers):
         self._pool = [None]
 
-    def map(self, fun, seq, chunkSize=None):
+    def map(self, fun, seq, chunk_size=None):
         return map(fun, seq)
 
     def close(self):
@@ -64,7 +65,7 @@ class SerialPool:
 # -- Chunk to worker server assignment --------
 
 
-def roundRobin(servers, chunks):
+def round_robin(servers, chunks):
     a = sorted(zip(cycle(servers), chunks))
     return [(s, [e[1] for e in g]) for s, g in groupby(a, lambda x: x[0])]
 
@@ -74,7 +75,7 @@ def roundRobin(servers, chunks):
 # A chunk assignment function takes a list of servers and a list of chunk
 # files and returns a list of tuples [(S, C)] where S is a server and C
 # is the list of all chunk files assigned to S.
-strategies = {"round-robin": roundRobin}
+strategies = {"round-robin": round_robin}
 
 
 # -- Database interaction --------
@@ -94,68 +95,62 @@ class SqlActions:
                 (socket, "unix_socket"),
                 (database, "db"),
             ):
-                if k[0] != None:
+                if k[0] is not None:
                     kw[k[1]] = k[0]
         else:
             for k in ((user, "user"), (passwd, "passwd"), (socket, "unix_socket"), (database, "db")):
-                if k[0] != None:
+                if k[0] is not None:
                     kw[k[1]] = k[0]
 
-        print("SqlActions init : %s" % str(kw))
+        print(f"SqlActions init : {kw!s}")
 
-        self.conn = sql.connect(**kw)
+        self.conn = mysqlclient.connect(**kw)
         self.cursor = self.conn.cursor()
 
     def _exec(self, stmt):
-        print("DEBUG : %s" % stmt)
+        print(f"DEBUG : {stmt}")
         self.cursor.execute(stmt)
         self.cursor.fetchall()
 
-    def createDatabase(self, database):
-        self._exec("CREATE DATABASE IF NOT EXISTS %s" % database)
+    def create_database(self, database):
+        self._exec(f"CREATE DATABASE IF NOT EXISTS {database}")
 
-    def dropDatabase(self, database):
-        self._exec("DROP DATABASE IF EXISTS %s" % database)
+    def drop_database(self, database):
+        self._exec(f"DROP DATABASE IF EXISTS {database}")
 
-    def dropTable(self, table):
-        self._exec("DROP TABLE IF EXISTS %s" % table)
+    def drop_table(self, table):
+        self._exec(f"DROP TABLE IF EXISTS {table}")
 
-    def tableExists(self, table):
+    def table_exists(self, table):
         components = table.split(".")
         if len(components) != 2:
-            raise RuntimeError("Table name %s is not fully qualified" % table)
+            raise RuntimeError(f"Table name {table} is not fully qualified")
         self.cursor.execute(
-            """
-            SELECT COUNT(*)
-            FROM INFORMATION_SCHEMA.TABLES
-            WHERE table_schema = '%s' AND table_name = '%s'"""
-            % (components[0], components[1])
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES"
+            f"WHERE table_schema = '{components[0]}' AND table_name = '{components[1]}'"
         )
         return self.cursor.fetchone()[0] != 0
 
-    def dropTables(self, database, prefix):
+    def drop_tables(self, database, prefix):
         self.cursor.execute(
-            """
-            SELECT table_name
-            FROM INFORMATION_SCHEMA.TABLES
-            WHERE table_schema = '%s' AND table_name LIKE '%s'"""
-            % (database, prefix + "%")
+            "SELECT table_name FROM INFORMATION_SCHEMA.TABLES"
+            f"WHERE table_schema = '{database}' AND table_name LIKE '{prefix}%'"
         )
         for table in self.cursor.fetchall():
-            self.cursor.execute("DROP TABLE IF EXISTS %s.%s" % (database, table[0]))
+            self.cursor.execute(f"DROP TABLE IF EXISTS {database}.{table[0]}")
             self.cursor.fetchall()
 
-    def getSchema(self, table):
-        print("getSchema of table %s" % table)
-        self.cursor.execute("SHOW CREATE TABLE %s" % table)
+    def get_schema(self, table):
+        print(f"get_schema of table {table}")
+        self.cursor.execute(f"SHOW CREATE TABLE {table}")
         return self.cursor.fetchone()[1]
 
-    def loadPartitions(self, table, partFile, index=True):
-        print("Loading partition table: %s with %s" % (table, os.path.abspath(partFile)))
-        self.dropTable(table)
+    def load_partitions(self, table, part_file, index=True):
+        print(f"Loading partition table: {table} with {os.path.abspath(part_file)}")
+        self.drop_table(table)
         self._exec(
-            """
-            CREATE TABLE %s (
+            f"""
+            CREATE TABLE {table} (
                 chunkId INT NOT NULL,
                 subChunkId INT NOT NULL,
                 numRows INT NOT NULL,
@@ -165,98 +160,92 @@ class SqlActions:
                 declMax DOUBLE PRECISION NOT NULL,
                 overlap DOUBLE PRECISION NOT NULL,
                 alpha DOUBLE PRECISION NOT NULL
-            );"""
-            % table
+            )"""
         )
         self._exec(
-            """
-            LOAD DATA LOCAL INFILE '%s'
-            INTO TABLE %s
+            f"""
+            LOAD DATA LOCAL INFILE '{os.path.abspath(part_file)}'
+            INTO TABLE {table}
             FIELDS TERMINATED BY ','"""
-            % (os.path.abspath(partFile), table)
         )
         if index:
-            self._exec("ALTER TABLE %s ADD INDEX (chunkId, subChunkId)" % table)
+            self._exec(f"ALTER TABLE {table} ADD INDEX (chunkId, subChunkId)")
 
-    def createPrototype(self, table, schema):
-        self._exec("DROP TABLE IF EXISTS %s" % table)
+    def create_prototype(self, table, schema):
+        self._exec(f"DROP TABLE IF EXISTS {table}")
         # Doesn't work if table name contains `
-        tableRe = r"^\s*CREATE\s+TABLE\s+`[^`]+`\s+"
-        m = re.match(tableRe, schema)
-        if m == None:
-            raise RuntimeError("Could not extract columns from:\n%s" % schema)
-        self._exec("CREATE TABLE %s %s" % (table, schema[m.end() :]))
+        table_re = r"^\s*CREATE\s+TABLE\s+`[^`]+`\s+"
+        m = re.match(table_re, schema)
+        if m is None:
+            raise RuntimeError(f"Could not extract columns from:\n{schema}")
+        self._exec(f"CREATE TABLE {table} {schema[m.end() :]}")
 
-    def createPaddedTable(self, table, npad):
+    def create_padded_table(self, table, npad):
         padded = table + "Padded"
-        self._exec("CREATE TABLE %s LIKE %s" % (padded, table))
-        for i in xrange(npad):
+        self._exec(f"CREATE TABLE {padded} LIKE {table}")
+        for i in range(npad):
             self._exec(
-                """
-                ALTER TABLE %s
-                ADD COLUMN (_pad_%d FLOAT NOT NULL)"""
-                % (padded, i)
+                f"""
+                ALTER TABLE {padded}
+                ADD COLUMN (_pad_{i} FLOAT NOT NULL)"""
             )
 
-    def getAverageRowSize(self, table):
+    def get_average_row_size(self, table):
         """Return the average row size of table. Note that for this to work,
         data must have been loaded into the table, otherwise MySQL stores
         0 in the avg_row_size column of INFORMATION_SCHEMA.TABLES.
         """
         components = table.split(".")
         if len(components) != 2:
-            raise RuntimeError("Table name %s is not fully qualified" % table)
+            raise RuntimeError(f"Table name {table} is not fully qualified")
         self.cursor.execute(
-            """
+            f"""
             SELECT avg_row_length
             FROM INFORMATION_SCHEMA.TABLES
-            WHERE table_schema = '%s' AND table_name = '%s'"""
-            % (components[0], components[1])
+            WHERE table_schema = '{components[0]}' AND table_name = '{components[1]}'"""
         )
         return self.cursor.fetchone()[0]
 
-    def loadChunk(self, table, prototype, path, npad=None, index=False, dropPrimaryKey=False):
+    def load_chunk(self, table, prototype, path, npad=None, index=False, drop_primary_key=False):
         if table == prototype:
-            raise RuntimeError("Chunk and prototype tables have identical names: %s" % table)
-        self.dropTable(table)
-        self._exec("CREATE TABLE %s LIKE %s" % (table, prototype))
-        if dropPrimaryKey:
-            self._exec("ALTER TABLE %s DROP PRIMARY KEY" % (table))
+            raise RuntimeError(f"Chunk and prototype tables have identical names: {table}")
+        self.drop_table(table)
+        self._exec(f"CREATE TABLE {table} LIKE {prototype}")
+        if drop_primary_key:
+            self._exec(f"ALTER TABLE {table} DROP PRIMARY KEY")
         self._exec(
-            "LOAD DATA LOCAL INFILE '%s' "
-            "INTO TABLE %s "
-            "FIELDS TERMINATED BY ','" % (os.path.abspath(path), table)
+            f"LOAD DATA LOCAL INFILE '{os.path.abspath(path)}' INTO TABLE {table} FIELDS TERMINATED BY ','"
         )
-        if npad != None and npad > 0:
-            tmpTable = table + "Tmp"
-            self._exec("RENAME TABLE %s TO %s" % (table, tmpTable))
-            self._exec("CREATE TABLE %s LIKE %s" % (table, prototype + "Padded"))
-            randomVals = ",".join(["RAND()"] * npad)
-            self._exec("INSERT INTO %s SELECT *, %s FROM %s" % (table, randomVals, tmpTable))
-            self.dropTable(tmpTable)
+        if npad is not None and npad > 0:
+            tmp_table = table + "Tmp"
+            self._exec(f"RENAME TABLE {table} TO {tmp_table}")
+            self._exec(f"CREATE TABLE {table} LIKE {prototype + 'Padded'}")
+            random_vals = ",".join(["RAND()"] * npad)
+            self._exec(f"INSERT INTO {table} SELECT *, {random_vals} FROM {tmp_table}")
+            self.drop_table(tmp_table)
         # Create index on subChunkId
         if index:
-            self.cursor.execute("ALTER TABLE %s ADD INDEX (subChunkId)" % table)
+            self.cursor.execute(f"ALTER TABLE {table} ADD INDEX (subChunkId)")
             self.cursor.fetchall()
 
-    def testChunkTable(self, chunkPrefix, chunkId, partTable):
+    def test_chunk_table(self, chunk_prefix, chunk_id, part_table):
         """Run sanity checks on a chunk table set (the chunk table,
         and optionally a self and full overlap table). For now, the
         spherical coordinates of chunk table entries are hardcoded
         to the "ra" and "decl" columns.
         """
-        chunkTable = chunkPrefix + "_" + str(chunkId)
-        selfTable = chunkPrefix + "SelfOverlap_" + str(chunkId)
-        fullTable = chunkPrefix + "FullOverlap_" + str(chunkId)
-        if not self.tableExists(selfTable):
-            selfTable = None
-        if not self.tableExists(fullTable):
-            fullTable = None
+        chunk_table = chunk_prefix + "_" + str(chunk_id)
+        self_table = chunk_prefix + "SelfOverlap_" + str(chunk_id)
+        full_table = chunk_prefix + "FullOverlap_" + str(chunk_id)
+        if not self.table_exists(self_table):
+            self_table = None
+        if not self.table_exists(full_table):
+            full_table = None
 
         # Test 1: make sure partition map data is reasonable
         self.cursor.execute(
-            """
-            SELECT COUNT(*) FROM %s
+            f"""
+            SELECT COUNT(*) FROM {part_table}
             WHERE raMin < 0.0 OR raMin >= 360.0 OR
                   raMax <= 0.0 OR raMax > 360.0 OR
                   raMin >= raMax OR
@@ -264,84 +253,62 @@ class SqlActions:
                   declMin >= declMax OR
                   numRows < 0 OR
                   alpha < 0.0 OR alpha > 180.0"""
-            % partTable
         )
         nfailed = self.cursor.fetchone()[0]
         if nfailed > 0:
             print(
-                dedent(
-                    """\
-                ERROR: found %d partition map entries with invalid data.
-                       Errors can include any of the following: invalid
-                       bounds (coordinate values out of range or min >= max),
-                       a negative row count, or an invalid overlap width
-                       (alpha)."""
-                    % nfailed
-                )
+                f"ERROR: found {nfailed} partition map entries with invalid data. Errors can include any "
+                "of the following: invalid bounds (coordinate values out of range or min >= max), "
+                "a negative row count, or an invalid overlap width (alpha)."
             )
 
         # Test 2: make sure spherical coordinates are in range
         self.cursor.execute(
-            """
-            SELECT COUNT(*) FROM %s
+            f"""
+            SELECT COUNT(*) FROM {chunk_table}
             WHERE ra < 0.0 OR ra >= 360.0 OR decl < -90.0 OR decl > 90.0"""
-            % chunkTable
         )
         nfailed = self.cursor.fetchone()[0]
         if nfailed > 0:
             print(
-                dedent(
-                    """\
-                ERROR: found %d records assigned to chunk %d (%s) with
-                       invalid coordinates."""
-                    % (nfailed, chunkId, chunkTable)
-                )
+                f"ERROR: found {nfailed} records assigned to chunk {chunk_id} ({chunk_table}) "
+                f"with invalid coordinates."
             )
 
         # Test 3: make sure all entries are inside their sub-chunks
         self.cursor.execute(
-            """
-            SELECT COUNT(*) FROM %s AS c INNER JOIN %s AS p
+            f"""
+            SELECT COUNT(*) FROM {chunk_table} AS c INNER JOIN {part_table} AS p
             ON (c.chunkId = p.chunkId AND c.subChunkId = p.subChunkId)
             WHERE c.ra < p.raMin OR c.ra >= p.raMax OR
                   c.decl < p.declMin OR c.decl >= p.declMax"""
-            % (chunkTable, partTable)
         )
         nfailed = self.cursor.fetchone()[0]
         if nfailed > 0:
             print(
-                dedent(
-                    """\
-                ERROR: found %d records assigned to chunk %d (%s)
-                       falling outside the bounds of their sub-chunks."""
-                    % (nfailed, chunkId, chunkTable)
-                )
+                f"ERROR: found {nfailed} records assigned to chunk {chunk_id} ({chunk_table} "
+                "falling outside the bounds of their sub-chunks."
             )
 
         # Test 4: make sure all self-overlap entries are outside but
         # "close" to their sub-chunks
-        if selfTable:
+        if self_table:
             self.cursor.execute(
-                """
-                SELECT COUNT(*) FROM %s AS c INNER JOIN %s AS p
+                f"""
+                SELECT COUNT(*) FROM {self_table} AS c INNER JOIN {part_table} AS p
                 ON (c.chunkId = p.chunkId AND c.subChunkId = p.subChunkId)
                 WHERE c.ra >= p.raMin AND c.ra < p.raMax AND
                       c.decl >= p.declMin AND c.decl < p.declMax"""
-                % (selfTable, partTable)
             )
             nfailed = self.cursor.fetchone()[0]
             if nfailed > 0:
                 print(
-                    dedent(
-                        """\
-                    ERROR: found %d self-overlap records assigned to chunk
-                           %d (%s) falling inside their sub-chunks."""
-                        % (nfailed, chunkId, selfTable)
-                    )
+                    f"ERROR: found {nfailed} self-overlap records assigned to chunk {chunk_id} "
+                    f"({self_table}) falling inside their sub-chunks."
                 )
             self.cursor.execute(
-                """
-                SELECT COUNT(*) FROM %s AS c INNER JOIN %s AS p
+                f"""
+                SELECT COUNT(*) FROM {self_table} AS c INNER JOIN {part_table} AS p
                 ON (c.chunkId = p.chunkId AND c.subChunkId = p.subChunkId)
                 WHERE NOT ((
                         c.decl >= p.declMin AND c.decl < p.declMax AND (
@@ -366,44 +333,33 @@ class SqlActions:
                         )
                     )
                 )"""
-                % (selfTable, partTable)
             )
             nfailed = self.cursor.fetchone()[0]
             if nfailed > 0:
                 print(
-                    dedent(
-                        """\
-                    WARNING: found %d self-overlap records assigned to chunk
-                             %d (%s) falling outside the bounds of their
-                             sub-chunk self-overlap regions."""
-                        % (nfailed, chunkId, selfTable)
-                    )
+                    f"WARNING: found {nfailed} self-overlap records assigned to chunk {chunk_id} "
+                    f"({self_table}) falling outside the bounds of their sub-chunk self-overlap regions."
                 )
 
         # Test 5: make sure all full-overlap entries are outside but
         # "close" to their sub-chunks
-        if fullTable:
+        if full_table:
             self.cursor.execute(
-                """
-                SELECT COUNT(*) FROM %s AS c INNER JOIN %s AS p
+                f"""
+                SELECT COUNT(*) FROM {full_table} AS c INNER JOIN {part_table} AS p
                 ON (c.chunkId = p.chunkId AND c.subChunkId = p.subChunkId)
                 WHERE c.ra >= p.raMin AND c.ra < p.raMax AND
                       c.decl >= p.declMin AND c.decl < p.declMax"""
-                % (fullTable, partTable)
             )
             nfailed = self.cursor.fetchone()[0]
             if nfailed > 0:
                 print(
-                    dedent(
-                        """\
-                    ERROR: found %d full-overlap records assigned to chunk
-                           %d (%s) falling inside their sub-chunks."""
-                        % (nfailed, chunkId, fullTable)
-                    )
+                    f"ERROR: found {nfailed} full-overlap records assigned to chunk {chunk_id} "
+                    f" ({full_table}) falling inside their sub-chunks."
                 )
             self.cursor.execute(
-                """
-                SELECT COUNT(*) FROM %s AS c INNER JOIN %s AS p
+                f"""
+                SELECT COUNT(*) FROM {full_table} AS c INNER JOIN {part_table} AS p
                 ON (c.chunkId = p.chunkId AND c.subChunkId = p.subChunkId)
                 WHERE NOT (
                     c.decl >= p.declMin - p.overlap AND
@@ -419,31 +375,24 @@ class SqlActions:
                         )
                     )
                 )"""
-                % (fullTable, partTable)
             )
             nfailed = self.cursor.fetchone()[0]
             if nfailed > 0:
                 print(
-                    dedent(
-                        """\
-                    WARNING: found %d full-overlap records assigned to chunk
-                             %d (%s) falling outside the bounds of their
-                             sub-chunk full-overlap regions."""
-                        % (nfailed, chunkId, fullTable)
-                    )
+                    f"WARNING: found {nfailed} full-overlap records assigned to chunk {chunk_id} "
+                    f"({full_table}) falling outside the bounds of their sub-chunk full-overlap regions."
                 )
 
         # Test 6: make sure the partition map sub-chunk row counts agree
         # with the loaded table
         self.cursor.execute(
-            """
-            SELECT COUNT(*) FROM (
-                SELECT COUNT(*) AS numRows, chunkId, subChunkId
-                FROM %s GROUP BY chunkId, subChunkId) AS c
-            INNER JOIN %s AS p
+            f"""
+            SELECT COUNT(*)
+            FROM (SELECT COUNT(*) AS numRows, chunkId, subChunkId
+            FROM {chunk_table} GROUP BY chunkId, subChunkId) AS c
+            INNER JOIN {part_table} AS p
             ON (c.chunkId = p.chunkId AND c.subChunkId = p.subChunkId)
             WHERE c.numRows != p.numRows"""
-            % (chunkTable, partTable)
         )
         nfailed = self.cursor.fetchone()[0]
 
@@ -458,7 +407,7 @@ class SqlActions:
 # -- Utilities --------
 
 
-def hostPort(sv):
+def host_port(sv):
     hp = sv.split(":")
     if len(hp) > 1:
         return (hp[0], int(hp[1]))
@@ -466,23 +415,24 @@ def hostPort(sv):
         return (hp[0], None)
 
 
-def chunkIdFromPath(path):
+def chunk_id_from_path(path):
     m = re.match(r".*_(\d+).csv$", path)
-    if m == None:
-        raise RuntimeError("Unable to extract chunk id from path %s" % path)
+    if m is None:
+        raise RuntimeError(f"Unable to extract chunk id from path {path}")
     return int(m.group(1))
 
 
-def tableFromPath(path, opts, prefix=""):
+def table_from_path(path, opts, prefix=""):
     table = os.path.splitext(os.path.basename(path))[0]
     return opts.database + "." + prefix + table
 
 
+@total_ordering
 class Params:
     """Parameter holder class for a specific database server"""
 
     def __init__(self, sv, opts):
-        self.host, self.port = hostPort(sv)
+        self.host, self.port = host_port(sv)
         self.database = opts.database
         self.user = opts.user
         self.password = opts.password
@@ -501,19 +451,19 @@ class Params:
             return (self.host, self.port) == (other.host, other.port)
         return False
 
-    def __cmp__(self, other):
-        return cmp((self.host, self.port), (other.host, other.port))
+    def __le__(self, other):
+        return (self.host, self.port) <= (other.host, other.port)
 
 
-def getWorkers(patternsOrPaths, master):
+def get_workers(patterns_or_paths, master):
     """Given a list of server name patterns or a files containing a list of
     such patterns (one per line), return a list of distinct worker server
     names.
     """
-    if patternsOrPaths == None or len(patternsOrPaths) == 0:
+    if patterns_or_paths is None or len(patterns_or_paths) == 0:
         return [master.strip()]
     workers = {}
-    for pp in patternsOrPaths:
+    for pp in patterns_or_paths:
         if os.path.isfile(pp):
             f = open(pp, "rb")
             try:
@@ -524,67 +474,55 @@ def getWorkers(patternsOrPaths, master):
             patterns = [pp.strip()]
         for pat in patterns:
             a = pat.split(",")
-            hostPort = a[0]
+            host_port = a[0]
             if len(a) == 1:
-                workers[hostPort] = 1
+                workers[host_port] = 1
             for tok in a[1:]:
                 m = re.match(r"^(\d+)-(\d+)$", tok)
-                if m == None:
+                if m is None:
                     i = int(tok)
                     if i < 0:
                         raise RuntimeError(
-                            dedent(
-                                """\
-                            Negative integer in range specification of
-                            server name pattern %s"""
-                                % pat
-                            )
+                            f"Negative integer in range specification of server name pattern {pat}"
                         )
-                    workers[hostPort % i] = 1
+                    workers[host_port % i] = 1
                 else:
                     i1 = int(m.group(1))
                     i2 = int(m.group(2))
-                    for i in xrange(min(i1, i2), max(i1, i2) + 1):
-                        workers[hostPort % i] = 1
+                    for i in range(min(i1, i2), max(i1, i2) + 1):
+                        workers[host_port % i] = 1
     return workers.keys()
 
 
-def findPartitionFile(inputDir):
+def find_partition_file(input_dir):
     """Search inputDir for a single file name ending with 'Partitions.csv'."""
-    matches = glob(os.path.join(inputDir, "*Partitions.csv"))
+    matches = glob(os.path.join(input_dir, "*Partitions.csv"))
     if len(matches) > 1:
-        raise RuntimeError("Multiple partition map files found:\n%s" % "\n".join(candidates))
+        raise RuntimeError(f"Multiple partition map files found:\n{'\n'.join(matches)}")
     elif len(matches) == 0 or len(matches[0]) == len("Partitions.csv"):
-        raise RuntimeError("No partition map CSV file found in %s" % inputDir)
+        raise RuntimeError(f"No partition map CSV file found in {input_dir}")
     return matches[0]
 
 
-def findChunkFiles(inputDir, prefix):
+def find_chunk_files(input_dir, prefix):
     """Find all chunk files with the given prefix in inputDir
     or any sub-directory thereof. A list of lists is returned,
     where each sub-list contains files with a common chunkId.
     """
     pat = re.compile("^" + re.escape(prefix) + r"(?:(?:Self|Full)Overlap)?_(\d+).csv")
     chunks = {}
-    for root, dirs, files in os.walk(inputDir):
+    for root, dirs, files in os.walk(input_dir):
         for f in files:
-            if pat.match(f) != None:
-                chunkId = chunkIdFromPath(f)
+            if pat.match(f) is not None:
+                chunk_id = chunk_id_from_path(f)
                 p = os.path.join(root, f)
-                if chunkId in chunks:
-                    for c in chunks[chunkId]:
+                if chunk_id in chunks:
+                    for c in chunks[chunk_id]:
                         if os.path.basename(c) == f:
-                            raise RuntimeError(
-                                dedent(
-                                    """\
-                                Found 2 identically named chunk files:
-                                %s and %s"""
-                                    % (p, c)
-                                )
-                            )
-                    chunks[chunkId].append(p)
+                            raise RuntimeError(f"Found 2 identically named chunk files: {p} and {c}")
+                    chunks[chunk_id].append(p)
                 else:
-                    chunks[chunkId] = [p]
+                    chunks[chunk_id] = [p]
     for i in chunks:
         chunks[i].sort(reverse=True)
     return chunks.values()
@@ -593,24 +531,24 @@ def findChunkFiles(inputDir, prefix):
 # -- Actions --------
 
 
-def dropDatabase(params):
+def drop_database(params):
     act = SqlActions(params.host, params.port, params.user, params.password, params.socket, params.database)
     try:
-        act.dropDatabase(params.database)
+        act.drop_database(params.database)
     finally:
         act.close()
 
 
-def cleanDatabase(params):
+def clean_database(params):
     act = SqlActions(params.host, params.port, params.user, params.password, params.socket, params.database)
     try:
-        if params.clean != None:
-            act.dropTables(params.database, params.clean)
+        if params.clean is not None:
+            act.drop_tables(params.database, params.clean)
     finally:
         act.close()
 
 
-def masterInit(master, sampleFile, opts):
+def master_init(master, sample_file, opts):
     """Initialize the master server. Loads the partition map, determines
     the average row size of a sample table, and retrieves the schema of the
     chunk prototype table. A (schema, npad) tuple is returned, where schema
@@ -618,73 +556,66 @@ def masterInit(master, sampleFile, opts):
     to pad chunk tables by.
     """
     schema, npad = None, 0
-    sampleTable = tableFromPath(sampleFile, opts, "_sample_")
-    partTable = tableFromPath(opts.partFile, opts)
-    if partTable == opts.prototype:
-        raise RuntimeError(
-            dedent(
-                """\
-            Chunk prototype and partition map tables have
-            identical names: %s"""
-                % partTable
-            )
-        )
-    hp = hostPort(master)
+    sample_table = table_from_path(sample_file, opts, "_sample_")
+    part_table = table_from_path(opts.partFile, opts)
+    if part_table == opts.prototype:
+        raise RuntimeError(f"Chunk prototype and partition map tables have identical names: {part_table}")
+    hp = host_port(master)
 
     act = SqlActions(hp[0], hp[1], opts.user, opts.password, opts.socket, opts.database)
     try:
-        act.createDatabase(opts.database)
+        act.create_database(opts.database)
         # Get prototype schema
-        schema = act.getSchema(opts.prototype)
+        schema = act.get_schema(opts.prototype)
         # Load partition map
-        act.loadPartitions(partTable, opts.partFile)
+        act.load_partitions(part_table, opts.partFile)
         # Load a sample chunk table and retrieve the row size
-        if opts.rowSize != None and opts.rowSize > 0:
+        if opts.rowSize is not None and opts.rowSize > 0:
             try:
-                act.loadChunk(sampleTable, opts.prototype, sampleFile, 0, False)
-                avg = act.getAverageRowSize(sampleTable)
+                act.load_chunk(sample_table, opts.prototype, sample_file, 0, False)
+                avg = act.get_average_row_size(sample_table)
                 if avg < opts.rowSize:
                     npad = (opts.rowSize - avg) / 4
                     if opts.verbose:
-                        print("Adding %d FLOAT columns for padding" % npad)
+                        print(f"Adding {npad} FLOAT columns for padding")
             finally:
-                act.dropTable(sampleTable)
+                act.drop_table(sample_table)
     finally:
         act.close()
     return schema, npad
 
 
-def loadWorker(args):
+def load_worker(args):
     """Loads chunk files on a worker server."""
     params, chunks = args
     act = SqlActions(params.host, params.port, params.user, params.password, params.socket, params.database)
-    partTable = None
+    part_table = None
 
     try:
-        act.createDatabase(params.database)
+        act.create_database(params.database)
         prototype = params.database + "." + params.chunkPrefix + "Prototype"
-        print("Loading chunk: %s" % prototype)
+        print(f"Loading chunk: {prototype}")
         if prototype != params.prototype:
-            act.createPrototype(prototype, params.schema)
-        if params.npad != None and params.npad > 0:
-            act.createPaddedTable(prototype, params.npad)
+            act.create_prototype(prototype, params.schema)
+        if params.npad is not None and params.npad > 0:
+            act.create_padded_table(prototype, params.npad)
         if params.test:
-            partTable = tableFromPath(params.partFile, params, "_worker_")
-            act.loadPartitions(partTable, params.partFile)
+            part_table = table_from_path(params.partFile, params, "_worker_")
+            act.load_partitions(part_table, params.partFile)
         for files in chunks:
             for f in files:
-                table = tableFromPath(f, params)
+                table = table_from_path(f, params)
                 # Check if params.dropPrimaryKeyTable is non empty and if table contains it:
-                dropPrimaryKey = params.dropPrimaryKeyTable and (params.dropPrimaryKeyTable in table)
-                act.loadChunk(table, prototype, f, params.npad, True, dropPrimaryKey)
+                drop_primary_key = params.dropPrimaryKeyTable and (params.dropPrimaryKeyTable in table)
+                act.load_chunk(table, prototype, f, params.npad, True, drop_primary_key)
             if params.test:
                 pfx = params.database + "." + params.chunkPrefix
-                chunkId = chunkIdFromPath(files[0])
-                act.testChunkTable(pfx, chunkId, partTable)
+                chunk_id = chunk_id_from_path(files[0])
+                act.test_chunk_table(pfx, chunk_id, part_table)
     finally:
-        if partTable:
+        if part_table:
             try:
-                act.dropTable(partTable)
+                act.drop_table(part_table)
             except Exception:
                 pass
         act.close()
@@ -831,7 +762,7 @@ def main():
     (opts, args) = parser.parse_args()
 
     # Input validation and parsing
-    print("DEBUG : %i" % len(args))
+    print(f"DEBUG : {len(args)}")
     if len(args) not in (1, 3):
         parser.error(
             dedent("""\
@@ -839,36 +770,29 @@ def main():
             prototype table must be specified.""")
         )
     master = args[0]
-    workers = getWorkers(opts.workers, args[0])
+    workers = get_workers(opts.workers, args[0])
     if not opts.password and not opts.socket:
         print("Please enter your mysql password")
         opts.password = getpass.getpass()
-    startTime = time.time()
-    inputDir = None
+    start_time = time.time()
+    input_dir = None
     if len(args) == 3:
-        inputDir = args[1]
+        input_dir = args[1]
         if args[2].find(".") == -1:
             opts.prototype = opts.database + "." + args[2]
         else:
             opts.prototype = args[2]
-        if not os.path.isdir(inputDir):
-            parser.error(
-                dedent(
-                    """
-                Specified input directory %s does not exist or is
-                not a directory."""
-                    % inputDir
-                )
-            )
-        opts.partFile = findPartitionFile(inputDir)
+        if not os.path.isdir(input_dir):
+            parser.error(f"Specified input directory {input_dir} does not exist or is not a directory.")
+        opts.partFile = find_partition_file(input_dir)
         pfx = os.path.basename(opts.partFile)
         opts.chunkPrefix = pfx[: pfx.rfind("Partitions.csv")]
-        chunkFiles = findChunkFiles(inputDir, opts.chunkPrefix)
+        chunk_files = find_chunk_files(input_dir, opts.chunkPrefix)
     else:
         opts.prototype = None
         opts.partFile = None
         opts.chunkPrefix = None
-        chunkFiles = []
+        chunk_files = []
     if opts.verbose:
         print("Master server: " + master)
         print("Worker servers:")
@@ -884,51 +808,51 @@ def main():
     if opts.numJobs <= 0:
         opts.numJobs = None
     if _have_mp and opts.numJobs != 1:
-        poolType = mp.Pool
+        pool_type = mp.Pool
     else:
-        poolType = SerialPool
-    pool = poolType(opts.numJobs)
+        pool_type = SerialPool
+    pool = pool_type(opts.numJobs)
     try:
         opts.schema = None
         opts.npad = 0
         # Perform any requested cleanup
-        masterParams = Params(master, opts)
-        workerParams = [Params(sv, opts) for sv in workers]
+        master_params = Params(master, opts)
+        worker_params = [Params(sv, opts) for sv in workers]
         if master in workers:
-            serverParams = workerParams
+            server_params = worker_params
         else:
-            serverParams = [*workerParams, masterParams]
+            server_params = [*worker_params, master_params]
         if opts.dropDatabase:
             if opts.verbose:
-                print("Dropping database %s on master and workers" % opts.database)
+                print(f"Dropping database {opts.database} on master and workers")
                 t = time.time()
-            pool.map(dropDatabase, serverParams)
+            pool.map(drop_database, server_params)
             if opts.verbose:
-                print("Dropped %s database(s) in %f sec" % (opts.database, time.time() - t))
+                print(f"Dropped {opts.database} database(s) in {time.time() - t} sec")
         elif opts.clean:
             if opts.verbose:
-                print("Cleaning %s tables prefixed with %s" % (opts.database, opts.clean))
+                print(f"Cleaning {opts.database} tables prefixed with {opts.clean}")
                 t = time.time()
-            pool.map(cleanDatabase, serverParams)
+            pool.map(clean_database, server_params)
             if opts.verbose:
-                print("Cleaned %s database(s) in %f sec" % (opts.database, time.time() - t))
+                print(f"Cleaned {opts.database} database(s) in {time.time() - t} sec")
         # Load chunks
-        if len(chunkFiles) > 0:
-            print("Init master with options: %s" % opts)
-            schema, npad = masterInit(master, chunkFiles[0][0], opts)
-            for params in serverParams:
+        if len(chunk_files) > 0:
+            print(f"Init master with options: {opts}")
+            schema, npad = master_init(master, chunk_files[0][0], opts)
+            for params in server_params:
                 params.schema, params.npad = schema, npad
             if opts.verbose:
-                print("Loading tables %s.%s* on workers" % (opts.database, opts.chunkPrefix))
+                print(f"Loading tables {opts.database}.{opts.chunkPrefix}* on workers")
                 t = time.time()
-            pool.map(loadWorker, strategies[opts.strategy](workerParams, chunkFiles))
+            pool.map(load_worker, strategies[opts.strategy](worker_params, chunk_files))
             if opts.verbose:
-                print("Populated %s database(s) in %f sec" % (opts.database, time.time() - t))
+                print(f"Populated {opts.database} database(s) in {time.time() - t} sec")
 
     finally:
         pool.close()
     if opts.verbose:
-        print("Total time: %f sec" % (time.time() - startTime))
+        print("Total time: %f sec" % (time.time() - start_time))
 
 
 if __name__ == "__main__":

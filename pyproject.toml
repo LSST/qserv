@@ -10,7 +10,6 @@ extend-exclude = [
     "build/*",
     "extern/*",
     "doc/conf.py",
-    "doc/misc/examples/obsolete",
 ]
 
 [tool.ruff.lint]

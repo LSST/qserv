@@ -191,8 +191,8 @@ class TestConfig(unittest.TestCase):
 
         for qclass in cfg.classes():
             queries = cfg.queries(qclass)
-            for qid, factory in queries.items():
-                for i in range(10):
+            for factory in queries.values():
+                for _ in range(10):
                     query = factory.query()
                     self.assertIsInstance(query, str)
 
