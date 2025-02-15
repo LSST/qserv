@@ -194,8 +194,8 @@ class ITestQuery:
         try:
             query_id = int(data.split()[0])
             _log.debug("SQLCmd.execute query ID = %s", query_id)
-        except Exception:
-            raise RuntimeError(f"Failed to read query ID from SUBMIT: {data}")
+        except Exception as e:
+            raise RuntimeError(f"Failed to read query ID from SUBMIT: {data}") from e
             # wait until query completes
         args = [
             "mysql",

@@ -150,7 +150,7 @@ class TestConfig(unittest.TestCase):
 
     def test_value_random_uniform(self):
         gen = config._ValueRandomUniform(1.0, 42.0)
-        for i in range(100):
+        for _ in range(100):
             val = gen()
             self.assertGreaterEqual(val, 1.0)
             self.assertLessEqual(val, 42.0)

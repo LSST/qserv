@@ -41,7 +41,7 @@ def _load_migration_mgr(
     mod_name: str,
     connection: str,
     scripts_dir: str,
-    mig_mgr_args: MigMgrArgs = dict(),
+    mig_mgr_args: MigMgrArgs | None = None,
 ) -> SchemaMigMgr:
     """Dynamic loading of the migration manager based on module name.
 
@@ -65,6 +65,9 @@ def _load_migration_mgr(
     ------
     Exception is raised for any error.
     """
+
+    if mig_mgr_args is None:
+        mig_mgr_args = {}
 
     # load module "lsst.qserv.<module>.schema_migration"
     try:

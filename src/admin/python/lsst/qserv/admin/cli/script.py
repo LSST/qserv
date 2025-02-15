@@ -948,7 +948,7 @@ def _run(
         args = shlex.split(cmd)
         result = subprocess.run(args, env=env, cwd="/home/qserv")
     if check_returncode:
-        result.check_returncode
+        result.check_returncode()
     return result.returncode
 
 

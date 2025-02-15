@@ -511,7 +511,7 @@ def find_chunk_files(input_dir, prefix):
     """
     pat = re.compile("^" + re.escape(prefix) + r"(?:(?:Self|Full)Overlap)?_(\d+).csv")
     chunks = {}
-    for root, dirs, files in os.walk(input_dir):
+    for root, _, files in os.walk(input_dir):
         for f in files:
             if pat.match(f) is not None:
                 chunk_id = chunk_id_from_path(f)

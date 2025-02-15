@@ -87,7 +87,7 @@ def yaml_presets(ctx: click.Context, param: click.core.Option, value: str) -> No
         try:
             overrides = _read_yaml_presets(value, cmd_name)
         except Exception as e:
-            raise click.BadOptionUsage(cmd_name, f"Error reading overrides file: {e}", ctx)
+            raise click.BadOptionUsage(cmd_name, "Error reading overrides file", ctx) from e
         # Override the defaults for this subcommand
         ctx.default_map.update(overrides)
 

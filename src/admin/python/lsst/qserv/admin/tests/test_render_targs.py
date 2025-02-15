@@ -77,7 +77,7 @@ class RenderTargsTestCase(unittest.TestCase):
         """Test for failure when a template value is not provided."""
         with self.assertRaises(UnresolvableTemplateError) as r:
             render_targs({"a": "{{b}}"})
-        self.assertIn("Missing template value:", str(r.exception))
+        self.assertIn("Missing template value", str(r.exception))
 
     def test_list(self):
         """Verify that lists can be used as values and manipulated by the template."""

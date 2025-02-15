@@ -408,7 +408,7 @@ def _load_database(
                     on_backoff=on_backoff(log=_log),
                     max_time=max_backoff_sec,
                 )
-                def do_ingest_table_config() -> None:
+                def do_ingest_table_config(table: LoadTable = table) -> None:
                     repl.ingest_table_config(table.ingest_config)
 
                 do_ingest_table_config()
@@ -495,7 +495,7 @@ def _get_cases(cases: list[str] | None, test_cases_data: list[dict[Any, Any]]) -
         try:
             cases_data = [db_data[case] for case in cases]
         except KeyError as e:
-            raise RuntimeError(f"{e.args[0]} is not in {test_cases_data}")
+            raise RuntimeError(f"{e.args[0]} is not in {test_cases_data}") from None
     else:
         cases_data = test_cases_data
     return cases_data

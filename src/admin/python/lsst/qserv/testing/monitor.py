@@ -13,14 +13,14 @@ class Monitor(ABC):
     """Interface definition for monitoring."""
 
     @abstractmethod
-    def add_metrics(self, name, tags={}, _ts=None, **kw):
+    def add_metrics(self, name, tags=None, _ts=None, **kw):
         """Add more metrics to the monitor.
 
         Parameters
         ----------
         name : `str`
             Metric name.
-        tags : `dict` [`str`, `Any`]
+        tags : `dict` [`str`, `Any`] | None
             Dictionary with tags and tag values for the new measurement, tag
             is a name, it's better to have tag names in the form of regular
             identifiers. Tag value can be a string or an integer number.
@@ -61,8 +61,12 @@ class LogMonitor(Monitor):
         self._prefix = prefix
         self._tags = tags
 
-    def add_metrics(self, name, tags={}, _ts=None, **kw):
+    def add_metrics(self, name, tags=None, _ts=None, **kw):
         # Docstring inherited from Monitor.
+
+        if tags is None:
+            tags = {}
+
         if _ts is None:
             _ts = int(round(time.time() * 1e6))
 
@@ -119,8 +123,12 @@ class InfluxDBFileMonitor(Monitor):
 
         self._open()
 
-    def add_metrics(self, name, tags={}, _ts=None, **kw):
+    def add_metrics(self, name, tags=None, _ts=None, **kw):
         # Docstring inherited from Monitor.
+
+        if tags is None:
+            tags = {}
+
         now = time.time()
 
         # rollover to a new file if needed
@@ -209,8 +217,10 @@ class MPMonitor:
             self._buffer_size = buffer_size
             self._buffer = []
 
-        def add_metrics(self, name, tags={}, _ts=None, **kw):
+        def add_metrics(self, name, tags=None, _ts=None, **kw):
             # Docstring inherited from Monitor.
+            if tags is None:
+                tags = {}
             if _ts is None:
                 _ts = int(round(time.time() * 1e6))
             self._buffer.append((name, tags, _ts, kw))

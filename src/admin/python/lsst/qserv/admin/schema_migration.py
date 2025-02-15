@@ -52,8 +52,8 @@ class AdminMigrationManager(SchemaMigMgr):
         result = cursor.fetchone()
         try:
             count = result[0]
-        except Exception:
-            raise RuntimeError(f"Could not extract version from query result: {result}.")
+        except Exception as e:
+            raise RuntimeError(f"Could not extract version from query result: {result}.") from e
         return Uninitialized if count == 0 else 0
 
     def apply_migrations(self, migrations: Sequence[Migration]) -> int:

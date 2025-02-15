@@ -116,7 +116,7 @@ class MySqlUdfTestCase(unittest.TestCase):
             self._ang_sep(None, 0.0, 0.0, 0.0, d)
         for d in (0.0, 90.0, -90.0):
             self._ang_sep(0.0, 0.0, d, 0.0, d)
-        for i in range(100):
+        for _ in range(100):
             args = [
                 random.uniform(0.0, 360.0),
                 random.uniform(-90.0, 90.0),
@@ -162,11 +162,11 @@ class MySqlUdfTestCase(unittest.TestCase):
             self._pt_in_sph_circle(None, 0.0, 0.0, 0.0, d, 0.0)
         for r in (-1.0, 181.0):
             self._pt_in_sph_circle(None, 0.0, 0.0, 0.0, 0.0, r)
-        for i in range(10):
+        for _i in range(10):
             ra_cen = random.uniform(0.0, 360.0)
             dec_cen = random.uniform(-90.0, 90.0)
             radius = random.uniform(0.0001, 10.0)
-            for j in range(100):
+            for _j in range(100):
                 delta = radius / math.cos(math.radians(dec_cen))
                 ra = random.uniform(ra_cen - delta, ra_cen + delta)
                 dec = random.uniform(max(dec_cen - radius, -90.0), min(dec_cen + radius, 90.0))
@@ -195,13 +195,13 @@ class MySqlUdfTestCase(unittest.TestCase):
         self._pt_in_sph_ellipse(None, 0.0, 0.0, 0.0, 0.0, 1.0, 2.0, 0.0)
         self._pt_in_sph_ellipse(None, 0.0, 0.0, 0.0, 0.0, 2.0, -1.0, 0.0)
         self._pt_in_sph_ellipse(None, 0.0, 0.0, 0.0, 0.0, 36001.0, 1.0, 0.0)
-        for i in range(10):
+        for _i in range(10):
             ra_cen = random.uniform(0.0, 360.0)
             dec_cen = random.uniform(-90.0, 90.0)
             smaa = random.uniform(0.0001, 36000.0)
             smia = random.uniform(0.00001, smaa)
             ang = random.uniform(-180.0, 180.0)
-            for j in range(100):
+            for _j in range(100):
                 smaa_deg = smaa / 3600.0
                 delta = smaa_deg / math.cos(math.radians(dec_cen))
                 ra = random.uniform(ra_cen - delta, ra_cen + delta)
@@ -253,7 +253,7 @@ class MySqlUdfTestCase(unittest.TestCase):
         ]
         for t in tris:
             spec = flatten(t)
-            for i in range(100):
+            for _ in range(100):
                 ra = random.uniform(0.0, 360.0)
                 dec = random.uniform(-90.0, 90.0)
                 if (t[2][1] > 0 and (dec < 0.0 or ra < t[0][0] or ra > t[1][0])) or (
