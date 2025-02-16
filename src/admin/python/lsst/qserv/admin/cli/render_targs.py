@@ -33,8 +33,6 @@ class UnresolvableTemplateError(RuntimeError):
     """Exception class used by `render` when a template value can not be
     resolved."""
 
-    pass
-
 
 def _format_targs(targs: Targs) -> str:
     """Format targs for printing to an error message."""

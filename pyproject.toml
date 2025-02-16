@@ -18,7 +18,10 @@ select = [
     "B",    # flake8-bugbear
     "E",    # pycodestyle
     "F",    # pyflakes
+    "FURB", # refurb
     "N",    # pep8-naming
+    "PGH",  # pygrep-hooks
+    "PIE",  # flake8-pie
     "RUF",  # Ruff-specific
     "UP",   # pyupgrade
     "W",    # pycodestyle

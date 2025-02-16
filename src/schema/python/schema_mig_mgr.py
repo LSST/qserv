@@ -62,8 +62,6 @@ class SchemaUpdateRequiredError(RuntimeError):
     arguments (e.g. update=True) were not passed.
     """
 
-    pass
-
 
 class Uninitialized:
     """Represents an uninitialized database, which has no integer version
@@ -233,7 +231,6 @@ class SchemaMigMgr(metaclass=ABCMeta):
         version : `int` or ``Uninitialized``
             The current schema version.
         """
-        pass
 
     # mig_name_re describes a common migration file name pattern. Subclasses
     # can override this. This pattern looks for name "migrate-N-to-M.sql" or
@@ -344,7 +341,7 @@ class SchemaMigMgr(metaclass=ABCMeta):
                         stmt = f.read()
                 _log.debug(f"Migration statement: {stmt}")
                 if stmt:
-                    for result in cursor.execute(stmt, multi=True):  # type: ignore
+                    for result in cursor.execute(stmt, multi=True):  # type: ignore[union-attr]
                         # Cast here because MySQLCursorAbtract does not have with_rows for some reason, even
                         # though both of its subclasses do...
                         result = cast(

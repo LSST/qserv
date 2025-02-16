@@ -70,7 +70,7 @@ def execute(cursor: MySQLCursorAbstract, stmt: str, multi: bool = False) -> None
     cursors: list[Any] = []
 
     if multi:
-        cursors = cursor.execute(stmt, multi=True)  # type: ignore
+        cursors = cursor.execute(stmt, multi=True)  # type: ignore[assignment]
     else:
         cursor.execute(stmt, multi=False)
         cursors = [cursor]

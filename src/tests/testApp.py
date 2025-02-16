@@ -34,7 +34,6 @@ class AppTest(unittest.TestCase):
 
     def setUp(self):
         global _options
-        pass
 
     def tearDown(self):
         pass
@@ -51,7 +50,6 @@ class AppTest(unittest.TestCase):
             s = constr.paramsSize()
             for i in range(s):
                 yield constr.paramsGet(i)
-            pass
 
         def vec_con_gen(cvec):
             sz = cvec.size()
@@ -64,7 +62,6 @@ class AppTest(unittest.TestCase):
         for i in range(3):
             self._add_chunk(1, i)
 
-        pass
         self.assertEqual(1, 1)
 
     def _add_chunk(self, session, base):

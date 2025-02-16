@@ -153,8 +153,6 @@ class InvalidQueryParameterError(RuntimeError):
     URI.
     """
 
-    pass
-
 
 def _process_uri(uri: str, query_keys: Sequence[str], option: str, block: bool) -> URL:
     """Convert a string URI to a sqlalchemy URL. Verify query keys are valid.

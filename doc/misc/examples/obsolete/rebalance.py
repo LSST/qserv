@@ -86,7 +86,6 @@ class RebalanceProgram:
             parser.error("Must specify at least one path. (How about . ?)")
         self._pathList = args
         self._opts = opts
-        pass
 
     def _gather_chunk_files(self):
         chunk_files = chain(*imap(loader.find_chunk_files, self._pathList, repeat(self._opts.prefix)))
@@ -100,7 +99,6 @@ class RebalanceProgram:
                 if name in check_dupe:
                     raise RuntimeError(f"Found 2 identically named chunk files named {name}")
                 check_dupe.add(name)
-        pass
 
     def _move(self):
         chunk_count = len(self._chunkFiles)
@@ -122,7 +120,6 @@ class RebalanceProgram:
                 os.listdir(targetdir)
             except OSError:
                 os.makedirs(targetdir)
-                pass
 
             for j in range(start, stop):
                 for f in self._chunkFiles[j]:
@@ -130,7 +127,6 @@ class RebalanceProgram:
                     print("rename ", f, os.path.join(targetdir, name))
                     os.rename(f, os.path.join(targetdir, name))
             start = stop
-        pass
 
     def run(self):
         self._gather_chunk_files()

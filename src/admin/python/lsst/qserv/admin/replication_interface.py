@@ -226,8 +226,6 @@ class ReplicationInterface:
     class CommandError(RuntimeError):
         """Raised when the call to the replication system returns not-success."""
 
-        pass
-
     def __init__(self, repl_ctrl_uri: str, auth_key: str | None = None, admin_auth_key: str | None = None):
         self.repl_ctrl = urlparse(repl_ctrl_uri)
         self.auth_key = auth_key
