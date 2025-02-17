@@ -180,9 +180,10 @@ private:
      * @note The method may not extract all rows if the amount of data found
      *   in the result set exceeded the maximum size allowed by the Google Protobuf
      *   implementation. Also, the iterative approach to the data extraction allows
-     *   the driving code to be interrupted should the correponding query be cancelled
+     *   the driving code to be interrupted should the corresponding query be cancelled
      *   during the lengthy data processing phase.
-     * @param tMtxLock - a lock on the mutex tMtx
+     * @param responseData - proto buffer to hold the response being constructed.
+     * @param protobufArena - proto buffer memory management control.
      * @param task - a task that produced the result set
      * @param mResult - MySQL result to be used as a source
      * @param bytes - the number of bytes in the result message recorded into the file
@@ -192,19 +193,23 @@ private:
      * @throws std::runtime_error for problems encountered when attemting to create the file
      *   or write into the file.
      */
-    bool _writeToFile(std::lock_guard<std::mutex> const& tMtxLock, std::shared_ptr<Task> const& task,
-                      MYSQL_RES* mResult, int& bytes, int& rows, util::MultiError& multiErr);
+    bool _writeToFile(proto::ResponseData* responseData,
+                      std::unique_ptr<google::protobuf::Arena> const& protobufArena,
+                      std::shared_ptr<Task> const& task, MYSQL_RES* mResult, int& bytes, int& rows,
+                      util::MultiError& multiErr);
 
     /**
      * Extract as many rows as allowed by the Google Protobuf implementation from
      * from the input result set into the output result object.
-     * @param tMtxLock - a lock on the mutex tMtx
+     * @param responseData - proto buffer to hold the response being constructed.
+     * @param protobufArena - proto buffer memory management control.
      * @param mResult - MySQL result to be used as a source
      * @param rows - the number of rows extracted from the result set
      * @param tSize - the approximate amount of data extracted from the result set
      * @return 'true' if there are more rows left in the result set.
      */
-    bool _fillRows(std::lock_guard<std::mutex> const& tMtxLock, MYSQL_RES* mResult, int& rows, size_t& tSize);
+    static bool _fillRows(proto::ResponseData* responseData, MYSQL_RES* mResult, int& rows, size_t& tSize);
+
     /**
      * Unconditionaly close and remove (potentially - the partially written) file.
      * This method gets called in case of any failure detected while processing
@@ -225,18 +230,15 @@ private:
      * @param multiErr - a collector of any errors that were captured during result set processing
      * @return 'true' if the operation was successfull
      */
-    bool _sendResponse(std::lock_guard<std::mutex> const& tMtxLock, std::shared_ptr<Task> const& task,
-                       bool cancelled, util::MultiError const& multiErr);
+    bool _sendResponse(std::lock_guard<std::mutex> const& tMtxLock,
+                       std::unique_ptr<google::protobuf::Arena> const& protobufArena,
+                       std::shared_ptr<Task> const& task, bool cancelled, util::MultiError const& multiErr);
 
     mutable std::mutex _tMtx;  ///< Protects data recording and Czar notification
 
     std::shared_ptr<wbase::SendChannel> const _sendChannel;  ///< Used to pass encoded information to XrdSsi.
     qmeta::CzarId const _czarId;                             ///< id of the czar that requested this task(s).
     std::string const _workerId;                             ///< The unique identifier of the worker.
-
-    // Allocatons/deletion of the data messages are managed by Google Protobuf Arena.
-    std::unique_ptr<google::protobuf::Arena> _protobufArena;
-    proto::ResponseData* _responseData = 0;
 
     uint64_t const _scsId;  ///< id number for this FileChannelShared
 
@@ -272,6 +274,10 @@ private:
 
     uint32_t _rowcount = 0;      ///< The total numnber of rows in all result sets of a query.
     uint64_t _transmitsize = 0;  ///< The total amount of data (bytes) in all result sets of a query.
+
+    /// This should be set to true if there were any issues that invalidate the file, such as errors
+    /// or cancellation.
+    std::atomic<bool> _issueRequiresFileRemoval{false};
 };
 
 }  // namespace lsst::qserv::wbase
