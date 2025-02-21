@@ -31,7 +31,7 @@
 // Qserv headers
 #include "css/CssAccess.h"
 #include "css/EmptyChunks.h"
-#include "qdisp/MessageStore.h"
+#include "qmeta/MessageStore.h"
 #include "sql/SqlConnection.h"
 #include "sql/SqlErrorObject.h"
 
@@ -49,7 +49,7 @@ UserQueryFlushChunksCache::UserQueryFlushChunksCache(std::shared_ptr<css::CssAcc
           _dbName(dbName),
           _resultDbConn(resultDbConn),
           _qState(UNKNOWN),
-          _messageStore(std::make_shared<qdisp::MessageStore>()) {}
+          _messageStore(std::make_shared<qmeta::MessageStore>()) {}
 
 std::string UserQueryFlushChunksCache::getError() const { return std::string(); }
 

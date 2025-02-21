@@ -111,8 +111,11 @@ private:
 /// Note: It is possible for threads to leave the pool and be replaced using leavePool()
 ///  This is usually done when a thread no longer requires significant CPU but has
 ///  to wait for something to happen, like transferring data.
-///  _poolThreadCount is a total of all threads in the pool and all threads that have
-///  left the pool and this total should not exceed _maxThreadCount.
+///  _poolThreadCount is a total of all threads that are still running both in the pool
+///  and those that have left the pool but have not finished.
+///  _poolThreadCount total should not exceed _maxThreadCount.
+///  _maxThreadCount can be significantly larger than the _targetThrdCount.
+///
 class ThreadPool : public std::enable_shared_from_this<ThreadPool> {
 public:
     using Ptr = std::shared_ptr<ThreadPool>;

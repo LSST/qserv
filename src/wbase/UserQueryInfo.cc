@@ -24,6 +24,7 @@
 
 // Qserv headers
 #include "util/Bug.h"
+#include "wbase/UberJobData.h"
 
 // LSST headers
 #include "lsst/log/Log.h"
@@ -36,46 +37,7 @@ LOG_LOGGER _log = LOG_GET("lsst.qserv.wbase.UserQueryInfo");
 
 namespace lsst::qserv::wbase {
 
-UserQueryInfo::UserQueryInfo(QueryId qId) : _qId(qId) {}
-
-UserQueryInfo::Ptr UserQueryInfo::uqMapInsert(QueryId qId) {
-    Ptr uqi;
-    lock_guard<mutex> lg(_uqMapMtx);
-    auto iter = _uqMap.find(qId);
-    if (iter != _uqMap.end()) {
-        uqi = iter->second.lock();
-    }
-    // If uqi is invalid at this point, a new one needs to be made.
-    if (uqi == nullptr) {
-        uqi = make_shared<UserQueryInfo>(qId);
-        _uqMap[qId] = uqi;
-    }
-    return uqi;
-}
-
-UserQueryInfo::Ptr UserQueryInfo::uqMapGet(QueryId qId) {
-    lock_guard<mutex> lg(_uqMapMtx);
-    auto iter = _uqMap.find(qId);
-    if (iter != _uqMap.end()) {
-        return iter->second.lock();
-    }
-    return nullptr;
-}
-
-void UserQueryInfo::uqMapErase(QueryId qId) {
-    lock_guard<mutex> lg(_uqMapMtx);
-    auto iter = _uqMap.find(qId);
-    if (iter != _uqMap.end()) {
-        // If the weak pointer has 0 real references
-        if (iter->second.expired()) {
-            _uqMap.erase(qId);
-        }
-    }
-}
-
-UserQueryInfo::Map UserQueryInfo::_uqMap;
-
-mutex UserQueryInfo::_uqMapMtx;
+UserQueryInfo::UserQueryInfo(QueryId qId, CzarIdType czarId) : _qId(qId), _czarId(czarId) {}
 
 size_t UserQueryInfo::addTemplate(std::string const& templateStr) {
     size_t j = 0;
@@ -99,6 +61,58 @@ std::string UserQueryInfo::getTemplate(size_t id) {
                                          " size=" + to_string(_templates.size()));
     }
     return _templates[id];
+}
+
+void UserQueryInfo::addUberJob(std::shared_ptr<UberJobData> const& ujData) {
+    lock_guard<mutex> lockUq(_uberJobMapMtx);
+    UberJobId ujId = ujData->getUberJobId();
+    _uberJobMap[ujId] = ujData;
+}
+
+void UserQueryInfo::cancelFromCzar() {
+    if (_cancelledByCzar.exchange(true)) {
+        LOGS(_log, LOG_LVL_DEBUG, cName(__func__) << " already cancelledByCzar");
+        return;
+    }
+    lock_guard<mutex> lockUq(_uberJobMapMtx);
+    for (auto const& [ujId, weakUjPtr] : _uberJobMap) {
+        LOGS(_log, LOG_LVL_INFO, cName(__func__) << " cancelling ujId=" << ujId);
+        auto ujPtr = weakUjPtr.lock();
+        if (ujPtr != nullptr) {
+            ujPtr->cancelAllTasks();
+        }
+    }
+}
+
+void UserQueryInfo::cancelUberJob(UberJobId ujId) {
+    LOGS(_log, LOG_LVL_INFO, cName(__func__) << " cancelling ujId=" << ujId);
+    lock_guard<mutex> lockUq(_uberJobMapMtx);
+    _deadUberJobSet.insert(ujId);
+    auto iter = _uberJobMap.find(ujId);
+    if (iter != _uberJobMap.end()) {
+        auto weakUjPtr = iter->second;
+        auto ujPtr = weakUjPtr.lock();
+        if (ujPtr != nullptr) {
+            ujPtr->cancelAllTasks();
+        }
+    }
+}
+
+void UserQueryInfo::cancelAllUberJobs() {
+    lock_guard<mutex> lockUq(_uberJobMapMtx);
+    for (auto const& [ujKey, weakUjPtr] : _uberJobMap) {
+        _deadUberJobSet.insert(ujKey);
+        auto ujPtr = weakUjPtr.lock();
+        if (ujPtr != nullptr) {
+            ujPtr->cancelAllTasks();
+        }
+    }
+}
+
+bool UserQueryInfo::isUberJobDead(UberJobId ujId) const {
+    lock_guard<mutex> lockUq(_uberJobMapMtx);
+    auto iter = _deadUberJobSet.find(ujId);
+    return iter != _deadUberJobSet.end();
 }
 
 }  // namespace lsst::qserv::wbase

@@ -184,10 +184,6 @@ private:
      */
     void _modifyChunk(std::string const& func, int chunk, std::string const& database, Direction direction);
 
-    // XROOTD/SSI service context.
-
-    xrdsvc::SsiProviderServer* _providerServer = nullptr;
-    XrdSsiCluster* _clusterManager = nullptr;
     bool _dataContext = false;
 };
 

@@ -29,7 +29,7 @@
 // Qserv headers
 #include "ccontrol/UserQueryError.h"
 #include "ccontrol/UserQueryType.h"
-#include "qdisp/MessageStore.h"
+#include "qmeta/MessageStore.h"
 #include "qmeta/QInfo.h"
 #include "qmeta/QMetaSelect.h"
 #include "query/SelectStmt.h"
@@ -62,7 +62,7 @@ UserQuerySelectCountStar::UserQuerySelectCountStar(std::string query,
         : _resultDbConn(resultDbConn),
           _qMetaSelect(qMetaSelect),
           _queryMetadata(queryMetadata),
-          _messageStore(std::make_shared<qdisp::MessageStore>()),
+          _messageStore(std::make_shared<qmeta::MessageStore>()),
           _resultTableName(::g_nextResultTableId(userQueryId)),
           _userQueryId(userQueryId),
           _rowsTable(rowsTable),

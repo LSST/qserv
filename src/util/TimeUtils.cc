@@ -51,4 +51,13 @@ uint64_t TimeUtils::tp2ms(chrono::system_clock::time_point const& tp) {
     return chrono::duration_cast<chrono::milliseconds>(tp.time_since_epoch()).count();
 }
 
+string TimeUtils::timePointToDateTimeString(TIMEPOINT const& point) {
+    auto const timer = chrono::system_clock::to_time_t(point);
+    auto broken_time = *localtime(&timer);
+
+    ostringstream ss;
+    ss << put_time(&broken_time, "%Y-%m-%d %H:%M:%S");
+    return ss.str();
+}
+
 }  // namespace lsst::qserv::util

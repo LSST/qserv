@@ -88,10 +88,9 @@ wbase::TaskSelector HttpModule::translateTaskSelector(string const& func) const 
         }
     }
     selector.maxTasks = query().optionalUInt("max_tasks", 0);
-    debug(func, "include_tasks=" + string(selector.includeTasks ? "1" : "0"));
-    debug(func, "queryIds.size()=" + to_string(selector.queryIds.size()));
-    debug(func, "taskStates.size()=" + to_string(selector.taskStates.size()));
-    debug(func, "max_tasks=" + to_string(selector.maxTasks));
+    trace(func, "include_tasks=" + string(selector.includeTasks ? "1" : "0") +
+                        " queryIds.size()=" + to_string(selector.queryIds.size()) + " taskStates.size()=" +
+                        to_string(selector.taskStates.size()) + " max_tasks=" + to_string(selector.maxTasks));
     return selector;
 }
 

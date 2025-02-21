@@ -11,12 +11,3 @@ target_sources(global PRIVATE
 target_link_libraries(global PUBLIC
     log
 )
-
-add_executable(testResourceUnit testResourceUnit.cc)
-
-target_link_libraries(testResourceUnit
-    global
-    Boost::unit_test_framework
-)
-
-add_test(NAME testResourceUnit COMMAND testResourceUnit)

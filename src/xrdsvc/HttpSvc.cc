@@ -33,6 +33,7 @@
 #include "wpublish/ChunkInventory.h"
 #include "xrdsvc/HttpMonitorModule.h"
 #include "xrdsvc/HttpReplicaMgtModule.h"
+#include "xrdsvc/HttpWorkerCzarModule.h"
 
 // LSST headers
 #include "lsst/log/Log.h"
@@ -134,6 +135,18 @@ uint16_t HttpSvc::start() {
                   HttpReplicaMgtModule::process(::serviceName, self->_foreman, req, resp, "REBUILD",
                                                 http::AuthType::REQUIRED);
               }}});
+    _httpServerPtr->addHandlers(
+            {{"POST", "/queryjob",
+              [self](shared_ptr<qhttp::Request> const& req, shared_ptr<qhttp::Response> const& resp) {
+                  HttpWorkerCzarModule::process(::serviceName, self->_foreman, req, resp, "/queryjob",
+                                                http::AuthType::REQUIRED);
+              }}});
+    _httpServerPtr->addHandlers(
+            {{"POST", "/querystatus",
+              [self](shared_ptr<qhttp::Request> const& req, shared_ptr<qhttp::Response> const& resp) {
+                  HttpWorkerCzarModule::process(::serviceName, self->_foreman, req, resp, "/querystatus",
+                                                http::AuthType::REQUIRED);
+              }}});
     _httpServerPtr->start();
 
     // Initialize the I/O context and start the service threads. At this point
@@ -142,7 +155,8 @@ uint16_t HttpSvc::start() {
         _threads.push_back(make_unique<thread>([self]() { self->_io_service.run(); }));
     }
     auto const actualPort = _httpServerPtr->getPort();
-    LOGS(_log, LOG_LVL_INFO, context + "started on port " + to_string(actualPort));
+    LOGS(_log, LOG_LVL_INFO,
+         context + "started on port " + to_string(actualPort) + " numThreads=" + to_string(_numThreads));
     return actualPort;
 }
 

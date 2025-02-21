@@ -56,6 +56,7 @@ public:
      *   up on the Qserv synchronization requests.
      * @param disableQservSync Disable replica synchronization at Qserv workers if 'true'.
      * @param forceQservSync Force chunk removal at worker resource collections if 'true'.
+     * @param qservChunkMapUpdate Update the chunk disposition map in Qserv's QMeta database if 'true'.
      * @param replicationIntervalSec The number of seconds to wait in the end of each
      *   iteration loop before to begin the new one.
      * @param purge Purge excess replicas if 'true'.
@@ -64,7 +65,7 @@ public:
     static Ptr create(Controller::Ptr const& controller,
                       Task::AbnormalTerminationCallbackType const& onTerminated,
                       unsigned int qservSyncTimeoutSec, bool disableQservSync, bool forceQservSync,
-                      unsigned int replicationIntervalSec, bool purge);
+                      bool qservChunkMapUpdate, unsigned int replicationIntervalSec, bool purge);
 
 protected:
     /// @see Task::onRun()
@@ -74,7 +75,9 @@ private:
     /// @see ReplicationTask::create()
     ReplicationTask(Controller::Ptr const& controller, AbnormalTerminationCallbackType const& onTerminated,
                     unsigned int qservSyncTimeoutSec, bool disableQservSync, bool forceQservSync,
-                    unsigned int replicationIntervalSec, bool purge);
+                    bool qservChunkMapUpdate, unsigned int replicationIntervalSec, bool purge);
+
+    void _updateChunkMap();
 
     /// The maximum number of seconds to be waited before giving up
     /// on the Qserv synchronization requests.
@@ -82,6 +85,8 @@ private:
 
     bool const _disableQservSync;  ///< Disable replica synchroization at Qserv workers if 'true'.
     bool const _forceQservSync;    ///< Force removal at worker resource collections if 'true'.
+    bool const
+            _qservChunkMapUpdate;  /// Update the chunk disposition map in Qserv's QMeta database if 'true'.
     bool const _purge;             ///< Purge excess replicas if 'true'.
 };
 

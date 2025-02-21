@@ -4,7 +4,6 @@ add_dependencies(wdb proto)
 target_sources(wdb PRIVATE
     ChunkResource.cc
     QueryRunner.cc
-    QuerySql.cc
     SQLBackend.cc
 )
 
@@ -36,7 +35,8 @@ ENDFUNCTION()
 wdb_tests(
     testChunkResource
     testQueryRunner
-    testQuerySql
 )
 
+# For this test to work, a mariadb server needs to be available.
+# This functionality is covered by integration tests.
 set_tests_properties(testQueryRunner PROPERTIES WILL_FAIL 1)

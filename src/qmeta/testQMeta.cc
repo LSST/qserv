@@ -33,8 +33,9 @@
 #include "lsst/log/Log.h"
 
 // Qserv headers
-#include "QMetaMysql.h"
-#include "QStatusMysql.h"
+#include "qmeta/MessageStore.h"
+#include "qmeta/QMetaMysql.h"
+#include "qmeta/QStatusMysql.h"
 #include "sql/SqlConnection.h"
 #include "sql/SqlConnectionFactory.h"
 #include "sql/SqlErrorObject.h"
@@ -411,6 +412,12 @@ BOOST_AUTO_TEST_CASE(messWithQueryStats) {
         caught = true;
     }
     BOOST_CHECK(caught);
+}
+
+BOOST_AUTO_TEST_CASE(getChunkMap) {
+    // The test assumes that the underlying tables exists and it's empty.
+    QMetaChunkMap chunkMap;
+    BOOST_CHECK_THROW(qMeta->getChunkMap(), EmptyTableError);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

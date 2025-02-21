@@ -42,9 +42,9 @@
 #include "qmeta/types.h"
 
 // Forward decl
-namespace lsst::qserv::qdisp {
+namespace lsst::qserv::qmeta {
 class MessageStore;
-}  // namespace lsst::qserv::qdisp
+}  // namespace lsst::qserv::qmeta
 
 namespace lsst::qserv::ccontrol {
 
@@ -74,7 +74,7 @@ public:
     virtual void discard() = 0;
 
     // Delegate objects
-    virtual std::shared_ptr<qdisp::MessageStore> getMessageStore() = 0;
+    virtual std::shared_ptr<qmeta::MessageStore> getMessageStore() = 0;
 
     /// This method should disappear when we start supporting results
     /// in locations other than MySQL tables. We'll switch to getResultLocation()

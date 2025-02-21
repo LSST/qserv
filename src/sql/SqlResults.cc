@@ -173,6 +173,24 @@ bool SqlResults::extractFirst4Columns(std::vector<std::string>& col1, std::vecto
     return true;
 }
 
+std::vector<std::vector<std::string>> SqlResults::extractFirstNColumns(size_t numColumns) {
+    std::vector<std::vector<std::string>> rows;
+    for (int resultIdx = 0, numResults = _results.size(); resultIdx < numResults; ++resultIdx) {
+        MYSQL_ROW row;
+        while ((row = mysql_fetch_row(_results[resultIdx])) != nullptr) {
+            std::vector<std::string> columns;
+            columns.reserve(numColumns);
+            for (size_t colIdx = 0; colIdx < numColumns; ++colIdx) {
+                columns.push_back(row[colIdx]);
+            }
+            rows.push_back(std::move(columns));
+        }
+        mysql_free_result(_results[resultIdx]);
+    }
+    _results.clear();
+    return rows;
+}
+
 bool SqlResults::extractFirstValue(std::string& ret, SqlErrorObject& errObj) {
     if (_results.size() != 1) {
         std::stringstream ss;

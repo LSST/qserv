@@ -20,6 +20,7 @@ target_sources(util PRIVATE
     Issue.cc
     MultiError.cc
     Mutex.cc
+    QdispPool.cc
     ResultFileNameParser.cc
     SemaMgr.cc
     StringHash.cc
@@ -31,7 +32,6 @@ target_sources(util PRIVATE
     Timer.cc
     TimeUtils.cc
     WorkQueue.cc
-    xrootd.cc
 )
 
 target_link_libraries(util PUBLIC

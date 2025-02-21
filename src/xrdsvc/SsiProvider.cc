@@ -146,64 +146,17 @@ bool SsiProviderServer::Init(XrdSsiLogger* logP, XrdSsiCluster* clsP, std::strin
 
 XrdSsiProvider::rStat SsiProviderServer::QueryResource(char const* rName, char const* contact) {
     // Validate resource name based on its proposed type
-
-    ResourceUnit ru(rName);
-    if (ru.unitType() == ResourceUnit::DBCHUNK) {
-        // Extract db and chunk from path and validate result
-
-        // If the chunk exists on our node then tell the caller it is here.
-        if (_chunkInventory.has(ru.db(), ru.chunk())) {
-            LOGS(_log, LOG_LVL_DEBUG, "SsiProvider Query " << rName << " present");
-            return isPresent;
-        }
-
-        // Tell the caller we do not have the chunk.
-        LOGS(_log, LOG_LVL_DEBUG, "SsiProvider Query " << rName << " absent");
-        return notPresent;
-    } else if (ru.unitType() == ResourceUnit::QUERY) {
-        return isPresent;
-    }
-
-    // Treat other resources as absolute path names of files
-    boost::filesystem::path const path(rName);
-    if (path.is_absolute()) {
-        boost::system::error_code ec;
-        if (boost::filesystem::exists(path, ec) && !ec.value()) {
-            LOGS(_log, LOG_LVL_DEBUG, "SsiProvider File Resource " << rName << " recognized");
-            return isPresent;
-        }
-    }
-
-    LOGS(_log, LOG_LVL_DEBUG, "SsiProvider Query " << rName << " invalid");
     return notPresent;
 }
 
 void SsiProviderServer::ResourceAdded(const char* rName) {
     // Handle resource based on its proposed type
-
-    ResourceUnit ru(rName);
-    if (ru.unitType() == ResourceUnit::DBCHUNK) {
-        // Extract db and chunk from path and add the resource to the chunk
-        // inventory
-        _chunkInventory.add(ru.db(), ru.chunk());
-        LOGS(_log, LOG_LVL_DEBUG, "SsiProvider ResourceAdded " << rName);
-        return;
-    }
-    LOGS(_log, LOG_LVL_DEBUG, "SsiProvider ResourceAdded " << rName << " invalid");
+    return;
 }
 
 void SsiProviderServer::ResourceRemoved(const char* rName) {
     // Handle resource based on its proposed type
-
-    ResourceUnit ru(rName);
-    if (ru.unitType() == ResourceUnit::DBCHUNK) {
-        // Extract db and chunk from path and add the resource to the chunk
-        // inventory
-        _chunkInventory.remove(ru.db(), ru.chunk());
-        LOGS(_log, LOG_LVL_DEBUG, "SsiProvider ResourceRemoved " << rName);
-        return;
-    }
-    LOGS(_log, LOG_LVL_DEBUG, "SsiProvider ResourceRemoved " << rName << " invalid");
+    return;
 }
 
 }  // namespace lsst::qserv::xrdsvc

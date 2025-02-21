@@ -93,6 +93,8 @@ ChunkSpecVector intersect(ChunkSpecVector const& a, ChunkSpecVector const& b);
 void normalize(ChunkSpecVector& specs);
 
 /// An iterating fragmenter to reduce the number of subChunkIds per ChunkSpec
+/// TODO:UJ Fragmenting the the Jobs probably no longer makes sense, see
+///         `GOOD_SUBCHUNK_COUNT` definition.
 class ChunkSpecFragmenter {
 public:
     ChunkSpecFragmenter(ChunkSpec const& s);

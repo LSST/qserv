@@ -56,11 +56,11 @@
 // Qserv headers
 #include "cconfig/CzarConfig.h"
 #include "global/intTypes.h"
-#include "proto/ProtoImporter.h"
 #include "proto/worker.pb.h"
 #include "qdisp/CzarStats.h"
 #include "qdisp/Executive.h"
 #include "qdisp/JobQuery.h"
+#include "qdisp/UberJob.h"
 #include "qproc/DatabaseModels.h"
 #include "query/ColumnRef.h"
 #include "query/SelectStmt.h"
@@ -217,16 +217,14 @@ void InfileMerger::_setQueryIdStr(std::string const& qIdStr) {
 
 void InfileMerger::mergeCompleteFor(int jobId) {
     std::lock_guard<std::mutex> resultSzLock(_mtxResultSizeMtx);
-    _totalResultSize += _perJobResultSize[jobId];
+    _totalResultSize += _perJobResultSize[jobId];  // TODO:UJ this can probably be simplified
 }
 
-bool InfileMerger::merge(proto::ResponseSummary const& responseSummary,
-                         proto::ResponseData const& responseData,
-                         std::shared_ptr<qdisp::JobQuery> const& jq) {
-    int const jobId = responseSummary.jobid();
-    std::string queryIdJobStr = QueryIdHelper::makeIdStr(responseSummary.queryid(), jobId);
+bool InfileMerger::mergeHttp(qdisp::UberJob::Ptr const& uberJob, proto::ResponseData const& responseData) {
+    UberJobId const uJobId = uberJob->getUjId();
+    std::string queryIdJobStr = uberJob->getIdStr();
     if (!_queryIdStrSet) {
-        _setQueryIdStr(QueryIdHelper::makeIdStr(responseSummary.queryid()));
+        _setQueryIdStr(QueryIdHelper::makeIdStr(uberJob->getQueryId()));
     }
 
     // Nothing to do if size is zero.
@@ -235,11 +233,11 @@ bool InfileMerger::merge(proto::ResponseSummary const& responseSummary,
     }
 
     // Do nothing if the query got cancelled for any reason.
-    if (jq->isQueryCancelled()) {
+    if (uberJob->isQueryCancelled()) {
         return true;
     }
-    auto executive = jq->getExecutive();
-    if (executive == nullptr || executive->getCancelled() || executive->isLimitRowComplete()) {
+    auto executive = uberJob->getExecutive();
+    if (executive == nullptr || executive->getCancelled() || executive->isRowLimitComplete()) {
         return true;
     }
 
@@ -262,7 +260,8 @@ bool InfileMerger::merge(proto::ResponseSummary const& responseSummary,
     // Add columns to rows in virtFile.
     util::Timer virtFileT;
     virtFileT.start();
-    int resultJobId = makeJobIdAttempt(responseSummary.jobid(), responseSummary.attemptcount());
+    // UberJobs only get one attempt
+    int resultJobId = makeJobIdAttempt(uberJob->getUjId(), 0);
     ProtoRowBuffer::Ptr pRowBuffer = std::make_shared<ProtoRowBuffer>(
             responseData, resultJobId, _jobIdColName, _jobIdSqlType, _jobIdMysqlType);
     std::string const virtFile = _infileMgr.prepareSrc(pRowBuffer);
@@ -279,8 +278,8 @@ bool InfileMerger::merge(proto::ResponseSummary const& responseSummary,
     size_t tResultSize;
     {
         std::lock_guard<std::mutex> resultSzLock(_mtxResultSizeMtx);
-        _perJobResultSize[jobId] += resultSize;
-        tResultSize = _totalResultSize + _perJobResultSize[jobId];
+        _perJobResultSize[uJobId] += resultSize;
+        tResultSize = _totalResultSize + _perJobResultSize[uJobId];
     }
     if (tResultSize > _maxResultTableSizeBytes) {
         std::ostringstream os;
@@ -305,29 +304,31 @@ bool InfileMerger::merge(proto::ResponseSummary const& responseSummary,
         return true;
     }
 
-    auto start = std::chrono::system_clock::now();
+    auto start = CLOCK::now();
     switch (_dbEngine) {
         case MYISAM:
             ret = _applyMysqlMyIsam(infileStatement, resultSize);
             break;
-        case INNODB:  // Fallthrough
+        case INNODB:
+            [[fallthrough]];
         case MEMORY:
             ret = _applyMysqlInnoDb(infileStatement, resultSize);
             break;
         default:
             throw std::invalid_argument("InfileMerger::_dbEngine is unknown =" + engineToStr(_dbEngine));
     }
-    auto end = std::chrono::system_clock::now();
+    auto end = CLOCK::now();
     auto mergeDur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    LOGS(_log, LOG_LVL_DEBUG,
+    LOGS(_log, LOG_LVL_TRACE,
          "mergeDur=" << mergeDur.count() << " sema(total=" << _semaMgrConn->getTotalCount()
                      << " used=" << _semaMgrConn->getUsedCount() << ")");
+
     if (not ret) {
         LOGS(_log, LOG_LVL_ERROR, "InfileMerger::merge mysql applyMysql failure");
     }
     _invalidJobAttemptMgr.decrConcurrentMergeCount();
 
-    LOGS(_log, LOG_LVL_DEBUG, "virtFileT=" << virtFileT.getElapsed() << " mergeDur=" << mergeDur.count());
+    LOGS(_log, LOG_LVL_TRACE, "virtFileT=" << virtFileT.getElapsed() << " mergeDur=" << mergeDur.count());
 
     return ret;
 }

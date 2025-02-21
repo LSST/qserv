@@ -165,6 +165,10 @@ MasterControllerHttpApp::MasterControllerHttpApp(int argc, char* argv[])
                   " This affect replicas to be deleted from the workers during the synchronization"
                   " stages.",
                   _forceQservSync);
+    parser().flag("qserv-chunk-map-update",
+                  "The flag which would result in updating the chunk disposition map"
+                  " in Qserv's QMeta database.",
+                  _qservChunkMapUpdate);
     parser().flag("purge",
                   "The binary flag which, if provided, enables the 'purge' algorithm in"
                   " the end of each replication cycle that eliminates excess replicas which"
@@ -216,7 +220,7 @@ int MasterControllerHttpApp::runImpl() {
 
     _replicationTask = ReplicationTask::create(
             _controller, [self](Task::Ptr const& ptr) { self->_isFailed.fail(); }, _qservSyncTimeoutSec,
-            _disableQservSync, _forceQservSync, _replicationIntervalSec, _purge);
+            _disableQservSync, _forceQservSync, _qservChunkMapUpdate, _replicationIntervalSec, _purge);
     _replicationTask->start();
 
     _healthMonitorTask = HealthMonitorTask::create(

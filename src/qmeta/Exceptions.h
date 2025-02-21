@@ -109,6 +109,15 @@ public:
     virtual std::string typeName() const override { return "MissingTableError"; }
 };
 
+/// Exception thrown when the specified metadata table is empty.
+class EmptyTableError : public QMetaError {
+public:
+    EmptyTableError(util::Issue::Context const& ctx, std::string const& table)
+            : QMetaError(ctx, "Query metadata table is empty: " + table) {}
+
+    virtual std::string typeName() const override { return "EmptyTableError"; }
+};
+
 /// Exception thrown when database consistency is violated.
 class ConsistencyError : public QMetaError {
 public:

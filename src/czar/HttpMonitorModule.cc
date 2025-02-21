@@ -52,7 +52,7 @@ HttpMonitorModule::HttpMonitorModule(string const& context, shared_ptr<qhttp::Re
 
 json HttpMonitorModule::executeImpl(string const& subModuleName) {
     string const func = string(__func__) + "[sub-module='" + subModuleName + "']";
-    debug(func);
+    trace(func);
     enforceInstanceId(func, cconfig::CzarConfig::instance()->replicationInstanceId());
     enforceCzarName(func);
     if (subModuleName == "CONFIG")

@@ -29,52 +29,6 @@ option cc_enable_arenas = true;
 
 package lsst.qserv.proto;
 
-// Query message sent to worker
-// One of these Task objects should be sent.
-message TaskMsg {
-    // Future: might have multiple db/chunk dependencies.
-    optional string db = 2;
-    optional int32 chunkid = 3;
-    // repeated string scantables = 4;  // obsolete
-    optional string user = 6;
-    optional int32 scanpriority = 8;
-    message Subchunk {
-        optional string database = 1; // database (unused)
-        repeated DbTbl dbtbl = 2; // subchunked tables
-        repeated int32 id = 3; // subchunk ids
-        message DbTbl {
-            required string db = 1;
-            required string tbl = 2;
-       }
-    }
-    message Fragment {
-        // A query fragment without "CREATE or INSERT".
-        // Worker should synthesize.
-        repeated string query = 1;
-        optional string resulttable = 3;
-        optional Subchunk subchunks = 4; // Only needed with subchunk-ed queries
-
-        // Each fragment may only write results to one table,
-        // but multiple fragments may write to the same table,
-        // in which case the table contains a concatenation of the
-        // contributing fragments' rows.
-    }
-    repeated Fragment fragment = 5;
-    message ScanTable {
-        required string db = 1;
-        required string table = 2;
-        required bool lockInMemory = 3;
-        required int32 scanRating = 4;
-    }
-    repeated ScanTable scantable = 9;
-    optional uint64 queryid = 10;
-    optional int32 jobid = 11;
-    optional bool scaninteractive = 12;
-    optional int32 attemptcount = 13;
-    optional uint32 czarid = 14;
-    optional int32 maxtablesize_mb = 15 [default = 0];
-}
-
 // The file-based result delivery protocol has two kinds of messages.
 //
 // 1. The summary message sent back to Czar over the XROOTD/SSI protocol:
@@ -112,35 +66,4 @@ message ResponseData {
     repeated RowBundle row = 1;
     required uint32 rowcount = 2;
     required uint64 transmitsize = 3;
-}
-
-/////////////////////////////////////////////////////////////////
-// Protocol definition for the query management requests. These
-// requests do not require any response messages to be explicitly
-// sent by workers.
-//
-// ATTENTION: each message sent to a worker must be preceeded by
-// an int32 size (network-byte-ordered) word carrying a size
-// of the message.
-////////////////////////////////////////////////////////////////
-
-// The completion status to be sent back with responses to the query management requests.
-message WorkerCommandStatus {
-    enum Code {
-        SUCCESS = 1;    // The successful completion of a request.
-        ERROR   = 2;    // An error occurred during request execution.
-    }
-    optional Code code = 3 [default = SUCCESS];
-    optional string error = 2 [default = ""];   // Optional error message (depends on the code)
-}
-
-message QueryManagement {
-    enum Operation {
-        CANCEL_AFTER_RESTART = 1;   // Cancel older queries before the specified query (excluding that one).
-        CANCEL = 2;                 // Cancel a specific query.
-        COMPLETE = 3;               // Notify workers on the completion of the specified query.
-    }
-    required Operation op = 1;
-    required uint64 czar_id = 3;
-    required uint64 query_id = 2;
 }

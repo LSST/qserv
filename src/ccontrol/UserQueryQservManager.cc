@@ -36,7 +36,7 @@
 
 // Qserv headers
 #include "cconfig/CzarConfig.h"
-#include "qdisp/MessageStore.h"
+#include "qmeta/MessageStore.h"
 #include "sql/SqlBulkInsert.h"
 #include "sql/SqlConnection.h"
 #include "sql/SqlConnectionFactory.h"
@@ -56,7 +56,7 @@ UserQueryQservManager::UserQueryQservManager(shared_ptr<UserQueryResources> cons
                                              string const& value)
         : _value(value),
           _resultTableName("qserv_manager_" + queryResources->userQueryId),
-          _messageStore(make_shared<qdisp::MessageStore>()),
+          _messageStore(make_shared<qmeta::MessageStore>()),
           _resultDb(queryResources->resultDb) {}
 
 void UserQueryQservManager::submit() {

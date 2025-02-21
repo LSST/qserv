@@ -89,7 +89,7 @@ public:
     void discard() override;
 
     // Delegate objects
-    std::shared_ptr<qdisp::MessageStore> getMessageStore() override { return _messageStore; }
+    std::shared_ptr<qmeta::MessageStore> getMessageStore() override { return _messageStore; }
 
     /// @return Name of the result table for this query, can be empty
     std::string getResultTableName() const override { return _resultTableName; }
@@ -108,7 +108,7 @@ private:
     std::shared_ptr<qmeta::QMetaSelect> _qMetaSelect;
     qmeta::CzarId const _qMetaCzarId;  ///< Czar ID in QMeta database
     QueryState _qState = UNKNOWN;
-    std::shared_ptr<qdisp::MessageStore> _messageStore;
+    std::shared_ptr<qmeta::MessageStore> _messageStore;
     std::string _resultTableName;
     std::string _query;  ///< query to execute on QMeta database
     std::string _orderBy;

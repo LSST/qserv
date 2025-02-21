@@ -23,18 +23,12 @@
 #define LSST_QSERV_WBASE_SENDCHANNEL_H
 
 // System headers
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <string>
 
-// Qserv headers
-#include "xrdsvc/StreamBuffer.h"
-
-namespace lsst::qserv {
-namespace xrdsvc {
-class SsiRequest;  // Forward declaration
-}
-namespace wbase {
+namespace lsst::qserv { namespace wbase {
 
 /// SendChannel objects abstract an byte-output mechanism. Provides a layer of
 /// abstraction to reduce coupling to the XrdSsi API. SendChannel generally
@@ -44,35 +38,13 @@ public:
     using Ptr = std::shared_ptr<SendChannel>;
     using Size = long long;
 
-    SendChannel(std::shared_ptr<xrdsvc::SsiRequest> const& s) : _ssiRequest(s) {}
     SendChannel() {}  // Strictly for non-Request versions of this object.
 
     virtual ~SendChannel() {}
 
-    /// ******************************************************************
     /// The following methods are used to send responses back to a request.
-    /// The "send" calls may vector the response via the tightly bound
-    /// SsiRequest object (the constructor default) or use some other
-    /// mechanism (see newNopChannel and newStringChannel).
-    ///
-    virtual bool send(char const* buf, int bufLen);
-    virtual bool sendError(std::string const& msg, int code);
-
-    /// Send a bucket of bytes.
-    /// @param last true if no more sendStream calls will be invoked.
-    virtual bool sendStream(xrdsvc::StreamBuffer::Ptr const& sBuf, bool last);
-
-    /// Send the data.
-    virtual bool sendData(char const* buf, int bufLen);
-
-    ///
-    /// ******************************************************************
-
-    /// Set a function to be called when a resources from a deferred send*
-    /// operation may be released. This allows a caller to be
-    /// notified when the file descriptor may be closed and perhaps reclaimed.
-    void setReleaseFunc(std::function<void(void)> const& r) { _release = r; }
-    void release() { _release(); }
+    /// (see newNopChannel and newStringChannel).
+    virtual bool send(char const* buf, int bufLen) = 0;  // TODO:UJ remove + change unit tests
 
     /// Construct a new NopChannel that ignores everything it is asked to send
     static SendChannel::Ptr newNopChannel();
@@ -80,10 +52,6 @@ public:
     /// Construct a StringChannel, which appends all it receives into a string
     /// provided by reference at construction.
     static SendChannel::Ptr newStringChannel(std::string& dest);
-
-    /// @return true if metadata was set.
-    /// buff must remain valid until the transmit is complete.
-    bool setMetadata(const char* buf, int blen);
 
     /// Kill this SendChannel
     /// @ return the previous value of _dead
@@ -95,17 +63,10 @@ public:
     /// Set just before destorying this object to prevent pointless error messages.
     void setDestroying() { _destroying = true; }
 
-    uint64_t getSeq() const;
-
-protected:
-    std::function<void(void)> _release = []() { ; };  ///< Function to release resources.
-
 private:
-    std::shared_ptr<xrdsvc::SsiRequest> _ssiRequest;
     std::atomic<bool> _dead{false};  ///< True if there were any failures using this SendChanel.
     std::atomic<bool> _destroying{false};
 };
 
-}  // namespace wbase
-}  // namespace lsst::qserv
+}}  // namespace lsst::qserv::wbase
 #endif  // LSST_QSERV_WBASE_SENDCHANNEL_H

@@ -1,0 +1,234 @@
+--
+-- Script to initialize the QMeta database
+--
+
+CREATE USER IF NOT EXISTS '{{ mysqld_user_qserv }}'@'localhost' IDENTIFIED BY "{{ mysqld_user_qserv_password }}";
+CREATE USER IF NOT EXISTS '{{ mysqld_user_qserv }}'@'%' IDENTIFIED BY "{{ mysqld_user_qserv_password }}";
+
+-- Director index database (i.e. objectId/chunkId relation)
+-- created by integration test script/loader for now
+CREATE DATABASE IF NOT EXISTS qservMeta;
+GRANT ALL ON qservMeta.* TO '{{ mysqld_user_qserv }}'@'localhost';
+GRANT ALL ON qservMeta.* TO '{{ mysqld_user_qserv }}'@'%';
+
+-- -----------------------------------------------------
+-- Schema qservMeta
+-- -----------------------------------------------------
+CREATE SCHEMA IF NOT EXISTS `qservMeta` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci ;
+USE `qservMeta` ;
+
+-- -----------------------------------------------------
+-- Table `QCzar`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `QCzar` (
+  `czarId` INT NOT NULL AUTO_INCREMENT COMMENT 'Czar identifier',
+  `czar` CHAR(63) NOT NULL COMMENT 'Czar unique name',
+  `active` BIT NOT NULL COMMENT 'Set to 0 when czar disappears',
+  PRIMARY KEY (`czarId`),
+  UNIQUE INDEX `QCzar_czar_UNIQUE` (`czar` ASC))
+ENGINE = InnoDB
+COMMENT = 'Table for czars, definition of every czar ever existed.';
+
+
+-- -----------------------------------------------------
+-- Table `QInfo`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `QInfo` (
+  `queryId` BIGINT NOT NULL AUTO_INCREMENT COMMENT 'Query identifier, unique number',
+  `qType` ENUM('SYNC', 'ASYNC') NOT NULL COMMENT 'Query type, either SYNC or ASYNC.',
+  `czarId` INT NOT NULL COMMENT 'ID of the \"responsible czar\" of this query',
+  `user` CHAR(63) NOT NULL COMMENT 'Name (id) of the user submitting this query',
+  `query` MEDIUMTEXT NOT NULL COMMENT 'Original query text as was submitted by client.',
+  `qTemplate` MEDIUMTEXT NOT NULL COMMENT 'Query template, string used to build final per-chunk query.',
+  `qMerge` MEDIUMTEXT NULL COMMENT 'Merge (or aggregate) query to be executed on results table, result of this query is stored in merge table. If NULL then it is equivalent to SELECT *.',
+  `status` ENUM('EXECUTING', 'COMPLETED', 'FAILED', 'ABORTED') NOT NULL DEFAULT 'EXECUTING' COMMENT 'Status of query processing.',
+  `submitted` TIMESTAMP NOT NULL DEFAULT  CURRENT_TIMESTAMP COMMENT 'Time when query was submitted (received from client)',
+  `completed` TIMESTAMP NULL COMMENT 'Time when query processing is completed - either the results were collected into czar-side result table or failure is detected.',
+  `returned` TIMESTAMP NULL COMMENT 'Time when result is sent back to user. NULL if not completed yet.',
+  `messageTable` CHAR(63) NULL COMMENT 'Name of the message table for the ASYNC query',
+  `resultLocation` TEXT NULL COMMENT 'Result destination - table name, file name, etc.',
+  `resultQuery` MEDIUMTEXT NULL COMMENT 'Query to be used by mysqlproxy to get final results.',
+  `chunkCount` INT NOT NULL COMMENT 'number of chunks needed by the query',
+  `collectedBytes` BIGINT DEFAULT 0 COMMENT 'number of bytes collected from workers',
+  `collectedRows` BIGINT DEFAULT 0 COMMENT  'number of rows collected from workers',
+  `finalRows` BIGINT DEFAULT 0 COMMENT  'number of rows in the final result',
+  PRIMARY KEY (`queryId`),
+  KEY `QInfo_czarId_index` (`czarId`),
+  KEY `QInfo_status_index` (`status`),
+  KEY `QInfo_submitted_index` (`submitted`),
+  KEY `QInfo_completed_index` (`completed`),
+  KEY `QInfo_returned_index` (`returned`),
+  KEY `QInfo_qtype_index` (`qType`),
+  CONSTRAINT `QInfo_cid`
+    FOREIGN KEY (`czarId`)
+    REFERENCES `QCzar` (`czarId`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+COMMENT = 'Table containing per-query information.';
+
+
+-- -----------------------------------------------------
+-- Table `QTable`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `QTable` (
+  `queryId` BIGINT NOT NULL COMMENT 'Query identifier, foreign key into QueryInfo table',
+  `dbName` CHAR(63) NOT NULL COMMENT 'Database name',
+  `tblName` CHAR(63) NOT NULL COMMENT 'Table name',
+  PRIMARY KEY (`queryId`, `dbName`, `tblName`),
+  INDEX `QTable_TableNameIndex` (`dbName` ASC, `tblName` ASC),
+  CONSTRAINT `QTable_qid`
+    FOREIGN KEY (`queryId`)
+    REFERENCES `QInfo` (`queryId`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+COMMENT = 'Table containing table names used by query.';
+
+
+-- -----------------------------------------------------
+-- Table `QWorker`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `QWorker` (
+  `queryId` BIGINT NOT NULL COMMENT 'Query ID',
+  `chunk` INT NOT NULL COMMENT 'Chunk number',
+  `wXrd` CHAR(63) NULL COMMENT 'Worker xrootd endpoint (host name/IP and port number)',
+  `submitted` TIMESTAMP NULL DEFAULT NULL COMMENT 'Time when chunk query was submitted to worker',
+  `completed` TIMESTAMP NULL DEFAULT NULL COMMENT 'Set to non-NULL when query result for this chunk is processed',
+  PRIMARY KEY (`queryId`, `chunk`),
+  CONSTRAINT `QWorker_qid`
+    FOREIGN KEY (`queryId`)
+    REFERENCES `QInfo` (`queryId`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+COMMENT = 'Mapping of queries to workers';
+
+-- -----------------------------------------------------
+-- Table `QStatsTmp`
+-- MEMORY table - will be recreated(but empty) by mariadb every time server starts.
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `QStatsTmp` (
+  `queryId` BIGINT NOT NULL COMMENT 'Query ID',
+  `totalChunks` INT COMMENT 'Total number of chunks in the query',
+  `completedChunks` INT COMMENT 'Number of completed chunks in the query',
+  `queryBegin` TIMESTAMP DEFAULT 0 COMMENT 'When the query was started',
+  `lastUpdate` TIMESTAMP DEFAULT 0 COMMENT 'Last time completedChunks was updated',
+  PRIMARY KEY (`queryId`))
+ENGINE = MEMORY
+COMMENT = 'Table to track statistics of running queries.';
+
+-- ----------------------------------------------------------------------------------------
+-- View `InfoSchemaProcessList`
+-- This shows full Qmeta info suitable for "SELECT ... FROM INFORMATION_SCHEMA.PROCESSLIST"
+-- ----------------------------------------------------------------------------------------
+CREATE OR REPLACE
+  SQL SECURITY INVOKER
+  VIEW `InfoSchemaProcessList` AS
+  SELECT `qi`.`queryId` `ID`,
+         `qi`.`qType` `TYPE`,
+         `qc`.`czar` `CZAR`,
+         `qc`.`czarId` `CZAR_ID`,
+         `qi`.`submitted` `SUBMITTED`,
+         `qs`.`lastUpdate` `UPDATED`,
+         `qi`.`chunkCount` `CHUNKS`,
+         `qs`.`completedChunks` `CHUNKS_COMP`,
+         `qi`.`query` `QUERY`
+    FROM `QInfo` AS `qi`
+    LEFT OUTER JOIN `QStatsTmp` AS `qs` ON `qi`.`queryId`=`qs`.`queryId`
+    JOIN `QCzar` AS `qc` ON `qi`.`czarId`=`qc`.`czarId`
+    WHERE `qi`.`status` = 'EXECUTING';
+
+-- ------------------------------------------------------------------------------------
+-- View `InfoSchemaQueries`
+-- This shows full Qmeta info suitable for "SELECT ... FROM INFORMATION_SCHEMA.QUERIES"
+-- ------------------------------------------------------------------------------------
+CREATE OR REPLACE
+  SQL SECURITY INVOKER
+  VIEW `InfoSchemaQueries` AS
+  SELECT `qi`.`queryId` `ID`,
+         `qi`.`qType` `TYPE`,
+         `qc`.`czar` `CZAR`,
+         `qc`.`czarId` `CZAR_ID`,
+         `qi`.`status` `STATUS`,
+         `qi`.`submitted` `SUBMITTED`,
+         `qi`.`completed` `COMPLETED`,
+         `qi`.`returned` `RETURNED`,
+         `qi`.`chunkCount` `CHUNKS`,
+         `qi`.`collectedBytes` `BYTES`,
+         `qi`.`collectedRows` `ROWS_COLLECTED`,
+         `qi`.`finalRows` `ROWS`,
+         GROUP_CONCAT(DISTINCT `qt`.`dbName`) `DBS`,
+         `qi`.`query` `QUERY`
+    FROM `QInfo` AS `qi`
+    JOIN `QCzar` AS `qc` ON `qi`.`czarId`=`qc`.`czarId`
+    LEFT OUTER JOIN `QTable` AS `qt` ON `qi`.`queryId`=`qt`.`queryId`
+    GROUP BY `qi`.`queryId`;
+
+-- -----------------------------------------------------
+-- Table `QMetadata`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `QMetadata` (
+  `metakey` CHAR(64) NOT NULL COMMENT 'Key string',
+  `value` TEXT NULL COMMENT 'Key string',
+  PRIMARY KEY (`metakey`))
+ENGINE = InnoDB
+COMMENT = 'Metadata about database as a whole, bunch of key-value pairs';
+
+-- -----------------------------------------------------
+-- Table `QMessages`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `QMessages` (
+  `queryId` BIGINT NOT NULL COMMENT 'Query identifier, foreign key into QueryInfo table',
+  `msgSource` VARCHAR(63) NOT NULL COMMENT 'Brief string describing the source PARSE, COMM, WORKER, etc',
+  `chunkId` INT COMMENT 'chunkId',
+  `code` SMALLINT COMMENT 'Error code',
+  `message` MEDIUMTEXT NOT NULL COMMENT 'Message generated while executing queryId',
+  `severity` VARCHAR(256) NOT NULL COMMENT 'severity of the message INFO or ERROR',
+  `timestamp` BIGINT UNSIGNED NOT NULL COMMENT 'time of error message in milliseconds',
+  INDEX `QMessages_qId_idx` (`queryId`),
+  CONSTRAINT `QMessages_qid_fkey`
+    FOREIGN KEY (`queryId`)
+    REFERENCES `QInfo` (`queryId`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+COMMENT = 'Table of messages generated during queries.';
+
+-- -----------------------------------------------------
+-- Table `chunkMap`
+-- -----------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS `chunkMap` (
+  `worker` VARCHAR(256) NOT NULL COMMENT 'A unique identifier of a worker hosting the chunk replica',
+  `database` VARCHAR(256) NOT NULL COMMENT 'The name of a database',
+  `table` VARCHAR(256) NOT NULL COMMENT 'The name of a table',
+  `chunk` INT UNSIGNED NOT NULL COMMENT 'The number of a chunk',
+  `size` BIGINT UNSIGNED NOT NULL COMMENT 'The size of a chunk')
+ENGINE = InnoDB
+COMMENT = 'Chunk disposition across workers';
+
+-- -----------------------------------------------------
+-- Table `chunkMapStatus`
+-- -----------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS `chunkMapStatus` (
+  `update_time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'The most recent update time of the map')
+ENGINE = InnoDB
+COMMENT = 'Satus info on the chunk map';
+
+-- Update version on every schema change.
+-- Version 0 corresponds to initial QMeta release and it had no
+-- QMetadata table at all.
+-- Version 1 introduced QMetadata table and altered schema for QInfo table
+-- Version 2 added query progress data to ProcessList tables.
+-- Version 3 added storing the result query in QMeta.
+-- Version 4 increased storage capacity of the columns in the table QInfo
+-- Version 5 added QMessages table.
+-- Version 6 added indexes to optimize queries made by the Qserv Web Dashboard.
+-- Version 7 added final row count to QInfo.
+-- Version 8 replaced INT with BIGINT in the byte and row counter columns of QInfo.
+-- Version 9 removed the full-text index on the query text from QInfo.
+-- Version 10 redefined schema of the ProcessList tables.
+-- Version 11 added the worker-to-chunk map tables chunkMap and chunkMapStatus
+INSERT INTO `QMetadata` (`metakey`, `value`) VALUES ('version', '11');

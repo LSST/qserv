@@ -363,8 +363,8 @@ void QuerySession::print(std::ostream& os) const {
     os << "  needs merge: " << this->needsMerge();
     os << "  1st parallel statement: \"" << par << "\"";
     os << "  merge statement: \"" << mer << "\"";
-    os << "  scanRating:" << _context->scanInfo.scanRating;
-    for (auto const& tbl : _context->scanInfo.infoTables) {
+    os << "  scanRating:" << _context->scanInfo->scanRating;
+    for (auto const& tbl : _context->scanInfo->infoTables) {
         os << "  ScanTable: " << tbl.db << "." << tbl.table << " lock=" << tbl.lockInMemory
            << " rating=" << tbl.scanRating;
     }
@@ -401,6 +401,8 @@ std::ostream& operator<<(std::ostream& out, QuerySession const& querySession) {
     querySession.print(out);
     return out;
 }
+
+protojson::ScanInfo::Ptr QuerySession::getScanInfo() const { return _context->scanInfo; }
 
 ChunkQuerySpec::Ptr QuerySession::buildChunkQuerySpec(query::QueryTemplate::Vect const& queryTemplates,
                                                       ChunkSpec const& chunkSpec,

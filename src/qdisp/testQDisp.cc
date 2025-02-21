@@ -38,52 +38,152 @@
 // Qserv headers
 #include "ccontrol/MergingHandler.h"
 #include "global/ResourceUnit.h"
+#include "qdisp/CzarStats.h"
 #include "qdisp/Executive.h"
 #include "qdisp/JobQuery.h"
-#include "qdisp/MessageStore.h"
-#include "qdisp/QueryRequest.h"
-#include "qdisp/SharedResources.h"
-#include "qdisp/XrdSsiMocks.h"
+#include "qmeta/MessageStore.h"
 #include "qproc/ChunkQuerySpec.h"
-#include "qproc/TaskMsgFactory.h"
+#include "util/QdispPool.h"
 #include "util/threadSafe.h"
 
 namespace test = boost::test_tools;
 using namespace lsst::qserv;
+using namespace std;
 
 namespace {
 LOG_LOGGER _log = LOG_GET("lsst.qserv.qdisp.testQDisp");
 }
 
 typedef util::Sequential<int> SequentialInt;
-typedef std::vector<qdisp::ResponseHandler::Ptr> RequesterVector;
+typedef vector<qdisp::ResponseHandler::Ptr> RequesterVector;
 
-namespace lsst::qserv::qproc {
+namespace lsst::qserv::qdisp {
 
-// Normally, there's one TaskMsgFactory that all jobs in a user query share.
-// In this case, there's one MockTaskMsgFactory per job with a payload specific
-// for that job.
-class MockTaskMsgFactory : public TaskMsgFactory {
+class ExecutiveUT;
+
+class TestInfo : public ResponseHandler {
 public:
-    MockTaskMsgFactory(std::string const& mockPayload_) : TaskMsgFactory(), mockPayload(mockPayload_) {}
-    void serializeMsg(ChunkQuerySpec const& s, std::string const& chunkResultName, QueryId queryId, int jobId,
-                      int attemptCount, qmeta::CzarId czarId, std::ostream& os) override {
-        os << mockPayload;
+    using Ptr = std::shared_ptr<TestInfo>;
+
+    TestInfo() {}
+    virtual ~TestInfo() {}
+
+    bool goWait() {
+        unique_lock ulock(_infoMtx);
+        _infoCV.wait(ulock, [this]() { return _go == true; });
+        return _ok;
     }
-    std::string mockPayload;
+
+    void setGo(bool val) {
+        lock_guard lg(_infoMtx);
+        _go = val;
+        _infoCV.notify_all();
+    }
+
+    // virtual function that won't be needed
+    std::tuple<bool, bool> flushHttp(std::string const& fileUrl, uint64_t expectedRows,
+                                     uint64_t& resultRows) override {
+        return {true, false};
+    }
+    void flushHttpError(int errorCode, std::string const& errorMsg, int status) override {}
+    void errorFlush(std::string const& msg, int code) override {};
+    Error getError() const override { return util::Error(); }
+    void processCancel() override {};
+    void prepScrubResults(int jobId, int attempt) override {};
+
+    /// Print a string representation of the receiver to an ostream
+    std::ostream& print(std::ostream& os) const override {
+        os << "TestInfo ujCount=" << ujCount;
+        return os;
+    }
+
+    atomic<int> ujCount = 0;
+
+private:
+    bool _ok = true;
+    bool _go = true;
+    mutex _infoMtx;
+    condition_variable _infoCV;
 };
 
-}  // namespace lsst::qserv::qproc
+/// Version of UberJob specifically for this unit test.
+class UberJobUT : public UberJob {
+public:
+    using PtrUT = std::shared_ptr<UberJobUT>;
+
+    UberJobUT(std::shared_ptr<Executive> const& executive,
+              std::shared_ptr<ResponseHandler> const& respHandler, int queryId, int uberJobId,
+              qmeta::CzarId czarId, int rowLimit, czar::CzarChunkMap::WorkerChunksData::Ptr const& workerData,
+              TestInfo::Ptr const& testInfo_)
+            : UberJob(executive, respHandler, queryId, uberJobId, czarId, rowLimit, workerData),
+              testInfo(testInfo_) {}
+
+    void runUberJob() override {
+        LOGS(_log, LOG_LVL_INFO, "runUberJob() chunkId=" << chunkId);
+        bool ok = testInfo->goWait();
+        int c = -1;
+        if (ok) {
+            c = ++(testInfo->ujCount);
+        }
+        callMarkCompleteFunc(ok);
+        LOGS(_log, LOG_LVL_INFO, "runUberJob() end chunkId=" << chunkId << " c=" << c);
+    }
+
+    TestInfo::Ptr testInfo;
+    int chunkId = -1;
+};
+
+/// Version of Executive specifically for this unit test.
+class ExecutiveUT : public Executive {
+public:
+    using PtrUT = shared_ptr<ExecutiveUT>;
+
+    ~ExecutiveUT() override = default;
+
+    ExecutiveUT(int qmetaTimeBetweenUpdates, shared_ptr<qmeta::MessageStore> const& ms,
+                util::QdispPool::Ptr const& qdispPool, shared_ptr<qmeta::QStatus> const& qStatus,
+                shared_ptr<qproc::QuerySession> const& querySession, TestInfo::Ptr const& testInfo_)
+            : Executive(qmetaTimeBetweenUpdates, ms, qdispPool, qStatus, querySession), testInfo(testInfo_) {}
+
+    void assignJobsToUberJobs() override {
+        vector<qdisp::UberJob::Ptr> ujVect;
+
+        // Make an UberJobUnitTest for each job
+        qdisp::Executive::ChunkIdJobMapType unassignedChunks = unassignedChunksInQuery();
+        for (auto const& [chunkId, jqPtr] : unassignedChunks) {
+            auto exec = shared_from_this();
+            PtrUT execUT = dynamic_pointer_cast<ExecutiveUT>(exec);
+            auto uJob = UberJobUT::PtrUT(new UberJobUT(execUT, testInfo, getId(), ujId++, czarId, rowLimit,
+                                                       targetWorker, testInfo));
+            uJob->chunkId = chunkId;
+            uJob->addJob(jqPtr);
+            ujVect.push_back(uJob);
+        }
+
+        for (auto const& ujPtr : ujVect) {
+            addAndQueueUberJob(ujPtr);
+        }
+        LOGS(_log, LOG_LVL_INFO, "assignJobsToUberJobs() end");
+    }
+
+    CzarIdType czarId = 1;
+    UberJobId ujId = 1;
+    int rowLimit = 0;
+    czar::CzarChunkMap::WorkerChunksData::Ptr targetWorker = nullptr;
+
+    TestInfo::Ptr testInfo;
+};
+
+}  // namespace lsst::qserv::qdisp
 
 qdisp::JobDescription::Ptr makeMockJobDescription(qdisp::Executive::Ptr const& ex, int sequence,
                                                   ResourceUnit const& ru, std::string msg,
                                                   std::shared_ptr<qdisp::ResponseHandler> const& mHandler) {
-    auto mockTaskMsgFactory = std::make_shared<qproc::MockTaskMsgFactory>(msg);
     auto cqs = std::make_shared<qproc::ChunkQuerySpec>();  // dummy, unused in this case.
     std::string chunkResultName = "dummyResultTableName";
     qmeta::CzarId const czarId = 1;
-    auto job = qdisp::JobDescription::create(czarId, ex->getId(), sequence, ru, mHandler, mockTaskMsgFactory,
-                                             cqs, chunkResultName, true);
+    auto job = qdisp::JobDescription::create(czarId, ex->getId(), sequence, ru, mHandler, cqs,
+                                             chunkResultName, true);
     return job;
 }
 
@@ -91,26 +191,26 @@ qdisp::JobDescription::Ptr makeMockJobDescription(qdisp::Executive::Ptr const& e
 // that we return a shared pointer to the last constructed JobQuery object.
 // This only makes sense for single query jobs.
 //
+
 std::shared_ptr<qdisp::JobQuery> addMockRequests(qdisp::Executive::Ptr const& ex, SequentialInt& sequence,
-                                                 int chunkID, std::string msg, RequesterVector& rv) {
-    ResourceUnit ru;
+                                                 int startingChunkId, std::string msg, RequesterVector& rv) {
     std::shared_ptr<qdisp::JobQuery> jobQuery;
     int copies = rv.size();
-    ru.setAsDbChunk("Mock", chunkID);
     for (int j = 0; j < copies; ++j) {
+        ResourceUnit ru;
+        int chunkId = startingChunkId + j;
+        ru.setAsDbChunk("Mock", chunkId);
         // The job copies the JobDescription.
         qdisp::JobDescription::Ptr job = makeMockJobDescription(ex, sequence.incr(), ru, msg, rv[j]);
         jobQuery = ex->add(job);
     }
+    ex->setAllJobsCreated();
     return jobQuery;
 }
 
-/** Start adds 'copies' number of test requests that each sleep for 'millisecs' time
- * before signaling to 'ex' that they are done.
- * Returns time to complete in seconds.
- */
-std::shared_ptr<qdisp::JobQuery> executiveTest(qdisp::Executive::Ptr const& ex, SequentialInt& sequence,
+std::shared_ptr<qdisp::JobQuery> executiveTest(qdisp::ExecutiveUT::PtrUT const& ex, SequentialInt& sequence,
                                                int chunkId, std::string msg, int copies) {
+    LOGS(_log, LOG_LVL_INFO, "executiveTest start");
     // Test class Executive::add
     // Modeled after ccontrol::UserQuery::submit()
     ResourceUnit ru;
@@ -122,14 +222,17 @@ std::shared_ptr<qdisp::JobQuery> executiveTest(qdisp::Executive::Ptr const& ex, 
     for (int j = 0; j < copies; ++j) {
         rv.push_back(mh);
     }
-    return addMockRequests(ex, sequence, chunkId, msg, rv);
+    auto ret = addMockRequests(ex, sequence, chunkId, msg, rv);
+    ex->assignJobsToUberJobs();
+    LOGS(_log, LOG_LVL_INFO, "executiveTest end");
+    return ret;
 }
 
 /** This function is run in a separate thread to fail the test if it takes too long
  * for the jobs to complete.
  */
 void timeoutFunc(std::atomic<bool>& flagDone, int millisecs) {
-    LOGS_DEBUG("timeoutFunc");
+    LOGS_INFO("timeoutFunc");
     int total = 0;
     bool done = flagDone;
     int maxTime = millisecs * 1000;
@@ -138,7 +241,7 @@ void timeoutFunc(std::atomic<bool>& flagDone, int millisecs) {
         total += sleepTime;
         usleep(sleepTime);
         done = flagDone;
-        LOGS_DEBUG("timeoutFunc done=" << done << " total=" << total);
+        LOGS_INFO("timeoutFunc done=" << done << " total=" << total);
     }
     LOGS_ERROR("timeoutFunc done=" << done << " total=" << total << " timedOut=" << (total >= maxTime));
     BOOST_REQUIRE(done == true);
@@ -150,26 +253,20 @@ void timeoutFunc(std::atomic<bool>& flagDone, int millisecs) {
 class SetupTest {
 public:
     std::string qrMsg;
-    std::string str;
-    qdisp::ExecutiveConfig::Ptr conf;
-    std::shared_ptr<qdisp::MessageStore> ms;
-    qdisp::QdispPool::Ptr qdispPool;
-    qdisp::SharedResources::Ptr sharedResources;
-    qdisp::Executive::Ptr ex;
+    std::shared_ptr<qmeta::MessageStore> ms;
+    util::QdispPool::Ptr qdispPool;
+    qdisp::ExecutiveUT::PtrUT ex;
     std::shared_ptr<qdisp::JobQuery> jqTest;  // used only when needed
-    boost::asio::io_service asioIoService;
+    qdisp::TestInfo::Ptr testInfo = qdisp::TestInfo::Ptr(new qdisp::TestInfo());
 
-    SetupTest(const char* request) {
+    SetupTest(const char* request, util::QdispPool::Ptr const& qPool_) : qdispPool(qPool_) {
+        LOGS(_log, LOG_LVL_INFO, "SetupTest start");
         qrMsg = request;
-        qdisp::XrdSsiServiceMock::Reset();
-        str = qdisp::ExecutiveConfig::getMockStr();
-        conf = std::make_shared<qdisp::ExecutiveConfig>(str, 0);  // No updating of QMeta.
-        ms = std::make_shared<qdisp::MessageStore>();
-        qdispPool = std::make_shared<qdisp::QdispPool>(true);
-        sharedResources = qdisp::SharedResources::create(qdispPool);
-
+        ms = std::make_shared<qmeta::MessageStore>();
+        auto tInfo = qdisp::TestInfo::Ptr(new qdisp::TestInfo());
         std::shared_ptr<qmeta::QStatus> qStatus;  // No updating QStatus, nullptr
-        ex = qdisp::Executive::create(*conf, ms, sharedResources, qStatus, nullptr, asioIoService);
+        ex = qdisp::ExecutiveUT::PtrUT(new qdisp::ExecutiveUT(60, ms, qdispPool, qStatus, nullptr, testInfo));
+        LOGS(_log, LOG_LVL_INFO, "SetupTest end");
     }
     ~SetupTest() {}
 };
@@ -183,7 +280,19 @@ BOOST_AUTO_TEST_SUITE(Suite)
 int chunkId = 1234;
 int millisInt = 50000;
 
+util::QdispPool::Ptr globalQdispPool;
+qdisp::CzarStats::Ptr globalCzarStats;
+
 BOOST_AUTO_TEST_CASE(Executive) {
+    int qPoolSize = 1000;
+    int maxPriority = 2;
+    vector<int> vectRunSizes = {50, 50, 50, 50};
+    vector<int> vectMinRunningSizes = {0, 1, 3, 3};
+    globalQdispPool = util::QdispPool::Ptr(
+            new util::QdispPool(qPoolSize, maxPriority, vectRunSizes, vectMinRunningSizes));
+    qdisp::CzarStats::setup(globalQdispPool);
+    globalCzarStats = qdisp::CzarStats::get();
+
     // Variables for all executive sub-tests. Note that all executive tests
     // are full roundtrip tests. So, if these succeed then it's likely all
     // other query tests will succeed. So, much of this is redundant.
@@ -192,64 +301,56 @@ BOOST_AUTO_TEST_CASE(Executive) {
     int jobs = 0;
     _log.setLevel(LOG_LVL_DEBUG);  // Ugly but boost test suite forces this
     std::thread timeoutT(&timeoutFunc, std::ref(done), millisInt);
-    qdisp::XrdSsiServiceMock::setRName("/chk/Mock/1234");
 
     // Test single instance
     {
-        LOGS_DEBUG("Executive single query test");
-        SetupTest tEnv("respdata");
+        LOGS_INFO("Executive single query test");
+        SetupTest tEnv("respdata", globalQdispPool);
         SequentialInt sequence(0);
         tEnv.jqTest = executiveTest(tEnv.ex, sequence, chunkId, tEnv.qrMsg, 1);
         jobs = 1;
-        LOGS_DEBUG("jobs=1");
+        LOGS_INFO("jobs=1");
         tEnv.ex->join();
-        LOGS_DEBUG("Executive single query test checking");
-        BOOST_CHECK(tEnv.jqTest->getStatus()->getInfo().state == qdisp::JobStatus::COMPLETE);
+        LOGS_INFO("Executive single query test checking");
+        BOOST_CHECK(tEnv.jqTest->getStatus()->getInfo().state == qmeta::JobStatus::COMPLETE);
         BOOST_CHECK(tEnv.ex->getEmpty() == true);
     }
 
     // Test 4 jobs
     {
-        LOGS_DEBUG("Executive four parallel jobs test");
-        SetupTest tEnv("respdata");
+        LOGS_INFO("Executive four parallel jobs test");
+        SetupTest tEnv("respdata", globalQdispPool);
         SequentialInt sequence(0);
         executiveTest(tEnv.ex, sequence, chunkId, tEnv.qrMsg, 4);
         jobs += 4;
-        LOGS_DEBUG("ex->joining()");
+        LOGS_INFO("ex->joining()");
         tEnv.ex->join();
-        LOGS_DEBUG("Executive four parallel jobs test checking");
+        LOGS_INFO("Executive four parallel jobs test checking");
         BOOST_CHECK(tEnv.ex->getEmpty() == true);
     }
 
     // Test that we can detect ex._empty == false.
     {
-        LOGS_DEBUG("Executive detect non-empty job queue test");
-        SetupTest tEnv("respdata");
+        LOGS_INFO("Executive detect non-empty job queue test");
+        SetupTest tEnv("respdata", globalQdispPool);
         SequentialInt sequence(0);
-        qdisp::XrdSsiServiceMock::setGo(false);
         executiveTest(tEnv.ex, sequence, chunkId, tEnv.qrMsg, 5);
         jobs += 5;
-        while (qdisp::XrdSsiServiceMock::getCount() < jobs) {
-            LOGS_DEBUG("waiting for _count(" << qdisp::XrdSsiServiceMock::getCount() << ") == jobs(" << jobs
-                                             << ")");
-            usleep(10000);
-        }
 
         BOOST_CHECK(tEnv.ex->getEmpty() == false);
-        qdisp::XrdSsiServiceMock::setGo(true);
-        LOGS_DEBUG("ex->joining()");
+        LOGS_INFO("ex->joining()");
         tEnv.ex->join();
-        LOGS_DEBUG("ex->join() joined");
+        LOGS_INFO("ex->join() joined");
         BOOST_CHECK(tEnv.ex->getEmpty() == true);
     }
     done = true;
     timeoutT.join();
-    LOGS_DEBUG("Executive test end");
+    LOGS_INFO("Executive test end");
 }
 
 BOOST_AUTO_TEST_CASE(MessageStore) {
-    LOGS_DEBUG("MessageStore test start");
-    qdisp::MessageStore ms;
+    LOGS_INFO("MessageStore test start");
+    qmeta::MessageStore ms;
     BOOST_CHECK(ms.messageCount() == 0);
     ms.addMessage(123, "EXECUTIVE", 456, "test1");
     std::string str("test2");
@@ -257,112 +358,39 @@ BOOST_AUTO_TEST_CASE(MessageStore) {
     ms.addMessage(86, "EXECUTIVE", -12, "test3");
     BOOST_CHECK(ms.messageCount() == 3);
     BOOST_CHECK(ms.messageCount(-12) == 2);
-    qdisp::QueryMessage qm = ms.getMessage(1);
+    qmeta::QueryMessage qm = ms.getMessage(1);
     BOOST_CHECK(qm.chunkId == 124 && qm.code == -12 && str.compare(qm.description) == 0);
-    LOGS_DEBUG("MessageStore test end");
-}
-
-BOOST_AUTO_TEST_CASE(QueryRequest) {
-    {
-        LOGS_DEBUG("QueryRequest error retry test");
-        // Setup Executive and for retry test when receiving an error
-        // Note executive maps RESPONSE_ERROR to RESULT_ERROR
-        SetupTest tEnv("resperror");
-        SequentialInt sequence(0);
-        tEnv.jqTest = executiveTest(tEnv.ex, sequence, chunkId, tEnv.qrMsg, 1);
-        tEnv.ex->join();
-        BOOST_CHECK(tEnv.jqTest->getStatus()->getInfo().state == qdisp::JobStatus::RESULT_ERROR);
-        BOOST_CHECK(qdisp::XrdSsiServiceMock::getFinCount() > 1);  // Retried, eh?
-        BOOST_CHECK(qdisp::XrdSsiServiceMock::getFinCount() == qdisp::XrdSsiServiceMock::getReqCount());
-    }
-
-    {
-        LOGS_DEBUG("QueryRequest error noretry test 2");
-        // Setup Executive and for no retry test when receiving an error
-        // Note executive maps RESPONSE_ERROR to RESULT_ERROR
-        SetupTest tEnv("resperrnr");
-        SequentialInt sequence(0);
-        tEnv.jqTest = executiveTest(tEnv.ex, sequence, chunkId, tEnv.qrMsg, 1);
-        tEnv.ex->join();
-        BOOST_CHECK(tEnv.jqTest->getStatus()->getInfo().state == qdisp::JobStatus::RESULT_ERROR);
-        BOOST_CHECK(qdisp::XrdSsiServiceMock::getFinCount() == 1);
-    }
-
-    {
-        LOGS_DEBUG("QueryRequest stream with data error test");
-        // Setup Executive and for no retry test when receiving an error
-        // Note executive maps RESPONSE_DATA_NACK to RESULT_ERROR
-        SetupTest tEnv("respstrerr");
-        SequentialInt sequence(0);
-        tEnv.jqTest = executiveTest(tEnv.ex, sequence, chunkId, tEnv.qrMsg, 1);
-        tEnv.ex->join();
-        LOGS_DEBUG("tEnv.jqTest->...state = " << tEnv.jqTest->getStatus()->getInfo().state);
-        BOOST_CHECK(tEnv.jqTest->getStatus()->getInfo().state == qdisp::JobStatus::RESULT_ERROR);
-        BOOST_CHECK(qdisp::XrdSsiServiceMock::getFinCount() == 1);  // No retries!
-    }
-
-    // We wish we could do the stream response with no results test but the
-    // needed information is too complex to figure out (well, one day we will).
-    // So, we've commented this out but the framework exists modulo the needed
-    // responses (see XrdSsiMocks::Agent). So, this gets punted into the
-    // integration test (too bad).
-    /*
-        {
-            LOGS_DEBUG("QueryRequest stream with no results test");
-            SetupTest tEnv("respstream");
-            SequentialInt sequence(0);
-            tEnv.jqTest = executiveTest(tEnv.ex, sequence, chunkId, tEnv.qrMsg, 1);
-            tEnv.ex->join();
-            BOOST_CHECK(tEnv.jqTest->getStatus()->getInfo().state ==
-                        qdisp::JobStatus::COMPLETE);
-            BOOST_CHECK(qdisp::XrdSsiServiceMock::getFinCount() == 1);
-        }
-    */
-    LOGS_DEBUG("QueryRequest test end");
+    LOGS_INFO("MessageStore test end");
 }
 
 BOOST_AUTO_TEST_CASE(ExecutiveCancel) {
     // Test that aJobQuery can be cancelled and ends in correct state
     //
     {
-        LOGS_DEBUG("ExecutiveCancel: squash it test");
-        SetupTest tEnv("respdata");
-        qdisp::XrdSsiServiceMock::setGo(false);  // Can't let jobs run or they are untracked before squash
+        LOGS_INFO("ExecutiveCancel: squash it test");
+        SetupTest tEnv("respdata", globalQdispPool);
+        tEnv.testInfo->setGo(false);  // Can't let jobs run or they are untracked before
+        // squash
         SequentialInt sequence(0);
         tEnv.jqTest = executiveTest(tEnv.ex, sequence, chunkId, tEnv.qrMsg, 1);
-        tEnv.ex->squash();
-        qdisp::XrdSsiServiceMock::setGo(true);
+        tEnv.ex->squash("test");
         usleep(250000);  // Give mock threads a quarter second to complete.
         tEnv.ex->join();
         BOOST_CHECK(tEnv.jqTest->isQueryCancelled() == true);
-        // Note that the query might not have actually called ProcessRequest()
-        // but if it did, then it must have called Finished() with cancel.
-        //
-        BOOST_CHECK(qdisp::XrdSsiServiceMock::getCanCount() == qdisp::XrdSsiServiceMock::getReqCount());
     }
 
     // Test that multiple JobQueries are cancelled.
     {
-        LOGS_DEBUG("ExecutiveCancel: squash 20 test");
-        SetupTest tEnv("respdata");
-        qdisp::XrdSsiServiceMock::setGo(false);  // Can't let jobs run or they are untracked before squash
+        LOGS_INFO("ExecutiveCancel: squash 20 test");
+        SetupTest tEnv("respdata", globalQdispPool);
+        // squash
         SequentialInt sequence(0);
         executiveTest(tEnv.ex, sequence, chunkId, tEnv.qrMsg, 20);
-        tEnv.ex->squash();
-        tEnv.ex->squash();  // check that squashing twice doesn't cause issues.
-        qdisp::XrdSsiServiceMock::setGo(true);
-        usleep(250000);  // Give mock threads a quarter second to complete.
+        tEnv.ex->squash("test");
+        tEnv.ex->squash("test");  // check that squashing twice doesn't cause issues.
+        usleep(250000);           // Give mock threads a quarter second to complete.
         tEnv.ex->join();
-        // Note that the cancel count might not be 20 as some queries will cancel
-        // themselves before they get around to issuing ProcessRequest().
-        //
-        BOOST_CHECK(qdisp::XrdSsiServiceMock::getCanCount() == qdisp::XrdSsiServiceMock::getReqCount());
     }
-}
-
-BOOST_AUTO_TEST_CASE(ServiceMock) {
-    // Verify that our service object did not see anything unusual.
-    BOOST_CHECK(qdisp::XrdSsiServiceMock::isAOK());
 }
 
 BOOST_AUTO_TEST_SUITE_END()

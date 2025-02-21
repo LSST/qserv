@@ -57,6 +57,8 @@ namespace {
 LOG_LOGGER _log = LOG_GET("lsst.qserv.qhttp");
 }
 
+using namespace std;
+
 namespace lsst::qserv::qhttp {
 
 Server::Ptr Server::create(asio::io_service& io_service, unsigned short port, int backlog,
@@ -115,11 +117,11 @@ void Server::_accept() {
                                       [](auto& weakSocket) { return weakSocket.expired(); });
         auto numExpired = _activeSockets.end() - removed;
         if (numExpired != 0) {
-            LOGLS_DEBUG(_log, logger(this) << "purging tracking for " << numExpired << " expired socket(s)");
+            LOGLS_TRACE(_log, logger(this) << "purging tracking for " << numExpired << " expired socket(s)");
             _activeSockets.erase(removed, _activeSockets.end());
         }
         _activeSockets.push_back(socket);
-        LOGLS_DEBUG(_log, logger(this) << "tracking new socket");
+        LOGLS_TRACE(_log, logger(this) << "tracking new socket");
     }
 
     auto self = shared_from_this();
@@ -128,13 +130,18 @@ void Server::_accept() {
             LOGLS_DEBUG(_log, logger(self) << "accept chain exiting");
             return;
         }
-        if (!ec) {
-            LOGLS_INFO(_log, logger(self) << logger(socket) << "connect from " << socket->remote_endpoint());
-            boost::system::error_code ignore;
-            socket->set_option(ip::tcp::no_delay(true), ignore);
-            self->_readRequest(socket);
-        } else {
-            LOGLS_ERROR(_log, logger(self) << "accept failed: " << ec.message());
+        try {
+            if (!ec) {
+                LOGLS_INFO(_log, logger(self)
+                                         << logger(socket) << "connect from " << socket->remote_endpoint());
+                boost::system::error_code ignore;
+                socket->set_option(ip::tcp::no_delay(true), ignore);
+                self->_readRequest(socket);
+            } else {
+                LOGLS_ERROR(_log, logger(self) << "accept failed: " << ec.message());
+            }
+        } catch (boost::system::system_error const& bEx) {
+            LOGS(_log, LOG_LVL_ERROR, "qhttp::Server::_accept lambda threw " << bEx.what());
         }
         self->_accept();  // start accept again for the next incoming connection
     });
@@ -187,7 +194,7 @@ std::shared_ptr<asio::steady_timer> Server::_startTimer(std::shared_ptr<ip::tcp:
             socket->lowest_layer().shutdown(ip::tcp::socket::shutdown_both, ignore);
             socket->lowest_layer().close(ignore);
         } else if (ec == asio::error::operation_aborted) {
-            LOGLS_DEBUG(_log, logger(self) << logger(socket) << "read timeout timer canceled");
+            LOGLS_TRACE(_log, logger(self) << logger(socket) << "read timeout timer canceled");
         } else {
             LOGLS_ERROR(_log, logger(self) << logger(socket) << "read timeout timer: " << ec.message());
         }
@@ -209,13 +216,15 @@ void Server::_readRequest(std::shared_ptr<ip::tcp::socket> socket) {
             self, socket,
             [self, socket, startTime, reuseSocket](boost::system::error_code const& ec, std::size_t sent) {
                 chrono::duration<double, std::milli> elapsed = chrono::steady_clock::now() - startTime;
-                LOGLS_INFO(_log, logger(self)
-                                         << logger(socket) << "request duration " << elapsed.count() << "ms");
+                string logStr;
+                if (LOG_CHECK_LVL(_log, LOG_LVL_INFO)) {
+                    logStr = string("request duration ") + to_string(elapsed.count()) + "ms";
+                }
                 if (!ec && *reuseSocket) {
-                    LOGLS_DEBUG(_log, logger(self) << logger(socket) << "lingering");
+                    LOGLS_INFO(_log, logger(self) << logger(socket) << logStr << " lingering");
                     self->_readRequest(socket);
                 } else {
-                    LOGLS_DEBUG(_log, logger(self) << logger(socket) << "closing");
+                    LOGLS_INFO(_log, logger(self) << logger(socket) << logStr << " closing");
                     boost::system::error_code ignore;
                     socket->lowest_layer().shutdown(ip::tcp::socket::shutdown_both, ignore);
                     socket->lowest_layer().close(ignore);

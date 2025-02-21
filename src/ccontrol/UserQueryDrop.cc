@@ -33,8 +33,8 @@
 // Qserv headers
 #include "css/CssAccess.h"
 #include "css/CssError.h"
-#include "qdisp/MessageStore.h"
 #include "qmeta/Exceptions.h"
+#include "qmeta/MessageStore.h"
 #include "qmeta/QMeta.h"
 #include "sql/SqlConnection.h"
 #include "sql/SqlErrorObject.h"
@@ -57,7 +57,7 @@ UserQueryDrop::UserQueryDrop(std::shared_ptr<css::CssAccess> const& css, std::st
           _queryMetadata(queryMetadata),
           _qMetaCzarId(qMetaCzarId),
           _qState(UNKNOWN),
-          _messageStore(std::make_shared<qdisp::MessageStore>()),
+          _messageStore(std::make_shared<qmeta::MessageStore>()),
           _sessionId(0) {}
 
 std::string UserQueryDrop::getError() const { return std::string(); }

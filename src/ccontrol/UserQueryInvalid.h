@@ -32,7 +32,7 @@
 
 // Qserv headers
 #include "ccontrol/UserQuery.h"
-#include "qdisp/MessageStore.h"
+#include "qmeta/MessageStore.h"
 #include "qmeta/types.h"
 
 // Forward decl
@@ -44,7 +44,7 @@ namespace lsst::qserv::ccontrol {
 class UserQueryInvalid : public UserQuery {
 public:
     UserQueryInvalid(std::string const& message)
-            : _message(message), _messageStore(std::make_shared<qdisp::MessageStore>()) {}
+            : _message(message), _messageStore(std::make_shared<qmeta::MessageStore>()) {}
 
     UserQueryInvalid(UserQueryInvalid const&) = delete;
     UserQueryInvalid& operator=(UserQueryInvalid const&) = delete;
@@ -69,11 +69,11 @@ public:
     virtual void discard() override {}
 
     // Delegate objects
-    virtual std::shared_ptr<qdisp::MessageStore> getMessageStore() override { return _messageStore; }
+    virtual std::shared_ptr<qmeta::MessageStore> getMessageStore() override { return _messageStore; }
 
 private:
     std::string const _message;
-    std::shared_ptr<qdisp::MessageStore> _messageStore;
+    std::shared_ptr<qmeta::MessageStore> _messageStore;
 };
 
 }  // namespace lsst::qserv::ccontrol

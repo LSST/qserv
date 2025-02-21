@@ -61,6 +61,7 @@ struct ErrorCode {
         MYSQLCONNECT,
         MYSQLEXEC,
         INTERNAL,
+        CZAR_RESULT_TOO_LARGE,
         // Worker errors:
         WORKER_RESULT_TOO_LARGE
     };
