@@ -23,6 +23,7 @@
 #define LSST_QSERV_QMETA_QMETA_H
 
 // System headers
+#include <chrono>
 #include <map>
 #include <memory>
 #include <string>
@@ -30,23 +31,66 @@
 #include <vector>
 
 // Qserv headers
+#include "global/clock_defs.h"
 #include "global/intTypes.h"
 #include "qmeta/QInfo.h"
 #include "qmeta/QStats.h"
 #include "qmeta/types.h"
 
 namespace lsst::qserv::qdisp {
-class MessageStore;
 class QueryMessage;
 }  // namespace lsst::qserv::qdisp
 
 namespace lsst::qserv::qmeta {
 
+class MessageStore;
+
 /// @addtogroup qmeta
 
 /**
- *  @ingroup qmeta
+ * The structure ChunkMap encapsulates a disposition of chunks at Qserv workers
+ * along with a time when the map was updated.
  *
+ * Here is an example on how to using the map for getting info on all chunks in
+ * the given context:
+ * @code
+ *   std::string const worker   = "worker-001";
+ *   std::string const database = "LSST-DR01";
+ *   std::string const table    = "Object";
+ *
+ *   ChunkMap const& chunkMap = ...;
+ *   for (auto const& [chunk, size] : chunkMap[worker][database][table]) {
+ *       ...
+ *   }
+ * @endcode
+ */
+struct QMetaChunkMap {
+    /// @return 'true' if the map is empty (or constructed using the default constructor)
+    bool empty() const {
+        return workers.empty() || (std::chrono::time_point<std::chrono::system_clock>() == updateTime);
+    }
+
+    // NOTE: Separate types were added here for the sake of clarity to avoid
+    // a definition of the unreadable nested map.
+
+    struct ChunkInfo {
+        unsigned int chunk = 0;  ///< The chunk number
+        size_t size = 0;         ///< The file size (in bytes) of the chunk table
+    };
+    typedef std::vector<ChunkInfo> Chunks;             ///< Collection of chunks
+    typedef std::map<std::string, Chunks> Tables;      ///< tables-to-chunks
+    typedef std::map<std::string, Tables> Databases;   ///< Databases-to-tables
+    typedef std::map<std::string, Databases> Workers;  ///< Workers-to-databases
+
+    /// The chunk disposition map for all workers.
+    Workers workers;
+
+    /// The last time the map was updated (since UNIX Epoch).
+    TIMEPOINT updateTime;
+};
+
+/**
+ *  @ingroup qmeta
  *  @brief Interface for query metadata.
  */
 
@@ -285,7 +329,23 @@ public:
     virtual void saveResultQuery(QueryId queryId, std::string const& query) = 0;
 
     /// Write messages/errors generated during the query to the QMessages table.
-    virtual void addQueryMessages(QueryId queryId, std::shared_ptr<qdisp::MessageStore> const& msgStore) = 0;
+    virtual void addQueryMessages(QueryId queryId, std::shared_ptr<qmeta::MessageStore> const& msgStore) = 0;
+
+    /**
+     * Fetch the chunk map which was updated after the specified time point.
+     * @param prevUpdateTime The cut off time for the chunk map age. Note that the default
+     *   value of the parameter represents the start time of the UNIX Epoch. Leaving the default
+     *   value forces an attempt to read the map from the database if the one would exist
+     *   in there.
+     * @return Return the most current chunk disposition or the empty object if the persistent
+     *   map is older than it was requested.The result could be evaluated by calling
+     *   method empty() on the result object.
+     * @throws EmptyTableError if the corresponding metadata table doesn't have any record
+     * @throws SqlError for any other error related to MySQL
+     */
+    virtual QMetaChunkMap getChunkMap(
+            std::chrono::time_point<std::chrono::system_clock> const& prevUpdateTime =
+                    std::chrono::time_point<std::chrono::system_clock>()) = 0;
 
 protected:
     // Default constructor

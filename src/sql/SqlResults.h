@@ -51,8 +51,8 @@ namespace detail {
  *  is the sequence of strings (pointers) and their lengths. Pointer may be NULL
  *  if the column value is NONE.
  */
-class SqlResults_Iterator : public std::iterator<std::input_iterator_tag,
-                                                 std::vector<std::pair<char const*, unsigned long> > > {
+class SqlResults_Iterator
+        : public std::iterator<std::input_iterator_tag, std::vector<std::pair<char const*, unsigned long>>> {
 public:
     SqlResults_Iterator();
     SqlResults_Iterator(std::vector<MYSQL_RES*> const& results);
@@ -96,6 +96,15 @@ public:
                               std::vector<std::string>&, std::vector<std::string>&, SqlErrorObject&);
     bool extractFirst4Columns(std::vector<std::string>&, std::vector<std::string>&, std::vector<std::string>&,
                               std::vector<std::string>&, SqlErrorObject&);
+
+    /**
+     * Extract a result set into the 2D array.
+     * @param numColumns The number of columns in the array.
+     * @return a 2D array, where the first index of the array represents rows
+     *   and the second index represents columns.
+     */
+    std::vector<std::vector<std::string>> extractFirstNColumns(size_t numColumns);
+
     void freeResults();
 
     /// Return row iterator

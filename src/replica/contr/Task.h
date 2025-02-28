@@ -199,6 +199,12 @@ protected:
     void debug(std::string const& msg) { LOGS(_log, LOG_LVL_DEBUG, context() << msg); }
 
     /**
+     * Log a message into the Logger's LOG_LVL_WARN stream.
+     * @param msg A message to be logged.
+     */
+    void warn(std::string const& msg) { LOGS(_log, LOG_LVL_WARN, context() << msg); }
+
+    /**
      * Log a message into the Logger's LOG_LVL_ERROR stream.
      * @param msg A message to be logged.
      */

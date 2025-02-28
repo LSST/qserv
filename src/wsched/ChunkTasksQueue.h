@@ -73,7 +73,7 @@ public:
     wbase::Task::Ptr removeTask(wbase::Task::Ptr const& task);
 
     /// @return a string describing this instance for the log file.
-    std::string cInfo() const;
+    std::string cInfo(bool listTasks = false) const;
 
     /// Class that keeps the slowest tables at the front of the heap.
     class SlowTableHeap {
@@ -84,7 +84,7 @@ public:
                 return false;
             }
             // compare scanInfo (slower scans first)
-            int siComp = x->getScanInfo().compareTables(y->getScanInfo());
+            int siComp = x->getScanInfo()->compareTables(*(y->getScanInfo()));
             return siComp < 0;
         };
         void push(wbase::Task::Ptr const& task);

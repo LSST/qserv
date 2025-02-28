@@ -29,10 +29,13 @@
 
 // Qserv headers
 #include "mysql/MySqlConfig.h"
+#include "protojson/ScanTableInfo.h"
 #include "proto/worker.pb.h"
 #include "wbase/FileChannelShared.h"
 #include "wbase/Task.h"
+#include "wbase/UberJobData.h"
 #include "wconfig/WorkerConfig.h"
+#include "wcontrol/Foreman.h"
 #include "wcontrol/SqlConnMgr.h"
 #include "wdb/ChunkResource.h"
 #include "wdb/QueryRunner.h"
@@ -51,10 +54,6 @@ namespace util = lsst::qserv::util;
 using lsst::qserv::mysql::MySqlConfig;
 using lsst::qserv::mysql::MySqlConnection;
 
-using lsst::qserv::proto::TaskMsg;
-using lsst::qserv::proto::TaskMsg_Fragment;
-using lsst::qserv::proto::TaskMsg_Subchunk;
-
 using lsst::qserv::wbase::FileChannelShared;
 using lsst::qserv::wbase::SendChannel;
 using lsst::qserv::wbase::Task;
@@ -67,18 +66,66 @@ using lsst::qserv::wdb::QueryRunner;
 using lsst::qserv::wpublish::QueriesAndChunks;
 
 struct Fixture {
-    shared_ptr<TaskMsg> newTaskMsg() {
-        shared_ptr<TaskMsg> t = make_shared<TaskMsg>();
-        t->set_chunkid(3240);  // hardcoded
-        t->set_db("LSST");     // hardcoded
-        auto scanTbl = t->add_scantable();
-        scanTbl->set_db("LSST");
-        scanTbl->set_table("Object");
-        scanTbl->set_lockinmemory(false);
-        scanTbl->set_scanrating(1);
-        lsst::qserv::proto::TaskMsg::Fragment* f = t->add_fragment();
-        f->add_query("SELECT AVG(yFlux_PS) from LSST.Object_3240");
-        return t;
+    struct MsgInfo {
+        string const db = "LSST";
+        string const table = "Object";
+        string const qry = "SELECT AVG(yFlux_PS) from LSST.Object_3240";
+        int const chunkId = 3240;
+        int const czarId = 5;
+        string const czarName = "cz5";
+        string const czarHostName = "cz5host";
+        int const czarPort = 3437;
+        string const targWorkerId = "a_worker";
+        std::shared_ptr<lsst::qserv::wcontrol::Foreman> foreman;
+        int const queryId = 23;
+        int const jobId = 1;
+        int const uberJobId = 1;
+        int const attemptCount = 1;
+        int const scanRating = 1;
+        bool const scanInteractive = false;
+        int const maxTableSize = 5000;
+        bool const lockInMemory = false;
+        string const resultName = "resName";
+        string const authKey = "noAuthKey";
+        int const rowLimit = 0;
+    };
+
+    shared_ptr<nlohmann::json> newTaskJson(MsgInfo const& mInfo) {
+        // Derived from TaskMsgFactory::makeMsgJson
+
+        auto jsJobMsgPtr = std::shared_ptr<nlohmann::json>(
+                new nlohmann::json({{"czarId", mInfo.czarId},
+                                    {"queryId", mInfo.queryId},
+                                    {"jobId", mInfo.jobId},
+                                    {"attemptCount", mInfo.attemptCount},
+                                    {"querySpecDb", mInfo.db},
+                                    {"maxTableSize", mInfo.maxTableSize},
+                                    {"chunkScanTables", nlohmann::json::array()},
+                                    {"chunkId", mInfo.chunkId},
+                                    {"queryFragments", nlohmann::json::array()}}));
+
+        auto& jsJobMsg = *jsJobMsgPtr;
+
+        auto& chunkScanTables = jsJobMsg["chunkScanTables"];
+        nlohmann::json cst = {{"db", mInfo.db},
+                              {"table", mInfo.table},
+                              {"lockInMemory", mInfo.lockInMemory},
+                              {"tblScanRating", mInfo.scanRating}};
+        chunkScanTables.push_back(move(cst));
+
+        auto& jsFragments = jsJobMsg["queryFragments"];
+        nlohmann::json jsFrag = {{"resultTable", mInfo.resultName},
+                                 {"queries", nlohmann::json::array()},
+                                 {"subchunkTables", nlohmann::json::array()},
+                                 {"subchunkIds", nlohmann::json::array()}};
+
+        auto& jsQueries = jsFrag["queries"];
+        nlohmann::json jsQry = {{"subQuery", mInfo.qry}};
+        jsQueries.push_back(move(jsQry));
+
+        jsFragments.push_back(move(jsFrag));
+
+        return jsJobMsgPtr;
     }
 
     MySqlConfig newMySqlConfig() {
@@ -100,18 +147,30 @@ struct Fixture {
     }
 };
 
-BOOST_FIXTURE_TEST_SUITE(Basic, Fixture)
+BOOST_FIXTURE_TEST_SUITE(Basic, Fixture, *boost::unit_test::timeout(20))
 
 BOOST_AUTO_TEST_CASE(Simple) {
     WorkerConfig::create();
-    shared_ptr<TaskMsg> msg(newTaskMsg());
+    MsgInfo mInfo;
+    auto msgJson = newTaskJson(mInfo);
     shared_ptr<SendChannel> sendC(SendChannel::newNopChannel());
-    auto sc = FileChannelShared::create(sendC, msg->czarid());
+    auto sChannel = FileChannelShared::create(sendC, mInfo.czarId);
     FakeBackend::Ptr backend = make_shared<FakeBackend>();
     shared_ptr<ChunkResourceMgr> crm = ChunkResourceMgr::newMgr(backend);
-    SqlConnMgr::Ptr sqlConnMgr = make_shared<SqlConnMgr>(20, 15);
+    SqlConnMgr::Ptr sqlConnMgr = make_shared<SqlConnMgr>(20, 9);
     auto const queries = queriesAndChunks();
-    auto taskVect = Task::createTasks(msg, sc, crm, newMySqlConfig(), sqlConnMgr, queries);
+
+    auto scanInfo = lsst::qserv::protojson::ScanInfo::create();
+    scanInfo->scanRating = mInfo.scanRating;
+    scanInfo->infoTables.emplace_back(mInfo.db, mInfo.table, mInfo.lockInMemory, mInfo.scanRating);
+    auto ujData = lsst::qserv::wbase::UberJobData::create(
+            mInfo.uberJobId, mInfo.czarName, mInfo.czarId, mInfo.czarHostName, mInfo.czarPort, mInfo.queryId,
+            mInfo.rowLimit, mInfo.maxTableSize, scanInfo, mInfo.scanInteractive, mInfo.targWorkerId,
+            mInfo.foreman, mInfo.authKey);
+
+    vector<Task::Ptr> taskVect =
+            Task::createTasksForUnitTest(ujData, *msgJson, sChannel, mInfo.maxTableSize, crm);
+
     Task::Ptr task = taskVect[0];
     QueryRunner::Ptr a(QueryRunner::newQueryRunner(task, crm, newMySqlConfig(), sqlConnMgr, queries));
     BOOST_CHECK(a->runQuery());
@@ -120,14 +179,24 @@ BOOST_AUTO_TEST_CASE(Simple) {
 BOOST_AUTO_TEST_CASE(Output) {
     WorkerConfig::create();
     string out;
-    shared_ptr<TaskMsg> msg(newTaskMsg());
+    MsgInfo mInfo;
+    auto msgJson = newTaskJson(mInfo);
     shared_ptr<SendChannel> sendC(SendChannel::newStringChannel(out));
-    auto sc = FileChannelShared::create(sendC, msg->czarid());
+    auto sc = FileChannelShared::create(sendC, mInfo.czarId);
     FakeBackend::Ptr backend = make_shared<FakeBackend>();
     shared_ptr<ChunkResourceMgr> crm = ChunkResourceMgr::newMgr(backend);
-    SqlConnMgr::Ptr sqlConnMgr = make_shared<SqlConnMgr>(20, 15);
+    SqlConnMgr::Ptr sqlConnMgr = make_shared<SqlConnMgr>(20, 9);
     auto const queries = queriesAndChunks();
-    auto taskVect = Task::createTasks(msg, sc, crm, newMySqlConfig(), sqlConnMgr, queries);
+    auto scanInfo = lsst::qserv::protojson::ScanInfo::create();
+    scanInfo->scanRating = mInfo.scanRating;
+    scanInfo->infoTables.emplace_back(mInfo.db, mInfo.table, mInfo.lockInMemory, mInfo.scanRating);
+    auto ujData = lsst::qserv::wbase::UberJobData::create(
+            mInfo.uberJobId, mInfo.czarName, mInfo.czarId, mInfo.czarHostName, mInfo.czarPort, mInfo.queryId,
+            mInfo.rowLimit, mInfo.maxTableSize, scanInfo, mInfo.scanInteractive, mInfo.targWorkerId,
+            mInfo.foreman, mInfo.authKey);
+
+    vector<Task::Ptr> taskVect = Task::createTasksForUnitTest(ujData, *msgJson, sc, mInfo.maxTableSize, crm);
+
     Task::Ptr task = taskVect[0];
     QueryRunner::Ptr a(QueryRunner::newQueryRunner(task, crm, newMySqlConfig(), sqlConnMgr, queries));
     BOOST_CHECK(a->runQuery());

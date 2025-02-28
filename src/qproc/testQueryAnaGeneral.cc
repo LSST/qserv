@@ -745,9 +745,9 @@ BOOST_AUTO_TEST_CASE(SimpleScan) {
         BOOST_CHECK_EQUAL(context->dominantDb, std::string("LSST"));
         BOOST_CHECK(nullptr == context->secIdxRestrictors);
         BOOST_CHECK(nullptr == context->areaRestrictors);
-        BOOST_CHECK_EQUAL(context->scanInfo.infoTables.size(), 1U);
-        if (context->scanInfo.infoTables.size() >= 1) {
-            auto p = context->scanInfo.infoTables.front();
+        BOOST_CHECK_EQUAL(context->scanInfo->infoTables.size(), 1U);
+        if (context->scanInfo->infoTables.size() >= 1) {
+            auto p = context->scanInfo->infoTables.front();
             BOOST_CHECK_EQUAL(p.db, "LSST");
             BOOST_CHECK_EQUAL(p.table, "Object");
         }

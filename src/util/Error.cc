@@ -38,10 +38,12 @@ LOG_LOGGER _log = LOG_GET("lsst.qserv.util.Error");
 
 namespace lsst::qserv::util {
 
-Error::Error(int code, std::string const& msg, int status) : _code(code), _msg(msg), _status(status) {
+Error::Error(int code, std::string const& msg, int status, bool logLvlErr)
+        : _code(code), _msg(msg), _status(status) {
     if (_code != ErrorCode::NONE || _msg != "" || _status != ErrorCode::NONE) {
         // Flushing output as it is likely that this exception will not be caught.
-        LOGS(_log, LOG_LVL_ERROR, "Error " << *this << std::endl);
+        int logLvl = (logLvlErr) ? LOG_LVL_ERROR : LOG_LVL_TRACE;
+        LOGS(_log, logLvl, "Error " << *this << std::endl);
     }
 }
 

@@ -37,7 +37,6 @@
 
 // Third-party headers
 #include <boost/algorithm/string/replace.hpp>
-#include "boost/filesystem.hpp"
 
 // LSST headers
 #include "lsst/log/Log.h"
@@ -46,8 +45,10 @@
 #include "global/constants.h"
 #include "global/LogContext.h"
 #include "global/UnsupportedError.h"
+#include "http/RequestBodyJSON.h"
 #include "mysql/MySqlConfig.h"
 #include "proto/worker.pb.h"
+#include "protojson/UberJobMsg.h"
 #include "util/Bug.h"
 #include "util/common.h"
 #include "util/HoldTrack.h"
@@ -55,6 +56,7 @@
 #include "util/TimeUtils.h"
 #include "wbase/Base.h"
 #include "wbase/FileChannelShared.h"
+#include "wbase/UberJobData.h"
 #include "wbase/UserQueryInfo.h"
 #include "wconfig/WorkerConfig.h"
 #include "wdb/QueryRunner.h"
@@ -62,30 +64,17 @@
 
 using namespace std;
 using namespace std::chrono_literals;
-namespace fs = boost::filesystem;
+using namespace nlohmann;
 
 namespace {
 
 LOG_LOGGER _log = LOG_GET("lsst.qserv.wbase.Task");
-
-string buildResultFileName(shared_ptr<lsst::qserv::proto::TaskMsg> const& taskMsg) {
-    return to_string(taskMsg->czarid()) + "-" + to_string(taskMsg->queryid()) + "-" +
-           to_string(taskMsg->jobid()) + "-" + to_string(taskMsg->chunkid()) + "-" +
-           to_string(taskMsg->attemptcount()) + ".proto";
-}
-
-string buildResultFilePath(string const& resultFileName, string const& resultsDirname) {
-    if (resultsDirname.empty()) return resultsDirname;
-    return fs::weakly_canonical(fs::path(resultsDirname) / resultFileName).string();
-}
 
 size_t const MB_SIZE_BYTES = 1024 * 1024;
 
 }  // namespace
 
 namespace lsst::qserv::wbase {
-
-string const Task::_fqdn = util::get_current_host_fqdn();
 
 // Task::ChunkEqual functor
 bool Task::ChunkEqual::operator()(Task::Ptr const& x, Task::Ptr const& y) {
@@ -104,7 +93,6 @@ bool Task::ChunkIdGreater::operator()(Task::Ptr const& x, Task::Ptr const& y) {
 }
 
 string const Task::defaultUser = "qsmaster";
-IdSet Task::allIds{};
 
 TaskScheduler::TaskScheduler() {
     auto hour = chrono::milliseconds(1h);
@@ -120,161 +108,261 @@ atomic<uint32_t> taskSequence{0};  ///< Unique identifier source for Task.
 /// available to define the action to take when this task is run, so
 /// Command::setFunc() is used set the action later. This is why
 /// the util::CommandThreadPool is not called here.
-Task::Task(TaskMsgPtr const& t, int fragmentNumber, shared_ptr<UserQueryInfo> const& userQueryInfo,
-           size_t templateId, int subchunkId, shared_ptr<FileChannelShared> const& sc,
-           uint16_t resultsHttpPort)
-        : _userQueryInfo(userQueryInfo),
+Task::Task(UberJobData::Ptr const& ujData, int jobId, int attemptCount, int chunkId, int fragmentNumber,
+           size_t templateId, bool hasSubchunks, int subchunkId, string const& db,
+           vector<TaskDbTbl> const& fragSubTables, vector<int> const& fragSubchunkIds,
+           shared_ptr<FileChannelShared> const& sc,
+           std::shared_ptr<wpublish::QueryStatistics> const& queryStats_)
+        : _logLvlWT(LOG_LVL_WARN),
+          _logLvlET(LOG_LVL_ERROR),
           _sendChannel(sc),
           _tSeq(++taskSequence),
-          _qId(t->queryid()),
+          _qId(ujData->getQueryId()),
           _templateId(templateId),
-          _hasChunkId(t->has_chunkid()),
-          _chunkId(t->has_chunkid() ? t->chunkid() : -1),
+          _hasChunkId((chunkId >= 0)),
+          _chunkId(chunkId),
           _subchunkId(subchunkId),
-          _jId(t->jobid()),
-          _attemptCount(t->attemptcount()),
+          _jId(jobId),
+          _attemptCount(attemptCount),
           _queryFragmentNum(fragmentNumber),
-          _fragmentHasSubchunks(t->fragment(fragmentNumber).has_subchunks()),
-          _hasDb(t->has_db()),
-          _db(t->has_db() ? t->db() : ""),
-          _czarId(t->has_czarid() ? t->czarid() : -1) {
-    // These attributes will be passed back to Czar in the Protobuf response
-    // to advice which result delivery channel to use.
-    auto const workerConfig = wconfig::WorkerConfig::instance();
-    auto const resultDeliveryProtocol = workerConfig->resultDeliveryProtocol();
-    _resultFileName = ::buildResultFileName(t);
-    _resultFileAbsPath = ::buildResultFilePath(_resultFileName, workerConfig->resultsDirname());
-    if (resultDeliveryProtocol == wconfig::ConfigValResultDeliveryProtocol::XROOT) {
-        // NOTE: one extra '/' after the <host>[:<port>] spec is required to make
-        // a "valid" XROOTD url.
-        _resultFileXrootUrl = "xroot://" + _fqdn + ":" + to_string(workerConfig->resultsXrootdPort()) + "/" +
-                              _resultFileAbsPath;
-    } else if (resultDeliveryProtocol == wconfig::ConfigValResultDeliveryProtocol::HTTP) {
-        _resultFileHttpUrl = "http://" + _fqdn + ":" + to_string(resultsHttpPort) + "/" + _resultFileName;
-    } else {
-        throw runtime_error("wbase::Task::Task: unsupported results delivery protocol: " +
-                            wconfig::ConfigValResultDeliveryProtocol::toString(resultDeliveryProtocol));
-    }
-    if (t->has_user()) {
-        user = t->user();
-    } else {
-        user = defaultUser;
-    }
-
-    allIds.add(to_string(_qId) + "_" + to_string(_jId));
-    LOGS(_log, LOG_LVL_DEBUG, "Task(...) " << "this=" << this << " : " << allIds);
-
-    // Determine which major tables this task will use.
-    int const size = t->scantable_size();
-    for (int j = 0; j < size; ++j) {
-        _scanInfo.infoTables.push_back(proto::ScanTableInfo(t->scantable(j)));
-    }
-    _scanInfo.scanRating = t->scanpriority();
-    _scanInfo.sortTablesSlowestFirst();
-    _scanInteractive = t->scaninteractive();
-    _maxTableSize = t->maxtablesize_mb() * ::MB_SIZE_BYTES;
+          _fragmentHasSubchunks(hasSubchunks),
+          _db(db),
+          _czarId(ujData->getCzarId()),
+          _queryStats(queryStats_),
+          _rowLimit(ujData->getRowLimit()),
+          _ujData(ujData),
+          _idStr(ujData->getIdStr() + " jId=" + to_string(_jId) + " sc=" + to_string(_subchunkId)) {
+    user = defaultUser;
 
     // Create sets and vectors for 'aquiring' subchunk temporary tables.
-    proto::TaskMsg_Fragment const& fragment(t->fragment(_queryFragmentNum));
+    // Fill in _dbTblsAndSubchunks
     DbTableSet dbTbls_;
     IntVector subchunksVect_;
     if (!_fragmentHasSubchunks) {
         /// FUTURE: Why acquire anything if there are no subchunks in the fragment?
         ///   This branch never seems to happen, but this needs to be proven beyond any doubt.
-        LOGS(_log, LOG_LVL_WARN, "Task::Task not _fragmentHasSubchunks");
-        for (auto const& scanTbl : t->scantable()) {
-            dbTbls_.emplace(scanTbl.db(), scanTbl.table());
-            LOGS(_log, LOG_LVL_INFO,
-                 "Task::Task scanTbl.db()=" << scanTbl.db() << " scanTbl.table()=" << scanTbl.table());
+        auto scanInfo = _ujData->getScanInfo();
+        for (auto const& scanTbl : scanInfo->infoTables) {
+            dbTbls_.emplace(scanTbl.db, scanTbl.table);
+            LOGS(_log, LOG_LVL_TRACE,
+                 "Task::Task scanTbl.db=" << scanTbl.db << " scanTbl.table=" << scanTbl.table);
         }
-        LOGS(_log, LOG_LVL_INFO,
+        LOGS(_log, LOG_LVL_TRACE,
              "fragment a db=" << _db << ":" << _chunkId << " dbTbls=" << util::printable(dbTbls_));
     } else {
-        proto::TaskMsg_Subchunk const& sc = fragment.subchunks();
-        for (int j = 0; j < sc.dbtbl_size(); j++) {
+        for (TaskDbTbl const& fDbTbl : fragSubTables) {
             /// Different subchunk fragments can require different tables.
             /// FUTURE: It may save space to store these in UserQueryInfo as it seems
             ///         database and table names are consistent across chunks.
-            dbTbls_.emplace(sc.dbtbl(j).db(), sc.dbtbl(j).tbl());
+            dbTbls_.emplace(fDbTbl.db, fDbTbl.tbl);
             LOGS(_log, LOG_LVL_TRACE,
-                 "Task::Task subchunk j=" << j << " sc.dbtbl(j).db()=" << sc.dbtbl(j).db()
-                                          << " sc.dbtbl(j).tbl()=" << sc.dbtbl(j).tbl());
+                 "Task::Task subchunk fDbTbl.db=" << fDbTbl.db << " fDbTbl.tbl=" << fDbTbl.tbl);
         }
-        IntVector sVect(sc.id().begin(), sc.id().end());
-        subchunksVect_ = sVect;
-        if (sc.has_database()) {
-            _db = sc.database();
-        } else {
-            _db = t->db();
-        }
-        LOGS(_log, LOG_LVL_DEBUG,
+        subchunksVect_ = fragSubchunkIds;
+
+        LOGS(_log, LOG_LVL_TRACE,
              "fragment b db=" << _db << ":" << _chunkId << " dbTableSet" << util::printable(dbTbls_)
                               << " subChunks=" << util::printable(subchunksVect_));
     }
+
     _dbTblsAndSubchunks = make_unique<DbTblsAndSubchunks>(dbTbls_, subchunksVect_);
-    if (_sendChannel == nullptr) {
-        throw util::Bug(ERR_LOC, "Task::Task _sendChannel==null " + getIdStr());
-    }
+
+    LOGS(_log, LOG_LVL_TRACE, cName(__func__) << " created");
 }
 
-Task::~Task() {
-    allIds.remove(to_string(_qId) + "_" + to_string(_jId));
-    LOGS(_log, LOG_LVL_TRACE, "~Task() : " << allIds);
+Task::~Task() {}
 
-    _userQueryInfo.reset();
-    UserQueryInfo::uqMapErase(_qId);
-    if (UserQueryInfo::uqMapGet(_qId) == nullptr) {
-        LOGS(_log, LOG_LVL_TRACE, "~Task Cleared uqMap entry for _qId=" << _qId);
+std::vector<Task::Ptr> Task::createTasksFromUberJobMsg(
+        std::shared_ptr<protojson::UberJobMsg> const& ujMsg, std::shared_ptr<UberJobData> const& ujData,
+        std::shared_ptr<wbase::FileChannelShared> const& sendChannel,
+        std::shared_ptr<wdb::ChunkResourceMgr> const& chunkResourceMgr, mysql::MySqlConfig const& mySqlConfig,
+        std::shared_ptr<wcontrol::SqlConnMgr> const& sqlConnMgr,
+        std::shared_ptr<wpublish::QueriesAndChunks> const& queriesAndChunks) {
+    QueryId qId = ujData->getQueryId();
+    UberJobId ujId = ujData->getUberJobId();
+    CzarIdType czId = ujData->getCzarId();
+
+    vector<Task::Ptr> vect;  // List of created tasks to be returned.
+    wpublish::QueryStatistics::Ptr queryStats = queriesAndChunks->addQueryId(qId, czId);
+    UserQueryInfo::Ptr userQueryInfo = queryStats->getUserQueryInfo();
+
+    string funcN(__func__);
+    funcN += " QID=" + to_string(qId) + " ";
+
+    if (ujMsg->getQueryId() != qId) {
+        throw util::Bug(ERR_LOC, "Task::createTasksFromUberJobMsg qId(" + to_string(qId) +
+                                         ") did not match ujMsg->qId(" + to_string(ujMsg->getQueryId()) +
+                                         ")");
     }
-}
-
-vector<Task::Ptr> Task::createTasks(shared_ptr<proto::TaskMsg> const& taskMsg,
-                                    shared_ptr<wbase::FileChannelShared> const& sendChannel,
-                                    shared_ptr<wdb::ChunkResourceMgr> const& chunkResourceMgr,
-                                    mysql::MySqlConfig const& mySqlConfig,
-                                    shared_ptr<wcontrol::SqlConnMgr> const& sqlConnMgr,
-                                    shared_ptr<wpublish::QueriesAndChunks> const& queriesAndChunks,
-                                    uint16_t resultsHttpPort) {
-    QueryId qId = taskMsg->queryid();
-    QSERV_LOGCONTEXT_QUERY_JOB(qId, taskMsg->jobid());
-    vector<Task::Ptr> vect;
-
-    UserQueryInfo::Ptr userQueryInfo = UserQueryInfo::uqMapInsert(qId);
-
-    /// Make one task for each fragment.
-    int fragmentCount = taskMsg->fragment_size();
-    if (fragmentCount < 1) {
-        throw util::Bug(ERR_LOC, "Task::createTasks No fragments to execute in TaskMsg");
+    if (ujMsg->getUberJobId() != ujId) {
+        throw util::Bug(ERR_LOC, "Task::createTasksFromUberJobMsg ujId(" + to_string(ujId) +
+                                         ") did not match ujMsg->qId(" + to_string(ujMsg->getUberJobId()) +
+                                         ")");
     }
 
-    string const chunkIdStr = to_string(taskMsg->chunkid());
-    for (int fragNum = 0; fragNum < fragmentCount; ++fragNum) {
-        proto::TaskMsg_Fragment const& fragment = taskMsg->fragment(fragNum);
-        for (string queryStr : fragment.query()) {
-            size_t templateId = userQueryInfo->addTemplate(queryStr);
-            if (fragment.has_subchunks() && not fragment.subchunks().id().empty()) {
-                for (auto subchunkId : fragment.subchunks().id()) {
-                    auto task = make_shared<wbase::Task>(taskMsg, fragNum, userQueryInfo, templateId,
-                                                         subchunkId, sendChannel, resultsHttpPort);
-                    vect.push_back(task);
-                }
-            } else {
-                int subchunkId = -1;  // there are no subchunks.
-                auto task = make_shared<wbase::Task>(taskMsg, fragNum, userQueryInfo, templateId, subchunkId,
-                                                     sendChannel, resultsHttpPort);
-                vect.push_back(task);
+    std::string workerId = ujMsg->getWorkerId();
+    auto jobSubQueryTempMap = ujMsg->getJobSubQueryTempMap();
+    auto jobDbTablesMap = ujMsg->getJobDbTablesMap();
+    auto jobMsgVect = ujMsg->getJobMsgVect();
+
+    for (auto const& jobMsg : *jobMsgVect) {
+        JobId jobId = jobMsg->getJobId();
+        int attemptCount = jobMsg->getAttemptCount();
+        std::string chunkQuerySpecDb = jobMsg->getChunkQuerySpecDb();
+        int chunkId = jobMsg->getChunkId();
+
+        std::vector<int> chunkScanTableIndexes = jobMsg->getChunkScanTableIndexes();
+        auto jobFragments = jobMsg->getJobFragments();
+        int fragmentNumber = 0;
+
+        for (auto const& fMsg : *jobFragments) {
+            // These need to be constructed for the fragment
+            vector<string> fragSubQueries;
+            vector<TaskDbTbl> fragSubTables;
+            vector<int> fragSubchunkIds;
+
+            vector<int> fsqIndexes = fMsg->getJobSubQueryTempIndexes();
+            for (int fsqIndex : fsqIndexes) {
+                string fsqStr = jobSubQueryTempMap->getSubQueryTemp(fsqIndex);
+                fragSubQueries.push_back(fsqStr);
             }
+
+            vector<int> dbTblIndexes = fMsg->getJobDbTablesIndexes();
+            for (int dbTblIndex : dbTblIndexes) {
+                auto [scDb, scTable] = jobDbTablesMap->getDbTable(dbTblIndex);
+                TaskDbTbl scDbTbl(scDb, scTable);
+                fragSubTables.push_back(scDbTbl);
+            }
+
+            fragSubchunkIds = fMsg->getSubchunkIds();
+
+            for (string const& fragSubQ : fragSubQueries) {
+                size_t templateId = userQueryInfo->addTemplate(fragSubQ);
+                if (fragSubchunkIds.empty()) {
+                    bool const noSubchunks = false;
+                    int const subchunkId = -1;
+                    auto task = Task::Ptr(new Task(ujData, jobId, attemptCount, chunkId, fragmentNumber,
+                                                   templateId, noSubchunks, subchunkId, chunkQuerySpecDb,
+                                                   fragSubTables, fragSubchunkIds, sendChannel, queryStats));
+
+                    vect.push_back(task);
+                } else {
+                    for (auto subchunkId : fragSubchunkIds) {
+                        bool const hasSubchunks = true;
+                        auto task =
+                                Task::Ptr(new Task(ujData, jobId, attemptCount, chunkId, fragmentNumber,
+                                                   templateId, hasSubchunks, subchunkId, chunkQuerySpecDb,
+                                                   fragSubTables, fragSubchunkIds, sendChannel, queryStats));
+                        vect.push_back(task);
+                    }
+                }
+            }
+            ++fragmentNumber;
         }
     }
-    for (auto task : vect) {
+
+    for (auto taskPtr : vect) {
         // newQueryRunner sets the `_taskQueryRunner` pointer in `task`.
-        task->setTaskQueryRunner(wdb::QueryRunner::newQueryRunner(task, chunkResourceMgr, mySqlConfig,
-                                                                  sqlConnMgr, queriesAndChunks));
+        taskPtr->setTaskQueryRunner(wdb::QueryRunner::newQueryRunner(taskPtr, chunkResourceMgr, mySqlConfig,
+                                                                     sqlConnMgr, queriesAndChunks));
     }
-    sendChannel->setTaskCount(vect.size());
 
     return vect;
 }
+
+std::vector<Task::Ptr> Task::createTasksForUnitTest(
+        std::shared_ptr<UberJobData> const& ujData, nlohmann::json const& jsJobs,
+        std::shared_ptr<wbase::FileChannelShared> const& sendChannel, int maxTableSizeMb,
+        std::shared_ptr<wdb::ChunkResourceMgr> const& chunkResourceMgr) {
+    QueryId qId = ujData->getQueryId();
+    UberJobId ujId = ujData->getUberJobId();
+    CzarIdType czId = ujData->getCzarId();
+    string funcN(__func__);
+    funcN += " QID=" + to_string(qId) + " czId=" + to_string(czId);
+
+    vector<Task::Ptr> vect;
+    for (auto const& job : jsJobs) {
+        json const& jsJobDesc = job["jobdesc"];
+        http::RequestBodyJSON rbJobDesc(jsJobDesc);
+        // See qproc::TaskMsgFactory::makeMsgJson for message construction.
+        auto const jdCzarId = rbJobDesc.required<qmeta::CzarId>("czarId");
+        auto const jdQueryId = rbJobDesc.required<QueryId>("queryId");
+        if (jdQueryId != qId) {
+            throw TaskException(ERR_LOC, string("ujId=") + to_string(ujId) + " qId=" + to_string(qId) +
+                                                 " QueryId mismatch Job qId=" + to_string(jdQueryId));
+        }
+        auto const jdJobId = rbJobDesc.required<int>("jobId");
+        auto const jdAttemptCount = rbJobDesc.required<int>("attemptCount");
+        auto const jdQuerySpecDb = rbJobDesc.required<string>("querySpecDb");
+        auto const jdMaxTableSizeMb = rbJobDesc.required<int>("maxTableSize");
+        auto const jdChunkId = rbJobDesc.required<int>("chunkId");
+        LOGS(_log, LOG_LVL_TRACE,
+             funcN << " jd cid=" << jdCzarId << " jdQId=" << jdQueryId << " jdJobId=" << jdJobId
+                   << " jdAtt=" << jdAttemptCount << " jdQDb=" << jdQuerySpecDb
+                   << " maxTblSz=" << jdMaxTableSizeMb << " chunkId=" << jdChunkId);
+
+        auto const jdQueryFragments = rbJobDesc.required<json>("queryFragments");
+        int fragmentNumber = 0;
+        for (auto const& frag : jdQueryFragments) {
+            vector<string> fragSubQueries;
+            vector<int> fragSubchunkIds;
+            vector<TaskDbTbl> fragSubTables;
+            LOGS(_log, LOG_LVL_DEBUG, funcN << " frag=" << frag);
+            http::RequestBodyJSON rbFrag(frag);
+            auto const& jsQueries = rbFrag.required<json>("queries");
+            // TODO:UJ move to uberjob???, these should be the same for all jobs
+            for (auto const& subQ : jsQueries) {
+                http::RequestBodyJSON rbSubQ(subQ);
+                auto const subQuery = rbSubQ.required<string>("subQuery");
+                LOGS(_log, LOG_LVL_DEBUG, funcN << " subQuery=" << subQuery);
+                fragSubQueries.push_back(subQuery);
+            }
+            auto const& resultTable = rbFrag.required<string>("resultTable");
+            auto const& jsSubIds = rbFrag.required<json>("subchunkIds");
+            for (auto const& scId : jsSubIds) {
+                fragSubchunkIds.push_back(scId);
+            }
+            auto const& jsSubTables = rbFrag.required<json>("subchunkTables");
+
+            for (auto const& scDbTable : jsSubTables) {  // TODO:UJ are these the same for all jobs?
+                http::RequestBodyJSON rbScDbTable(scDbTable);
+                string scDb = rbScDbTable.required<string>("scDb");
+                string scTable = rbScDbTable.required<string>("scTable");
+                TaskDbTbl scDbTbl(scDb, scTable);
+                fragSubTables.push_back(scDbTbl);
+            }
+
+            for (string const& fragSubQ : fragSubQueries) {
+                LOGS(_log, LOG_LVL_DEBUG, "ignoring " << fragSubQ);
+                if (fragSubchunkIds.empty()) {
+                    bool const noSubchunks = false;
+                    int const subchunkId = -1;
+                    auto task = Task::Ptr(new Task(ujData, jdJobId, jdAttemptCount, jdChunkId, fragmentNumber,
+                                                   0, noSubchunks, subchunkId, jdQuerySpecDb, fragSubTables,
+                                                   fragSubchunkIds, sendChannel, nullptr));
+
+                    vect.push_back(task);
+                } else {
+                    for (auto subchunkId : fragSubchunkIds) {
+                        bool const hasSubchunks = true;
+                        auto task =
+                                Task::Ptr(new Task(ujData, jdJobId, jdAttemptCount, jdChunkId, fragmentNumber,
+                                                   0, hasSubchunks, subchunkId, jdQuerySpecDb, fragSubTables,
+                                                   fragSubchunkIds, sendChannel, nullptr));
+                        vect.push_back(task);
+                    }
+                }
+            }
+            ++fragmentNumber;
+        }
+    }
+
+    return vect;
+}
+
+protojson::ScanInfo::Ptr Task::getScanInfo() const { return _ujData->getScanInfo(); }
+
+bool Task::getScanInteractive() const { return _ujData->getScanInteractive(); }
 
 void Task::action(util::CmdData* data) {
     string tIdStr = getIdStr();
@@ -293,33 +381,42 @@ void Task::action(util::CmdData* data) {
     // Get a local copy for safety.
     auto qr = _taskQueryRunner;
     bool success = false;
+    string errStr;
     try {
         success = qr->runQuery();
     } catch (UnsupportedError const& e) {
         LOGS(_log, LOG_LVL_ERROR, __func__ << " runQuery threw UnsupportedError " << e.what() << tIdStr);
+        errStr = e.what();
     }
     if (not success) {
-        LOGS(_log, LOG_LVL_ERROR, "runQuery failed " << tIdStr);
-        if (not getSendChannel()->kill("Foreman::_setRunFunc")) {
-            LOGS(_log, LOG_LVL_WARN, "runQuery sendChannel already killed " << tIdStr);
+        LOGS(_log, _logLvlET, "runQuery failed " << tIdStr);
+        if (not getSendChannel()->kill("Task::action")) {
+            LOGS(_log, _logLvlWT, "runQuery sendChannel already killed " << tIdStr);
         }
+        // Send a message back saying this UberJobFailed, redundant error messages should be
+        // harmless.
+        util::MultiError multiErr;
+        bool logLvl = (_logLvlET != LOG_LVL_TRACE);
+        util::Error err(_chunkId, string("UberJob run error ") + errStr, util::ErrorCode::NONE, logLvl);
+        multiErr.push_back(err);
+        _ujData->responseError(multiErr, -1, false, _logLvlET);
     }
-
-    // The QueryRunner class access to sendChannel for results is over by this point.
-    // 'task' contains statistics that are still useful. However, the resources used
-    // by sendChannel need to be freed quickly.
-    LOGS(_log, LOG_LVL_DEBUG, __func__ << " calling resetSendChannel() for " << tIdStr);
-    resetSendChannel();  // Frees its xrdsvc::SsiRequest object.
 }
 
 string Task::getQueryString() const {
-    string qs = _userQueryInfo->getTemplate(_templateId);
+    auto qStats = _queryStats.lock();
+    if (qStats == nullptr) {
+        LOGS(_log, LOG_LVL_ERROR, cName(__func__) << " _queryStats could not be locked");
+        return string("");
+    }
+
+    auto uQInfo = qStats->getUserQueryInfo();
+    string qs = uQInfo->getTemplate(_templateId);
     boost::algorithm::replace_all(qs, CHUNK_TAG, to_string(_chunkId));
     boost::algorithm::replace_all(qs, SUBCHUNK_TAG, to_string(_subchunkId));
+    LOGS(_log, LOG_LVL_TRACE, cName(__func__) << " qs=" << qs);
     return qs;
 }
-
-void Task::setQueryStatistics(wpublish::QueryStatistics::Ptr const& qStats) { _queryStats = qStats; }
 
 wpublish::QueryStatistics::Ptr Task::getQueryStats() const {
     auto qStats = _queryStats.lock();
@@ -336,31 +433,22 @@ void Task::cancel() {
         return;
     }
 
-    util::HoldTrack::Mark markA(ERR_LOC, "Task::cancel");
     LOGS(_log, LOG_LVL_DEBUG, "Task::cancel " << getIdStr());
     auto qr = _taskQueryRunner;  // Need a copy in case _taskQueryRunner is reset.
     if (qr != nullptr) {
         qr->cancel();
     }
 
-    // At this point, this code doesn't do anything. It may be
-    // useful to remove this task from the scheduler, but it
-    // seems doubtful that that would improve performance.
-    auto sched = _taskScheduler.lock();
-    if (sched != nullptr) {
-        sched->taskCancelled(this);
-    }
+    _logLvlWT = LOG_LVL_TRACE;
+    _logLvlET = LOG_LVL_TRACE;
 }
 
 bool Task::checkCancelled() {
-    // A czar doesn't directly tell the worker the query is dead.
-    // A czar has XrdSsi kill the SsiRequest, which kills the
-    // sendChannel used by this task. sendChannel can be killed
-    // in other ways, however, without the sendChannel, this task
-    // has no way to return anything to the originating czar and
-    // may as well give up now.
-    if (_sendChannel == nullptr || _sendChannel->isDead()) {
-        // The sendChannel is dead, probably squashed by the czar.
+    // The czar does tell the worker a query id is cancelled.
+    // Returning true here indicates there's no point in doing
+    // any more processing for this Task.
+    if (_cancelled) return true;
+    if (_sendChannel == nullptr || _sendChannel->isDead() || _sendChannel->isRowLimitComplete()) {
         cancel();
     }
     return _cancelled;
@@ -400,21 +488,21 @@ bool Task::isRunning() const {
 }
 
 void Task::started(chrono::system_clock::time_point const& now) {
-    LOGS(_log, LOG_LVL_DEBUG, __func__ << " " << getIdStr() << " started");
+    LOGS(_log, LOG_LVL_TRACE, __func__ << " " << getIdStr() << " started");
     lock_guard<mutex> guard(_stateMtx);
     _state = TaskState::STARTED;
     _startTime = now;
 }
 
 void Task::queryExecutionStarted() {
-    LOGS(_log, LOG_LVL_DEBUG, __func__ << " " << getIdStr() << " executing");
+    LOGS(_log, LOG_LVL_TRACE, __func__ << " " << getIdStr() << " executing");
     lock_guard<mutex> guard(_stateMtx);
     _state = TaskState::EXECUTING_QUERY;
     _queryExecTime = chrono::system_clock::now();
 }
 
 void Task::queried() {
-    LOGS(_log, LOG_LVL_DEBUG, __func__ << " " << getIdStr() << " reading");
+    LOGS(_log, LOG_LVL_TRACE, __func__ << " " << getIdStr() << " reading");
     lock_guard<mutex> guard(_stateMtx);
     _state = TaskState::READING_DATA;
     _queryTime = chrono::system_clock::now();
@@ -426,7 +514,7 @@ void Task::queried() {
 /// Set values associated with the Task being finished.
 /// @return milliseconds to complete the Task, system clock time.
 chrono::milliseconds Task::finished(chrono::system_clock::time_point const& now) {
-    LOGS(_log, LOG_LVL_DEBUG, __func__ << " " << getIdStr() << " finished");
+    LOGS(_log, LOG_LVL_TRACE, __func__ << " " << getIdStr() << " finished");
     chrono::milliseconds duration;
     {
         lock_guard<mutex> guard(_stateMtx);
@@ -438,7 +526,7 @@ chrono::milliseconds Task::finished(chrono::system_clock::time_point const& now)
     if (duration.count() < 1) {
         duration = chrono::milliseconds{1};
     }
-    LOGS(_log, LOG_LVL_DEBUG, "processing millisecs=" << duration.count());
+    LOGS(_log, LOG_LVL_TRACE, "processing millisecs=" << duration.count());
     return duration;
 }
 
@@ -468,7 +556,7 @@ void Task::waitForMemMan() {
                  "mlock err=" << errorCode << " " << _memMan->getStatistics().logString() << " "
                               << _memMan->getStatus(_memHandle).logString());
         }
-        LOGS(_log, LOG_LVL_DEBUG,
+        LOGS(_log, LOG_LVL_TRACE,
              "waitForMemMan " << _memMan->getStatistics().logString() << " "
                               << _memMan->getStatus(_memHandle).logString());
     }
@@ -502,8 +590,7 @@ nlohmann::json Task::getJson() const {
     js["fragmentId"] = _queryFragmentNum;
     js["attemptId"] = _attemptCount;
     js["sequenceId"] = _tSeq;
-    js["scanInteractive"] = _scanInteractive;
-    js["maxTableSize"] = _maxTableSize;
+    js["maxTableSize"] = _ujData->getMaxTableSizeBytes();
     js["cancelled"] = to_string(_cancelled);
     js["state"] = static_cast<uint64_t>(_state.load());
     js["createTime_msec"] = util::TimeUtils::tp2ms(_createTime);
@@ -521,29 +608,12 @@ nlohmann::json Task::getJson() const {
     return js;
 }
 
+int64_t Task::getMaxTableSize() const { return _ujData->getMaxTableSizeBytes(); }
+
 ostream& operator<<(ostream& os, Task const& t) {
     os << "Task: "
        << "msg: " << t.getIdStr() << " chunk=" << t._chunkId << " db=" << t._db << " " << t.getQueryString();
 
-    return os;
-}
-
-ostream& operator<<(ostream& os, IdSet const& idSet) {
-    // Limiting output as number of entries can be very large.
-    int maxDisp = idSet.maxDisp;  // only affects the amount of data printed.
-    lock_guard<mutex> lock(idSet.mx);
-    os << "showing " << maxDisp << " of count=" << idSet._ids.size() << " ";
-    bool first = true;
-    int i = 0;
-    for (auto id : idSet._ids) {
-        if (!first) {
-            os << ", ";
-        } else {
-            first = false;
-        }
-        os << id;
-        if (++i >= maxDisp) break;
-    }
     return os;
 }
 

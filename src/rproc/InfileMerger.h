@@ -54,8 +54,11 @@ class ResponseSummary;
 }  // namespace proto
 namespace qdisp {
 class JobQuery;
-class MessageStore;
+class UberJob;
 }  // namespace qdisp
+namespace QMeta {
+class MessageStore;
+}
 namespace qproc {
 class DatabaseModels;
 }
@@ -159,11 +162,8 @@ public:
 
     std::string engineToStr(InfileMerger::DbEngine engine);
 
-    /// Merge a worker response, which contains a single ResponseData message
-    /// Using job query info for early termination of the merge if needed.
-    /// @return true if merge was successfully imported.
-    bool merge(proto::ResponseSummary const& responseSummary, proto::ResponseData const& responseData,
-               std::shared_ptr<qdisp::JobQuery> const& jq);
+    /// Merge the result data collected over Http.
+    bool mergeHttp(std::shared_ptr<qdisp::UberJob> const& uberJob, proto::ResponseData const& responseData);
 
     /// Indicate the merge for the job is complete.
     void mergeCompleteFor(int jobId);
@@ -276,7 +276,7 @@ private:
 
     std::mutex _queryIdStrMtx;  ///< protects _queryIdStr
     std::atomic<bool> _queryIdStrSet{false};
-    std::string _queryIdStr{"QI=?"};  ///< Unknown until results start coming back from workers.
+    std::string _queryIdStr{"QID=?"};  ///< Unknown until results start coming back from workers.
 
     std::string _jobIdColName;                   ///< Name of the jobId column in the result table.
     int const _jobIdMysqlType{MYSQL_TYPE_LONG};  ///< 4 byte integer.

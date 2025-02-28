@@ -88,7 +88,7 @@ public:
     virtual void discard() override;
 
     // Delegate objects
-    virtual std::shared_ptr<qdisp::MessageStore> getMessageStore() override { return _messageStore; }
+    virtual std::shared_ptr<qmeta::MessageStore> getMessageStore() override { return _messageStore; }
 
 private:
     /// Check the status of item to be dropped
@@ -101,7 +101,7 @@ private:
     std::shared_ptr<qmeta::QMeta> _queryMetadata;
     qmeta::CzarId const _qMetaCzarId;  ///< Czar ID in QMeta database
     QueryState _qState;
-    std::shared_ptr<qdisp::MessageStore> _messageStore;
+    std::shared_ptr<qmeta::MessageStore> _messageStore;
     int _sessionId;  ///< External reference number
 };
 

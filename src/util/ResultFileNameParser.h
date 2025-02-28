@@ -67,7 +67,6 @@ public:
     QueryId queryId = 0;
     std::uint32_t jobId = 0;
     std::uint32_t chunkId = 0;
-    std::uint32_t attemptCount = 0;
 
     ResultFileNameParser() = default;
     ResultFileNameParser(ResultFileNameParser const&) = default;

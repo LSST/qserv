@@ -71,14 +71,17 @@ ScanScheduler::ScanScheduler(string const& name, int maxThreads, int maxReserve,
 }
 
 void ScanScheduler::commandStart(util::Command::Ptr const& cmd) {
-    wbase::Task::Ptr task = dynamic_pointer_cast<wbase::Task>(cmd);
     _infoChanged = true;
-    if (task == nullptr) {
-        LOGS(_log, LOG_LVL_WARN, "ScanScheduler::commandStart cmd failed conversion " << getName());
-        return;
+    auto logLvl = LOG_LVL_TRACE;
+    if (LOG_CHECK_LVL(_log, logLvl)) {
+        wbase::Task::Ptr task = dynamic_pointer_cast<wbase::Task>(cmd);
+        if (task == nullptr) {
+            LOGS(_log, LOG_LVL_WARN, "ScanScheduler::commandStart cmd failed conversion " << getName());
+            return;
+        }
+        QSERV_LOGCONTEXT_QUERY_JOB(task->getQueryId(), task->getJobId());
+        LOGS(_log, logLvl, "commandStart " << getName() << " task=" << task->getIdStr());
     }
-    QSERV_LOGCONTEXT_QUERY_JOB(task->getQueryId(), task->getJobId());
-    LOGS(_log, LOG_LVL_DEBUG, "commandStart " << getName() << " task=" << task->getIdStr());
     // task was registered Inflight when getCmd() was called.
 }
 
@@ -98,12 +101,12 @@ void ScanScheduler::commandFinish(util::Command::Ptr const& cmd) {
         lock_guard<mutex> guard(util::CommandQueue::_mx);
         --_inFlight;
         ++_recentlyCompleted;
-        LOGS(_log, LOG_LVL_DEBUG,
+        LOGS(_log, LOG_LVL_TRACE,
              "commandFinish " << getName() << " inFlight=" << _inFlight << " " << task->getIdStr());
 
         // If there's an old _memManHandleToUnlock, it needs to be unlocked before a new value is assigned.
         if (_memManHandleToUnlock != memman::MemMan::HandleType::INVALID) {
-            LOGS(_log, LOG_LVL_DEBUG,
+            LOGS(_log, LOG_LVL_TRACE,
                  "ScanScheduler::commandFinish unlocking handle=" << _memManHandleToUnlock);
             _memMan->unlock(_memManHandleToUnlock);
             _memManHandleToUnlock = memman::MemMan::HandleType::INVALID;
@@ -114,16 +117,16 @@ void ScanScheduler::commandFinish(util::Command::Ptr const& cmd) {
         // we don't want to release the tables in case the next Task wants some of them.
         if (!_taskQueue->empty()) {
             _memManHandleToUnlock = task->getMemHandle();
-            LOGS(_log, LOG_LVL_DEBUG, "setting handleToUnlock handle=" << _memManHandleToUnlock);
+            LOGS(_log, LOG_LVL_TRACE, "setting handleToUnlock handle=" << _memManHandleToUnlock);
         } else {
-            LOGS(_log, LOG_LVL_DEBUG,
+            LOGS(_log, LOG_LVL_TRACE,
                  "ScanScheduler::commandFinish unlocking handle=" << task->getMemHandle());
             _memMan->unlock(task->getMemHandle());  // Nothing on the queue, no reason to wait.
         }
 
         _decrChunkTaskCount(task->getChunkId());
     }
-    LOGS(_log, LOG_LVL_DEBUG, "tskEnd chunk=" << task->getChunkId() << " " << task->getIdStr());
+    LOGS(_log, LOG_LVL_TRACE, "tskEnd chunk=" << task->getChunkId() << " " << task->getIdStr());
     // Whenever a Task finishes, sleeping threads need to check if resources
     // are available to run new Tasks.
     _cv.notify_one();
@@ -142,7 +145,7 @@ bool ScanScheduler::_ready() {
     if (_infoChanged) {
         _infoChanged = false;
         logStuff = true;
-        LOGS(_log, LOG_LVL_DEBUG,
+        LOGS(_log, LOG_LVL_TRACE,
              getName() << " ScanScheduler::_ready "
                        << " inFlight=" << _inFlight << " maxThreads=" << _maxThreads
                        << " adj=" << _maxThreadsAdj << " activeChunks=" << getActiveChunkCount()
@@ -150,7 +153,7 @@ bool ScanScheduler::_ready() {
     }
     if (_inFlight >= maxInFlight()) {
         if (logStuff) {
-            LOGS(_log, LOG_LVL_DEBUG, getName() << " ScanScheduler::_ready too many in flight " << _inFlight);
+            LOGS(_log, LOG_LVL_TRACE, getName() << " ScanScheduler::_ready too many in flight " << _inFlight);
         }
         return false;
     }
@@ -162,7 +165,7 @@ bool ScanScheduler::_ready() {
     // If ready failed, holding on to this is unlikely to help, otherwise the new Task now has its own handle
     // which and will keep needed files in memory.
     if (_memManHandleToUnlock != memman::MemMan::HandleType::INVALID) {
-        LOGS(_log, LOG_LVL_DEBUG,
+        LOGS(_log, LOG_LVL_TRACE,
              "ScanScheduler::_ready unlocking handle="
                      << _memManHandleToUnlock << " "
                      << _memMan->getStatus(_memManHandleToUnlock).logString());
@@ -198,7 +201,7 @@ util::Command::Ptr ScanScheduler::getCmd(bool wait) {
     if (task != nullptr) {
         ++_inFlight;  // in flight as soon as it is off the queue.
         QSERV_LOGCONTEXT_QUERY_JOB(task->getQueryId(), task->getJobId());
-        LOGS(_log, LOG_LVL_DEBUG,
+        LOGS(_log, LOG_LVL_TRACE,
              "getCmd " << getName() << " tskStart chunk=" << task->getChunkId() << " tid=" << task->getIdStr()
                        << " inflight=" << _inFlight << _taskQueue->queueInfo());
         _infoChanged = true;
@@ -224,37 +227,35 @@ void ScanScheduler::queCmd(vector<util::Command::Ptr> const& cmds) {
     int jid = 0;
     // Convert to a vector of tasks
     for (auto const& cmd : cmds) {
-        wbase::Task::Ptr t = dynamic_pointer_cast<wbase::Task>(cmd);
-        if (t == nullptr) {
+        wbase::Task::Ptr tsk = dynamic_pointer_cast<wbase::Task>(cmd);
+        if (tsk == nullptr) {
             throw util::Bug(ERR_LOC, getName() + " queCmd could not be converted to Task or was nullptr");
         }
         if (first) {
             first = false;
-            qid = t->getQueryId();
-            jid = t->getJobId();
+            qid = tsk->getQueryId();
+            jid = tsk->getJobId();
             QSERV_LOGCONTEXT_QUERY_JOB(qid, jid);
         } else {
-            if (qid != t->getQueryId() || jid != t->getJobId()) {
-                LOGS(_log, LOG_LVL_ERROR,
-                     " mismatch multiple query/job ids in single queCmd "
-                             << " expected QID=" << qid << " got=" << t->getQueryId()
-                             << " expected JID=" << jid << " got=" << t->getJobId());
+            if (qid != tsk->getQueryId()) {
+                string eMsg("Mismatch multiple query/job ids in single queCmd ");
+                eMsg += " expected QID=" + to_string(qid) + " got=" + to_string(tsk->getQueryId());
+                eMsg += " expected JID=" + to_string(qid) + " got=" + to_string(tsk->getJobId());
+                LOGS(_log, LOG_LVL_ERROR, eMsg);
                 // This could cause difficult to detect problems later on.
-                throw util::Bug(ERR_LOC, "Mismatch multiple query/job ids in single queCmd");
+                throw util::Bug(ERR_LOC, eMsg);
                 return;
             }
         }
-        t->setMemMan(_memMan);
-        tasks.push_back(t);
-        LOGS(_log, LOG_LVL_INFO, getName() << " queCmd " << t->getIdStr());
+        tsk->setMemMan(_memMan);
+        tasks.push_back(tsk);
+        LOGS(_log, LOG_LVL_TRACE, getName() << " queCmd " << tsk->getIdStr());
     }
     // Queue the tasks
     {
         lock_guard<mutex> lock(util::CommandQueue::_mx);
         auto uqCount = _incrCountForUserQuery(qid, tasks.size());
-        LOGS(_log, LOG_LVL_DEBUG,
-             getName() << " queCmd "
-                       << " uqCount=" << uqCount);
+        LOGS(_log, LOG_LVL_TRACE, getName() << " queCmd " << " uqCount=" << uqCount);
         _taskQueue->queueTask(tasks);
         _infoChanged = true;
     }
@@ -320,7 +321,7 @@ bool ScanScheduler::removeTask(wbase::Task::Ptr const& task, bool removeRunning)
 }
 
 void ScanScheduler::logMemManStats() {
-    LOGS(_log, LOG_LVL_DEBUG, "Scan " << _memMan->getStatistics().logString());
+    LOGS(_log, LOG_LVL_TRACE, "Scan " << _memMan->getStatistics().logString());
 }
 
 }  // namespace lsst::qserv::wsched

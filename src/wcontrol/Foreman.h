@@ -39,8 +39,8 @@
 #include "mysql/MySqlConfig.h"
 #include "util/EventThread.h"
 #include "util/HoldTrack.h"
+#include "util/QdispPool.h"
 #include "wbase/Base.h"
-#include "wbase/MsgProcessor.h"
 #include "wbase/Task.h"
 
 // Forward declarations
@@ -50,6 +50,7 @@ struct TaskSelector;
 }  // namespace lsst::qserv::wbase
 
 namespace lsst::qserv::wcontrol {
+class WCzarInfoMap;
 class ResourceMonitor;
 class SqlConnMgr;
 }  // namespace lsst::qserv::wcontrol
@@ -66,9 +67,14 @@ class QueryRunner;
 namespace lsst::qserv::wpublish {
 class ChunkInventory;
 class QueriesAndChunks;
+class QueryStatistics;
 }  // namespace lsst::qserv::wpublish
 
 // This header declarations
+
+namespace lsst::qserv::wsched {
+class BlendScheduler;
+}
 
 namespace lsst::qserv::wcontrol {
 
@@ -95,8 +101,12 @@ public:
 /// Foreman is used to maintain a thread pool and schedule Tasks for the thread pool.
 /// It also manages sub-chunk tables with the ChunkResourceMgr.
 /// The schedulers may limit the number of threads they will use from the thread pool.
-class Foreman : public wbase::MsgProcessor {
+class Foreman {
 public:
+    using Ptr = std::shared_ptr<Foreman>;
+
+    static Ptr getForeman() { return _globalForeman; }
+
     /**
      * @param scheduler              - pointer to the scheduler
      * @param poolSize               - size of the thread pool
@@ -105,12 +115,14 @@ public:
      * @param chunkInventory         - a collection of the SSI resources published by the worker
      * @param sqlConnMgr             - for limiting the number of MySQL connections used for tasks
      */
-    Foreman(Scheduler::Ptr const& scheduler, unsigned int poolSize, unsigned int maxPoolThreads,
-            mysql::MySqlConfig const& mySqlConfig, std::shared_ptr<wpublish::QueriesAndChunks> const& queries,
-            std::shared_ptr<wpublish::ChunkInventory> const& chunkInventory,
-            std::shared_ptr<SqlConnMgr> const& sqlConnMgr);
+    static Ptr create(std::shared_ptr<wsched::BlendScheduler> const& scheduler, unsigned int poolSize,
+                      unsigned int maxPoolThreads, mysql::MySqlConfig const& mySqlConfig,
+                      std::shared_ptr<wpublish::QueriesAndChunks> const& queries,
+                      std::shared_ptr<wpublish::ChunkInventory> const& chunkInventory,
+                      std::shared_ptr<SqlConnMgr> const& sqlConnMgr, int qPoolSize, int maxPriority,
+                      std::string const& vectRunSizesStr, std::string const& vectMinRunningSizesStr);
 
-    virtual ~Foreman() override;
+    ~Foreman();
 
     // This class doesn't have the default construction or copy semantics
     Foreman() = delete;
@@ -127,22 +139,40 @@ public:
     uint16_t httpPort() const;
 
     /// Process a group of query processing tasks.
-    /// @see MsgProcessor::processTasks()
-    void processTasks(std::vector<std::shared_ptr<wbase::Task>> const& tasks) override;
+    void processTasks(std::vector<std::shared_ptr<wbase::Task>> const& tasks);
 
     /// Implement the corresponding method of the base class
-    /// @see MsgProcessor::processCommand()
-    void processCommand(std::shared_ptr<wbase::WorkerCommand> const& command) override;
+    nlohmann::json statusToJson(wbase::TaskSelector const& taskSelector);
 
-    /// Implement the corresponding method of the base class
-    /// @see MsgProcessor::statusToJson()
-    virtual nlohmann::json statusToJson(wbase::TaskSelector const& taskSelector) override;
+    uint64_t getWorkerStartupTime() const { return _workerStartupTime; }
+
+    std::shared_ptr<util::QdispPool> getWPool() const { return _wPool; }
+
+    std::shared_ptr<wcontrol::WCzarInfoMap> getWCzarInfoMap() const { return _wCzarInfoMap; }
+
+    std::shared_ptr<wpublish::QueriesAndChunks> getQueriesAndChunks() const { return _queries; }
+
+    std::shared_ptr<wsched::BlendScheduler> getScheduler() const { return _scheduler; }
+
+    /// Return the fqdn for this worker.
+    std::string getFqdn() const { return _fqdn; }
 
 private:
+    Foreman(std::shared_ptr<wsched::BlendScheduler> const& scheduler, unsigned int poolSize,
+            unsigned int maxPoolThreads, mysql::MySqlConfig const& mySqlConfig,
+            std::shared_ptr<wpublish::QueriesAndChunks> const& queries,
+            std::shared_ptr<wpublish::ChunkInventory> const& chunkInventory,
+            std::shared_ptr<SqlConnMgr> const& sqlConnMgr, int qPoolSize, int maxPriority,
+            std::string const& vectRunSizesStr, std::string const& vectMinRunningSizesStr);
+
+    /// Startup time of worker, sent to czars so they can detect that the worker was
+    /// was restarted when this value changes.
+    uint64_t const _workerStartupTime = millisecSinceEpoch(CLOCK::now());
+
     std::shared_ptr<wdb::ChunkResourceMgr> _chunkResourceMgr;
 
     util::ThreadPool::Ptr _pool;
-    Scheduler::Ptr _scheduler;
+    std::shared_ptr<wsched::BlendScheduler> _scheduler;
 
     util::CommandQueue::Ptr _workerCommandQueue;  ///< dedicated queue for the worker commands
     util::ThreadPool::Ptr _workerCommandPool;     ///< dedicated pool for executing worker commands
@@ -165,6 +195,22 @@ private:
 
     /// The HTTP server for serving/managing result files
     std::shared_ptr<qhttp::Server> const _httpServer;
+
+    /// Combined priority queue and thread pool for communicating with czars.
+    /// TODO:UJ - It would be better to have a pool for each czar as it
+    ///           may be possible for a czar to have communications
+    ///           problems in a way that would wedge the pool. This can
+    ///           probably be done fairly easily by having pools
+    ///           attached to wcontrol::WCzarInfoMap.
+    std::shared_ptr<util::QdispPool> _wPool;
+
+    /// Map of czar information for all czars that have contacted this worker.
+    std::shared_ptr<wcontrol::WCzarInfoMap> const _wCzarInfoMap;
+
+    /// FQDN for this worker.
+    std::string const _fqdn;
+
+    static Ptr _globalForeman;  ///< Pointer to the global instance.
 };
 
 }  // namespace lsst::qserv::wcontrol

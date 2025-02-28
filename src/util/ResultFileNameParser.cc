@@ -46,16 +46,13 @@ ResultFileNameParser::ResultFileNameParser(string const& filePath)
 }
 
 json ResultFileNameParser::toJson() const {
-    return json::object({{"czar_id", czarId},
-                         {"query_id", queryId},
-                         {"job_id", jobId},
-                         {"chunk_id", chunkId},
-                         {"attemptcount", attemptCount}});
+    return json::object(
+            {{"czar_id", czarId}, {"query_id", queryId}, {"job_id", jobId}, {"chunk_id", chunkId}});
 }
 
 bool ResultFileNameParser::operator==(ResultFileNameParser const& rhs) const {
     return (czarId == rhs.czarId) && (queryId == rhs.queryId) && (jobId == rhs.jobId) &&
-           (chunkId == rhs.chunkId) && (attemptCount == rhs.attemptCount);
+           (chunkId == rhs.chunkId);
 }
 
 ostream& operator<<(ostream& os, ResultFileNameParser const& parser) {
@@ -69,7 +66,7 @@ string ResultFileNameParser::_context(string const& func) {
 
 void ResultFileNameParser::_parse() {
     _taskAttributes = String::parseToVectUInt64(_fileName, "-");
-    if (_taskAttributes.size() != 5) {
+    if (_taskAttributes.size() != 4) {
         throw invalid_argument(_context(__func__) + " not a valid result file name: " + _fileName);
     }
     size_t attrIndex = 0;
@@ -77,7 +74,6 @@ void ResultFileNameParser::_parse() {
     _validateAndStoreAttr(attrIndex++, "queryId", queryId);
     _validateAndStoreAttr(attrIndex++, "jobId", jobId);
     _validateAndStoreAttr(attrIndex++, "chunkId", chunkId);
-    _validateAndStoreAttr(attrIndex++, "attemptCount", attemptCount);
 }
 
 }  // namespace lsst::qserv::util

@@ -38,7 +38,7 @@ namespace lsst::qserv::qmeta {
  */
 
 /// Typedef for Czar ID in query metadata.
-typedef std::uint32_t CzarId;
+typedef CzarIdType CzarId;  // uint32_t  TODO:UJ Replace qmeta::CzarId with global
 
 }  // namespace lsst::qserv::qmeta
 

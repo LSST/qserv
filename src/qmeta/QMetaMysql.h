@@ -23,6 +23,7 @@
 #define LSST_QSERV_QMETA_QMETAMYSQL_H
 
 // System headers
+#include <chrono>
 #include <map>
 #include <mutex>
 
@@ -40,11 +41,12 @@ class SqlConnection;
 
 namespace lsst::qserv::qmeta {
 
+class QueryMessage;
+
 /// @addtogroup qmeta
 
 /**
  *  @ingroup qmeta
- *
  *  @brief Mysql-based implementation of qserv metadata.
  */
 
@@ -261,7 +263,11 @@ public:
     void saveResultQuery(QueryId queryId, std::string const& query) override;
 
     /// @see QMeta::addQueryMessages()
-    void addQueryMessages(QueryId queryId, std::shared_ptr<qdisp::MessageStore> const& msgStore) override;
+    void addQueryMessages(QueryId queryId, std::shared_ptr<qmeta::MessageStore> const& msgStore) override;
+
+    /// @see QMeta::getChunkMap
+    QMetaChunkMap getChunkMap(std::chrono::time_point<std::chrono::system_clock> const& prevUpdateTime =
+                                      std::chrono::time_point<std::chrono::system_clock>()) override;
 
 protected:
     ///  Check that all necessary tables exist
@@ -277,8 +283,20 @@ protected:
     };
 
 private:
+    /**
+     * Read the last update time of the chunk map.
+     * @param A lock acquired on the mutex _dbMutex.
+     * @return The update time
+     * @throw EmptyTableError If the corrresponding table is epty
+     * @throw SqlError For any SQL-specific error
+     * @throw ConsistencyError For any problem met when parsing or interpreting results read
+     *   from the table.
+     */
+    std::chrono::time_point<std::chrono::system_clock> _getChunkMapUpdateTime(
+            std::lock_guard<std::mutex> const& lock);
+
     /// Add qMsg to the permanent message table.
-    void _addQueryMessage(QueryId queryId, qdisp::QueryMessage const& qMsg, int& cancelCount,
+    void _addQueryMessage(QueryId queryId, qmeta::QueryMessage const& qMsg, int& cancelCount,
                           int& completeCount, int& execFailCount,
                           std::map<std::string, ManyMsg>& msgCountMap);
 

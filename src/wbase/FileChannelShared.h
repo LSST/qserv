@@ -57,6 +57,7 @@ class MultiError;
 }  // namespace lsst::qserv::util
 
 namespace lsst::qserv::wbase {
+class UberJobData;
 
 /// The class is responsible for writing mysql result rows as Protobuf
 /// serialized messages into an output file. Once a task (or all sub-chunk
@@ -119,6 +120,11 @@ public:
     static Ptr create(std::shared_ptr<wbase::SendChannel> const& sendChannel, qmeta::CzarId czarId,
                       std::string const& workerId = std::string());
 
+    /// The factory method for handling UberJob over http.
+    static Ptr create(std::shared_ptr<wbase::UberJobData> const& uberJob, qmeta::CzarId czarId,
+                      std::string const& czarHostName, int czarPort,
+                      std::string const& workerId);  // TODO:UJ delete all params except uberJob
+
     FileChannelShared() = delete;
     FileChannelShared(FileChannelShared const&) = delete;
     FileChannelShared& operator=(FileChannelShared const&) = delete;
@@ -133,7 +139,9 @@ public:
     int getTaskCount() const { return _taskCount; }
 
     /// @return true if this is the last task to call this
-    bool transmitTaskLast();
+    /// @param rowLimitComplete - true means enough rows for the result are
+    ///       already in the file, so other tasks can be ignored.
+    bool transmitTaskLast(bool rowLimitComplete);
 
     /// Return a normalized id string.
     static std::string makeIdStr(int qId, int jId);
@@ -150,8 +158,8 @@ public:
     /// @return true if this is the first time this function has been called.
     bool getFirstChannelSqlConn() { return _firstChannelSqlConn.exchange(false); }
 
-    /// @return a transmit data object indicating the errors in 'multiErr'.
-    bool buildAndTransmitError(util::MultiError& multiErr, std::shared_ptr<Task> const& task, bool cancelled);
+    /// Build and transmit a transmit data object indicating the errors in 'multiErr'.
+    void buildAndTransmitError(util::MultiError& multiErr, std::shared_ptr<Task> const& task, bool cancelled);
 
     /// Extract the SQL results and write them into the file and notify Czar after the last
     /// row of the result result set depending on theis channel has been processed.
@@ -163,12 +171,21 @@ public:
     bool kill(std::string const& note);
 
     /// @see wbase::SendChannel::isDead
-    bool isDead();
+    bool isDead() const;
+
+    /// Return true if there are enough rows in this result file to satisfy the
+    ///    LIMIT portion of the query.
+    /// @See _rowLimitComplete
+    bool isRowLimitComplete() const;
 
 private:
-    /// Private constructor to protect shared pointer integrity.
+    /// TODO:UJ delete sendchannel version of constructor when possible.
     FileChannelShared(std::shared_ptr<wbase::SendChannel> const& sendChannel, qmeta::CzarId czarId,
                       std::string const& workerId);
+
+    /// Private constructor to protect shared pointer integrity.
+    FileChannelShared(std::shared_ptr<wbase::UberJobData> const& uberJob, qmeta::CzarId czarId,
+                      std::string const& czarHostName, int czarPort, std::string const& workerId);
 
     /// @see wbase::SendChannel::kill
     /// @param streamMutexLock - Lock on mutex _streamMutex to be acquired before calling the method.
@@ -223,16 +240,24 @@ private:
      * @param task - a task that produced the result set
      * @param cancelled - request cancellaton flag (if any)
      * @param multiErr - a collector of any errors that were captured during result set processing
+     * @param mustSend - set to true if this message should be sent even if the query was cancelled.
      * @return 'true' if the operation was successfull
      */
     bool _sendResponse(std::lock_guard<std::mutex> const& tMtxLock, std::shared_ptr<Task> const& task,
-                       bool cancelled, util::MultiError const& multiErr);
+                       bool cancelled, util::MultiError const& multiErr, bool mustSend = false);
 
     mutable std::mutex _tMtx;  ///< Protects data recording and Czar notification
 
+    bool _isUberJob;  ///< true if this is using UberJob http. To be removed when _sendChannel goes away.
+
     std::shared_ptr<wbase::SendChannel> const _sendChannel;  ///< Used to pass encoded information to XrdSsi.
-    qmeta::CzarId const _czarId;                             ///< id of the czar that requested this task(s).
-    std::string const _workerId;                             ///< The unique identifier of the worker.
+    std::shared_ptr<UberJobData> _uberJobData;               ///< Contains czar contact info.
+
+    UberJobId const _uberJobId;       ///< The UberJobId
+    qmeta::CzarId const _czarId;      ///< id of the czar that requested this task(s). TODO:UJ delete
+    std::string const _czarHostName;  ///< Name of the czar host. TODO:UJ delete
+    int const _czarPort;              ///< port for the czar. TODO:UJ delete
+    std::string const _workerId;      ///< The unique identifier of the worker. TODO:UJ delete
 
     // Allocatons/deletion of the data messages are managed by Google Protobuf Arena.
     std::unique_ptr<google::protobuf::Arena> _protobufArena;
@@ -270,8 +295,18 @@ private:
     // Counters reported to Czar in the only ("summary") message sent upon the completion
     // of all tasks of a query.
 
-    uint32_t _rowcount = 0;      ///< The total numnber of rows in all result sets of a query.
+    int64_t _rowcount = 0;       ///< The total numnber of rows in all result sets of a query.
     uint64_t _transmitsize = 0;  ///< The total amount of data (bytes) in all result sets of a query.
+    uint64_t _headerCount = 0;   ///< Count of headers received.
+
+    /// _rowLimitComplete indicates that there is a LIMIT clause in the user query that
+    /// can be applied to the queries given to workers. It's important to apply it
+    /// when possible as an UberJob could have 1000 chunks and a LIMIT of 1, and it's
+    /// much faster to answer the query without scanning all 1000 chunks.
+    std::atomic<bool> _rowLimitComplete;
+    std::atomic<bool> _dead{false};  ///< Set to true when the contents of the file are no longer useful.
+
+    std::atomic<uint64_t> _bytesWritten{0};  ///< Total bytes written.
 };
 
 }  // namespace lsst::qserv::wbase

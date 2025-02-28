@@ -95,12 +95,14 @@ void BaseModule::checkApiVersion(string const& func, unsigned int minVersion, st
 void BaseModule::enforceInstanceId(string const& func, string const& requiredInstanceId) const {
     string const instanceId = method() == "GET" ? query().requiredString("instance_id")
                                                 : body().required<string>("instance_id");
-    debug(func, "instance_id: " + instanceId);
+    trace(func, "instance_id: " + instanceId);
     if (instanceId != requiredInstanceId) {
         throw invalid_argument(context() + func + " Qserv instance identifier mismatch. Client sent '" +
                                instanceId + "' instead of '" + requiredInstanceId + "'.");
     }
 }
+
+void BaseModule::trace(string const& msg) const { LOGS(_log, LOG_LVL_TRACE, context() << msg); }
 
 void BaseModule::info(string const& msg) const { LOGS(_log, LOG_LVL_INFO, context() << msg); }
 

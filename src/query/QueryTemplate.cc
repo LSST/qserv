@@ -43,6 +43,8 @@
 #include "query/ColumnRef.h"
 #include "query/TableRef.h"
 
+using namespace std;
+
 namespace lsst::qserv::query {
 
 ////////////////////////////////////////////////////////////////////////
@@ -202,6 +204,20 @@ QueryTemplate::GetAliasMode QueryTemplate::getTableAliasMode() const {
     }
     throw std::runtime_error("Unexpected function exit.");
     return DONT_USE;  // should never get here but to satisfy the compiler.
+}
+
+string QueryTemplate::dump() const {
+    ostringstream os;
+    os << "QueryTemplate quoteIdents=" << _quoteIdentifiers;
+    os << " useColOnly=" << _useColumnOnly;
+    os << " aliasMode=" << _aliasMode;
+    os << " entries={";
+    for (auto const& entry : _entries) {
+        os << "(dynamic=" << entry->isDynamic();
+        os << ":val=" << entry->getValue() << ")";
+    }
+    os << "}";
+    return os.str();
 }
 
 }  // namespace lsst::qserv::query

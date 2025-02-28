@@ -48,32 +48,11 @@
 #include "util/Bug.h"
 #include "util/IterableFormatter.h"
 #include "wbase/Base.h"
-#include "wdb/QuerySql.h"
 
 namespace {
 
 LOG_LOGGER _log = LOG_GET("lsst.qserv.wdb.ChunkResource");
 
-template <typename T>
-class ScScriptBuilder {
-public:
-    ScScriptBuilder(lsst::qserv::wdb::QuerySql& qSql_, std::string const& db, std::string const& table,
-                    std::string const& scColumn, int chunkId)
-            : qSql(qSql_) {
-        buildT = (boost::format(lsst::qserv::wbase::CREATE_SUBCHUNK_SCRIPT) % db % table % scColumn %
-                  chunkId % "%1%")
-                         .str();
-        cleanT = (boost::format(lsst::qserv::wbase::CLEANUP_SUBCHUNK_SCRIPT) % db % table % chunkId % "%1%")
-                         .str();
-    }
-    void operator()(T const& subc) {
-        qSql.buildList.push_back((boost::format(buildT) % subc).str());
-        qSql.cleanupList.push_back((boost::format(cleanT) % subc).str());
-    }
-    std::string buildT;
-    std::string cleanT;
-    lsst::qserv::wdb::QuerySql& qSql;
-};
 }  // anonymous namespace
 
 namespace lsst::qserv::wdb {
@@ -105,7 +84,7 @@ std::ostream& operator<<(std::ostream& os, ChunkResource::Info const& i) {
 ChunkResource::ChunkResource(ChunkResourceMgr* mgr) : _mgr{mgr} {}
 
 ChunkResource::ChunkResource(ChunkResourceMgr* mgr, ChunkResource::Info* info) : _mgr{mgr}, _info{info} {
-    LOGS(_log, LOG_LVL_DEBUG, "ChunkResource info=" << *info);
+    LOGS(_log, LOG_LVL_TRACE, "ChunkResource info=" << *info);
     _mgr->acquireUnit(*_info);
 }
 ChunkResource::ChunkResource(ChunkResource const& cr) : _mgr{cr._mgr}, _info{new Info(*cr._info)} {
@@ -178,8 +157,8 @@ public:
         std::lock_guard<std::mutex> lock(_mutex);
         backend->memLockRequireOwnership();
         ++_refCount;  // Increase usage count
-        LOGS(_log, LOG_LVL_DEBUG,
-             "SubChunk acquire refC=" << _refCount << " db=" << db << " tables["
+        LOGS(_log, LOG_LVL_TRACE,
+             "Subchunk acquire refC=" << _refCount << " db=" << db << " tables["
                                       << util::printable(dbTableSet) << "]"
                                       << " sc[" << util::printable(sc) << "]");
         for (auto const& dbTbl : dbTableSet) {
@@ -215,7 +194,7 @@ public:
         std::lock_guard<std::mutex> lock(_mutex);
         backend->memLockRequireOwnership();
         StringVector::const_iterator ti, te;
-        LOGS(_log, LOG_LVL_DEBUG,
+        LOGS(_log, LOG_LVL_TRACE,
              "SubChunk release refC=" << _refCount << " db=" << db << " dbTableSet["
                                       << util::printable(dbTableSet) << "]"
                                       << " sc[" << util::printable(sc) << "]");
@@ -296,7 +275,7 @@ ChunkResourceMgr::Ptr ChunkResourceMgr::newMgr(SQLBackend::Ptr const& backend) {
 
 ChunkResource ChunkResourceMgr::acquire(std::string const& db, int chunkId, DbTableSet const& tables) {
     // Make sure that the chunk is ready. (NOP right now.)
-    LOGS(_log, LOG_LVL_DEBUG,
+    LOGS(_log, LOG_LVL_TRACE,
          "acquire db=" << db << " chunkId=" << chunkId << " tables=" << util::printable(tables));
     ChunkResource cr(this, new ChunkResource::Info(db, chunkId, tables));
     return cr;
@@ -320,7 +299,7 @@ void ChunkResourceMgr::acquireUnit(ChunkResource::Info const& i) {
     Map& map = _getMap(i.db);  // Select db
     ChunkEntry& ce = _getChunkEntry(map, i.chunkId);
     // Actually acquire
-    LOGS(_log, LOG_LVL_DEBUG, "acquireUnit info=" << i);
+    LOGS(_log, LOG_LVL_TRACE, "acquireUnit info=" << i);
     ce.acquire(i.db, i.tables, i.subChunkIds, _backend);
 }
 

@@ -44,7 +44,15 @@
 namespace {  // File-scope helpers
 /// A "good" number of subchunks to include in a chunk query.  This is
 /// a guess. The best value is an open question
-int const GOOD_SUBCHUNK_COUNT = 20;
+// TODO:UJ `ChunkSpecFragmenter` has the purpose of limiting the
+//         number of subchunks per ChunkSpec (which works out to
+//         subchunkids per Job).
+//         Each subchunk gets its own task on the worker, so this
+//         is probably no longer helpful. Making the limit absurdly
+//         high should have the effect of disabling the code
+//         while checking if there are unexpected side effects.
+// int const GOOD_SUBCHUNK_COUNT = 20;
+int const GOOD_SUBCHUNK_COUNT = 2'000'000;
 }  // namespace
 
 namespace lsst::qserv::qproc {

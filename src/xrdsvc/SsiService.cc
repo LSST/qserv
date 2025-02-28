@@ -70,7 +70,6 @@
 #include "wsched/GroupScheduler.h"
 #include "wsched/ScanScheduler.h"
 #include "xrdsvc/HttpSvc.h"
-#include "xrdsvc/SsiRequest.h"
 #include "xrdsvc/XrdName.h"
 
 using namespace lsst::qserv;
@@ -178,9 +177,6 @@ SsiService::SsiService(XrdSsiLogger* log) {
         throw wconfig::WorkerConfigError("Unrecognized memory manager.");
     }
 
-    int64_t bufferMaxTotalBytes = workerConfig->getBufferMaxTotalGB() * 1'000'000'000LL;
-    StreamBuffer::setMaxTotalBytes(bufferMaxTotalBytes);
-
     // Set thread pool size.
     unsigned int poolSize = ranges::max({wsched::BlendScheduler::getMinPoolSize(),
                                          workerConfig->getThreadPoolSize(), thread::hardware_concurrency()});
@@ -194,11 +190,11 @@ SsiService::SsiService(XrdSsiLogger* log) {
                                                      workerConfig->getMaxGroupSize(),
                                                      wsched::SchedulerBase::getMaxPriority());
 
-    int const fastest = lsst::qserv::proto::ScanInfo::Rating::FASTEST;
-    int const fast = lsst::qserv::proto::ScanInfo::Rating::FAST;
-    int const medium = lsst::qserv::proto::ScanInfo::Rating::MEDIUM;
-    int const slow = lsst::qserv::proto::ScanInfo::Rating::SLOW;
-    int const slowest = lsst::qserv::proto::ScanInfo::Rating::SLOWEST;
+    int const fastest = lsst::qserv::protojson::ScanInfo::Rating::FASTEST;
+    int const fast = lsst::qserv::protojson::ScanInfo::Rating::FAST;
+    int const medium = lsst::qserv::protojson::ScanInfo::Rating::MEDIUM;
+    int const slow = lsst::qserv::protojson::ScanInfo::Rating::SLOW;
+    int const slowest = lsst::qserv::protojson::ScanInfo::Rating::SLOWEST;
     double fastScanMaxMinutes = (double)workerConfig->getScanMaxMinutesFast();
     double medScanMaxMinutes = (double)workerConfig->getScanMaxMinutesMed();
     double slowScanMaxMinutes = (double)workerConfig->getScanMaxMinutesSlow();
@@ -228,7 +224,7 @@ SsiService::SsiService(XrdSsiLogger* log) {
             false);
     wsched::BlendScheduler::Ptr blendSched = make_shared<wsched::BlendScheduler>(
             "BlendSched", queries, maxThread, group, snail, scanSchedulers);
-    blendSched->setPrioritizeByInFlight(false);  // TODO: set in configuration file.
+    blendSched->setPrioritizeByInFlight(workerConfig->getPrioritizeByInFlight());
     queries->setBlendScheduler(blendSched);
 
     unsigned int requiredTasksCompleted = workerConfig->getRequiredTasksCompleted();
@@ -240,8 +236,14 @@ SsiService::SsiService(XrdSsiLogger* log) {
     LOGS(_log, LOG_LVL_WARN, "config sqlConnMgr" << *sqlConnMgr);
     LOGS(_log, LOG_LVL_WARN, "maxPoolThreads=" << maxPoolThreads);
 
-    _foreman = make_shared<wcontrol::Foreman>(blendSched, poolSize, maxPoolThreads, mySqlConfig, queries,
-                                              ::makeChunkInventory(mySqlConfig), sqlConnMgr);
+    int qPoolSize = workerConfig->getQPoolSize();
+    int maxPriority = workerConfig->getQPoolMaxPriority();
+    string vectRunSizesStr = workerConfig->getQPoolRunSizes();
+    string vectMinRunningSizesStr = workerConfig->getQPoolMinRunningSizes();
+
+    _foreman = wcontrol::Foreman::create(blendSched, poolSize, maxPoolThreads, mySqlConfig, queries,
+                                         ::makeChunkInventory(mySqlConfig), sqlConnMgr, qPoolSize,
+                                         maxPriority, vectRunSizesStr, vectMinRunningSizesStr);
 
     // Watch to see if the log configuration is changed.
     // If LSST_LOG_CONFIG is not defined, there's no good way to know what log
@@ -266,7 +268,8 @@ SsiService::SsiService(XrdSsiLogger* log) {
     // by the Replication System. Update the port number in the configuration
     // in case if the server is run on the dynamically allocated port.
     _controlHttpSvc = HttpSvc::create(_foreman, workerConfig->replicationHttpPort(),
-                                      workerConfig->replicationNumHttpThreads());
+                                      workerConfig->getCzarComNumHttpThreads());
+
     auto const port = _controlHttpSvc->start();
     workerConfig->setReplicationHttpPort(port);
 
@@ -282,13 +285,7 @@ SsiService::~SsiService() {
 }
 
 void SsiService::ProcessRequest(XrdSsiRequest& reqRef, XrdSsiResource& resRef) {
-    LOGS(_log, LOG_LVL_DEBUG, "Got request call where rName is: " << resRef.rName);
-    auto request = SsiRequest::newSsiRequest(resRef.rName, _foreman);
-
-    // Continue execution in the session object as SSI gave us a new thread.
-    // Object deletes itself when finished is called.
-    //
-    request->execute(reqRef);
+    LOGS(_log, LOG_LVL_ERROR, "SsiService::ProcessRequest got called");
 }
 
 }  // namespace lsst::qserv::xrdsvc

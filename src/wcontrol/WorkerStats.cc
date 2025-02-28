@@ -45,10 +45,10 @@ LOG_LOGGER _log = LOG_GET("lsst.qserv.wcontrol.WorkerStats");
 namespace lsst::qserv::wcontrol {
 
 WorkerStats::Ptr WorkerStats::_globalWorkerStats;
-util::Mutex WorkerStats::_globalMtx;
+MUTEX WorkerStats::_globalMtx;
 
 void WorkerStats::setup() {
-    lock_guard<util::Mutex> lg(_globalMtx);
+    lock_guard lg(_globalMtx);
     if (_globalWorkerStats != nullptr) {
         throw util::Bug(ERR_LOC, "Error WorkerStats::setup called after global pointer set.");
     }
@@ -70,7 +70,7 @@ WorkerStats::WorkerStats() {
 }
 
 WorkerStats::Ptr WorkerStats::get() {
-    std::lock_guard<util::Mutex> lg(_globalMtx);
+    std::lock_guard lg(_globalMtx);
     if (_globalWorkerStats == nullptr) {
         throw util::Bug(ERR_LOC, "Error CzarStats::get called before CzarStats::setup.");
     }

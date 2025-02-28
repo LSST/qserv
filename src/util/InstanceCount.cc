@@ -8,6 +8,8 @@
 // LSST headers
 #include "lsst/log/Log.h"
 
+using namespace std;
+
 namespace {  // File-scope helpers
 
 LOG_LOGGER _log = LOG_GET("lsst.qserv.util.InstanceCount");
@@ -31,17 +33,21 @@ void InstanceCount::_increment(std::string const& source) {
     auto ret = _instances.insert(entry);
     auto iter = ret.first;
     iter->second += 1;
-    LOGS(_log, LOG_LVL_WARN,
-         "InstanceCount " << source << " " << iter->first << "=" << iter->second);  // LockupDB INFO
+    LOGS(_log, LOG_LVL_TRACE, "InstanceCount " << source << " " << iter->first << "=" << iter->second);
 }
+
+uint16_t instanceDestructLogLimiter = 0;
 
 InstanceCount::~InstanceCount() {
     std::lock_guard<std::recursive_mutex> lg(_mx);
+    ++instanceDestructLogLimiter;
     auto iter = _instances.find(_className);
     if (iter != _instances.end()) {
         iter->second -= 1;
-        LOGS(_log, LOG_LVL_WARN,
-             "~InstanceCount " << iter->first << "=" << iter->second << " : " << *this);  // LockupDB INFO
+        LOGS(_log, LOG_LVL_TRACE, "~InstanceCount " << iter->first << "=" << iter->second << " : " << *this);
+        if (instanceDestructLogLimiter % 1000 == 0) {
+            LOGS(_log, LOG_LVL_DEBUG, "~InstanceCount brief " << *this);
+        }
         if (iter->second == 0) {
             _instances.erase(_className);
         }

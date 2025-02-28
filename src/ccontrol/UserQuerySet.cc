@@ -22,11 +22,11 @@
 #include "UserQuerySet.h"
 
 // Qserv headers
-#include "qdisp/MessageStore.h"
+#include "qmeta/MessageStore.h"
 
 namespace lsst::qserv::ccontrol {
 
 UserQuerySet::UserQuerySet(std::string const& varName, std::string const& varValue)
-        : _varName(varName), _varValue(varValue), _messageStore(std::make_shared<qdisp::MessageStore>()) {}
+        : _varName(varName), _varValue(varValue), _messageStore(std::make_shared<qmeta::MessageStore>()) {}
 
 }  // namespace lsst::qserv::ccontrol

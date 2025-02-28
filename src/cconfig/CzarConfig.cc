@@ -62,10 +62,9 @@ namespace lsst::qserv::cconfig {
 
 std::mutex CzarConfig::_mtxOnInstance;
 
-std::shared_ptr<CzarConfig> CzarConfig::_instance;
+CzarConfig::Ptr CzarConfig::_instance;
 
-std::shared_ptr<CzarConfig> CzarConfig::create(std::string const& configFileName,
-                                               std::string const& czarName) {
+CzarConfig::Ptr CzarConfig::create(std::string const& configFileName, std::string const& czarName) {
     std::lock_guard<std::mutex> const lock(_mtxOnInstance);
     if (_instance == nullptr) {
         _instance = std::shared_ptr<CzarConfig>(new CzarConfig(util::ConfigStore(configFileName), czarName));
@@ -73,7 +72,7 @@ std::shared_ptr<CzarConfig> CzarConfig::create(std::string const& configFileName
     return _instance;
 }
 
-std::shared_ptr<CzarConfig> CzarConfig::instance() {
+CzarConfig::Ptr CzarConfig::instance() {
     std::lock_guard<std::mutex> const lock(_mtxOnInstance);
     if (_instance == nullptr) {
         throw std::logic_error("CzarConfig::" + std::string(__func__) + ": instance has not been created.");

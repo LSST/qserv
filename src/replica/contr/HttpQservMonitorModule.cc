@@ -394,10 +394,10 @@ wbase::TaskSelector HttpQservMonitorModule::_translateTaskSelector(string const&
         }
     }
     selector.maxTasks = query().optionalUInt("max_tasks", 0);
-    debug(func, "include_tasks=" + replica::bool2str(selector.includeTasks));
-    debug(func, "query_ids=" + util::String::toString(selector.queryIds));
-    debug(func, "task_states=" + util::String::toString(selector.taskStates));
-    debug(func, "max_tasks=" + to_string(selector.maxTasks));
+    trace(func, "include_tasks=" + replica::bool2str(selector.includeTasks) +
+                        " query_ids=" + util::String::toString(selector.queryIds) +
+                        " task_states=" + util::String::toString(selector.taskStates) +
+                        " max_tasks=" + to_string(selector.maxTasks));
     return selector;
 }
 

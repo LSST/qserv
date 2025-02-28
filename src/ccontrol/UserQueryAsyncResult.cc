@@ -32,9 +32,9 @@
 
 // Qserv headers
 #include "qmeta/Exceptions.h"
+#include "qmeta/JobStatus.h"
 #include "qmeta/QMeta.h"
-#include "qdisp/JobStatus.h"
-#include "qdisp/MessageStore.h"
+#include "qmeta/MessageStore.h"
 #include "sql/SqlConnection.h"
 #include "sql/SqlResults.h"
 
@@ -53,7 +53,7 @@ UserQueryAsyncResult::UserQueryAsyncResult(QueryId queryId, qmeta::CzarId qMetaC
           _qMetaCzarId(qMetaCzarId),
           _qMeta(qMeta),
           _resultDbConn(resultDbConn),
-          _messageStore(std::make_shared<qdisp::MessageStore>()) {
+          _messageStore(std::make_shared<qmeta::MessageStore>()) {
     LOGS(_log, LOG_LVL_DEBUG, "UserQueryAsyncResult: QID=" << queryId);
 
     // get query info from QMeta
@@ -85,6 +85,8 @@ void UserQueryAsyncResult::submit() {
 
     // if there are messages already it means the error was detected, stop right here
     if (_messageStore->messageCount() > 0) {
+        LOGS(_log, LOG_LVL_WARN,
+             "UserQueryAsyncResult::submit giving up, messageCount=" << _messageStore->messageCount());
         return;
     }
 
@@ -92,6 +94,7 @@ void UserQueryAsyncResult::submit() {
     if (_qInfo.czarId() != _qMetaCzarId) {
         // TODO: tell user which czar was it?
         std::string message = "Query originated from different czar";
+        LOGS(_log, LOG_LVL_WARN, "UserQueryAsyncResult::submit giving up, message=" << message);
         _messageStore->addErrorMessage("SYSTEM", message);
         return;
     }
@@ -149,8 +152,8 @@ void UserQueryAsyncResult::submit() {
             std::string sevStr = row[3].first;
             int64_t timestampMilli = boost::lexical_cast<double>(row[4].first);
             MessageSeverity sev = sevStr == "INFO" ? MSG_INFO : MSG_ERROR;
-            qdisp::JobStatus::Clock::duration duration = std::chrono::milliseconds(timestampMilli);
-            qdisp::JobStatus::TimeType timestamp(duration);
+            qmeta::JobStatus::Clock::duration duration = std::chrono::milliseconds(timestampMilli);
+            qmeta::JobStatus::TimeType timestamp(duration);
             _messageStore->addMessage(chunkId, "DUPLICATE", code, message, sev, timestamp);
         } catch (std::exception const& exc) {
             LOGS(_log, LOG_LVL_ERROR, "Error reading message table data: " << exc.what());
@@ -184,7 +187,7 @@ void UserQueryAsyncResult::kill() {}
 
 void UserQueryAsyncResult::discard() {}
 
-std::shared_ptr<qdisp::MessageStore> UserQueryAsyncResult::getMessageStore() { return _messageStore; }
+std::shared_ptr<qmeta::MessageStore> UserQueryAsyncResult::getMessageStore() { return _messageStore; }
 
 std::string UserQueryAsyncResult::getResultTableName() const {
     if (_qInfo.resultLocation().compare(0, 6, "table:") == 0) {

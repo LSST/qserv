@@ -23,6 +23,7 @@
 #define LSST_QSERV_GLOBAL_CLOCKDEFS_H
 
 // System headers
+#include <atomic>
 #include <chrono>
 #include <functional>
 #include <memory>
@@ -35,6 +36,10 @@ namespace lsst::qserv {
 
 using CLOCK = std::chrono::system_clock;
 using TIMEPOINT = std::chrono::time_point<CLOCK>;
+
+inline uint64_t millisecSinceEpoch(TIMEPOINT tm) {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(tm.time_since_epoch()).count();
+}
 
 /// RAII class to help track a changing sum through a begin and end time.
 template <typename TType>

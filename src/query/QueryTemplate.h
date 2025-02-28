@@ -208,6 +208,8 @@ public:
         return os << qt.sqlFragment();
     }
 
+    std::string dump() const;
+
 private:
     EntryPtrVector _entries;
     SetAliasMode _aliasMode{USE_ALIAS};

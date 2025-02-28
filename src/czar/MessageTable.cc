@@ -35,7 +35,7 @@
 #include "ccontrol/ConfigMap.h"
 #include "ccontrol/UserQuery.h"
 #include "czar/CzarErrors.h"
-#include "qdisp/MessageStore.h"
+#include "qmeta/MessageStore.h"
 #include "sql/SqlConnection.h"
 #include "sql/SqlConnectionFactory.h"
 
@@ -122,7 +122,7 @@ void MessageTable::_saveQueryMessages(ccontrol::UserQuery::Ptr const& userQuery)
     // Collect information about the query and put it in the message table.
     int msgCount = msgStore->messageCount();
     for (int i = 0; i != msgCount; ++i) {
-        const qdisp::QueryMessage& qm = msgStore->getMessage(i);
+        const qmeta::QueryMessage& qm = msgStore->getMessage(i);
         std::string src = qm.msgSource;
         if (src == "COMPLETE") {
             ++completeCount;

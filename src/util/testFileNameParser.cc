@@ -55,12 +55,9 @@ BOOST_AUTO_TEST_CASE(ResultFileNameParserTest) {
     fileExpected.queryId = 2;
     fileExpected.jobId = 3;
     fileExpected.chunkId = 4;
-    fileExpected.attemptCount = 5;
-
     std::string const fileNameNoExt =
             std::to_string(fileExpected.czarId) + "-" + std::to_string(fileExpected.queryId) + "-" +
-            std::to_string(fileExpected.jobId) + "-" + std::to_string(fileExpected.chunkId) + "-" +
-            std::to_string(fileExpected.attemptCount);
+            std::to_string(fileExpected.jobId) + "-" + std::to_string(fileExpected.chunkId);
 
     std::string const fileName = fileNameNoExt + util::ResultFileNameParser::fileExt;
 
@@ -71,7 +68,6 @@ BOOST_AUTO_TEST_CASE(ResultFileNameParserTest) {
         BOOST_CHECK_EQUAL(file.queryId, fileExpected.queryId);
         BOOST_CHECK_EQUAL(file.jobId, fileExpected.jobId);
         BOOST_CHECK_EQUAL(file.chunkId, fileExpected.chunkId);
-        BOOST_CHECK_EQUAL(file.attemptCount, fileExpected.attemptCount);
     });
 
     BOOST_CHECK_NO_THROW({

@@ -26,7 +26,6 @@
 
 // Qserv headers
 #include "proto/worker.pb.h"
-#include "proto/FakeProtocolFixture.h"
 
 // Boost unit test header
 #define BOOST_TEST_MODULE ProtoRowBuffer_1

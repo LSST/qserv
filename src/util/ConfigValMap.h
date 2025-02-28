@@ -50,6 +50,8 @@ class ConfigValMap;
 /// Base class for storing values, usually from configuration files, that have
 /// identifiers consisting of a `section` and a `name`.
 /// This class is meant to be used with ConfigValMap.
+/// TODO:UJ a command line argument can be added to this and if the command
+///         line argument is found, it will override the value in the file.
 class ConfigVal {
 public:
     using Ptr = std::shared_ptr<ConfigVal>;
@@ -162,11 +164,11 @@ public:
 
 protected:
     ConfigValT(std::string const& section, std::string const& name, bool required, T defVal, bool hidden)
-            : ConfigVal(section, name, required, hidden), _val(defVal) {}
+            : ConfigVal(section, name, required, hidden), _defVal(defVal), _val(_defVal) {}
 
 private:
-    T _val;     ///< Value for the item this class is storing.
-    T _defVal;  ///< Default value for the item this class is storing.
+    T const _defVal;  ///< Default value for the item this class is storing.
+    T _val;           ///< Value for the item this class is storing.
 };
 
 /// Bool is special case for json as the value should be "true" or "false" but

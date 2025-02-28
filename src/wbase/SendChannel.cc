@@ -41,7 +41,6 @@
 #include "global/LogContext.h"
 #include "util/common.h"
 #include "util/Timer.h"
-#include "xrdsvc/SsiRequest.h"
 
 namespace {
 LOG_LOGGER _log = LOG_GET("lsst.qserv.wbase.SendChannel");
@@ -61,19 +60,9 @@ public:
         cout << "NopChannel send(" << (void*)buf << ", " << bufLen << ");\n";
         return !isDead();
     }
-
-    bool sendError(string const& msg, int code) override {
-        if (kill("NopChannel")) return false;
-        cout << "NopChannel sendError(\"" << msg << "\", " << code << ");\n";
-        return true;
-    }
-    bool sendStream(xrdsvc::StreamBuffer::Ptr const& sBuf, bool last) override {
-        cout << "NopChannel sendStream(" << (void*)sBuf.get() << ", " << (last ? "true" : "false") << ");\n";
-        return !isDead();
-    }
 };
 
-SendChannel::Ptr SendChannel::newNopChannel() { return make_shared<NopChannel>(); }
+SendChannel::Ptr SendChannel::newNopChannel() { return std::shared_ptr<NopChannel>(new NopChannel()); }
 
 /// StringChannel is an almost-trivial implementation of a SendChannel that
 /// remembers what it has received.
@@ -87,46 +76,12 @@ public:
         return true;
     }
 
-    bool sendError(string const& msg, int code) override {
-        if (kill("StringChannel")) return false;
-        ostringstream os;
-        os << "(" << code << "," << msg << ")";
-        _dest.append(os.str());
-        return true;
-    }
-
-    bool sendStream(xrdsvc::StreamBuffer::Ptr const& sBuf, bool last) override {
-        if (isDead()) return false;
-        char const* buf = sBuf->data;
-        size_t bufLen = sBuf->getSize();
-        _dest.append(buf, bufLen);
-        cout << "StringChannel sendStream(" << (void*)buf << ", " << bufLen << ", "
-             << (last ? "true" : "false") << ");\n";
-        return true;
-    }
-
 private:
     string& _dest;
 };
 
-SendChannel::Ptr SendChannel::newStringChannel(string& d) { return make_shared<StringChannel>(d); }
-
-/// This is the standard definition of SendChannel which actually does something!
-/// We vector responses posted to SendChannel via the tightly bound SsiRequest
-/// object as this object knows how to effect Ssi responses.
-///
-bool SendChannel::send(char const* buf, int bufLen) {
-    if (isDead()) return false;
-    if (_ssiRequest->reply(buf, bufLen)) return true;
-    kill("SendChannel::send");
-    return false;
-}
-
-bool SendChannel::sendError(string const& msg, int code) {
-    // Kill this send channel. If it wasn't already dead, send the error.
-    if (kill("SendChannel::sendError")) return false;
-    if (_ssiRequest->replyError(msg.c_str(), code)) return true;
-    return false;
+SendChannel::Ptr SendChannel::newStringChannel(string& d) {
+    return std::shared_ptr<StringChannel>(new StringChannel(d));
 }
 
 bool SendChannel::kill(std::string const& note) {
@@ -139,36 +94,7 @@ bool SendChannel::kill(std::string const& note) {
 
 bool SendChannel::isDead() {
     if (_dead) return true;
-    if (_ssiRequest == nullptr) return true;
-    if (_ssiRequest->isFinished()) kill("SendChannel::isDead");
     return _dead;
-}
-
-bool SendChannel::sendStream(xrdsvc::StreamBuffer::Ptr const& sBuf, bool last) {
-    if (isDead()) return false;
-    if (_ssiRequest->replyStream(sBuf, last)) return true;
-    LOGS(_log, LOG_LVL_ERROR, "_ssiRequest->replyStream failed, killing.");
-    kill("SendChannel::sendStream");
-    return false;
-}
-
-bool SendChannel::sendData(char const* buf, int bufLen) {
-    if (isDead()) return false;
-    if (_ssiRequest->reply(buf, bufLen)) return true;
-    LOGS(_log, LOG_LVL_ERROR, "_ssiRequest->reply failed, killing.");
-    kill("SendChannel::sendData");
-    return false;
-}
-
-bool SendChannel::setMetadata(const char* buf, int blen) {
-    if (isDead()) return false;
-    if (_ssiRequest->sendMetadata(buf, blen)) return true;
-    return false;
-}
-
-uint64_t SendChannel::getSeq() const {
-    if (_ssiRequest == nullptr) return 0;
-    return _ssiRequest->getSeq();
 }
 
 }  // namespace lsst::qserv::wbase

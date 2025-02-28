@@ -68,6 +68,7 @@ add_subdirectory(mysql)
 add_subdirectory(parser)
 add_subdirectory(partition)
 add_subdirectory(proto)
+add_subdirectory(protojson)
 add_subdirectory(proxy)
 add_subdirectory(qana)
 add_subdirectory(qdisp)
@@ -89,7 +90,6 @@ add_subdirectory(wpublish)
 add_subdirectory(wsched)
 add_subdirectory(www)
 add_subdirectory(xrdlog)
-add_subdirectory(xrdreq)
 add_subdirectory(xrdsvc)
 
 #-----------------------------------------------------------------------------
@@ -103,6 +103,7 @@ target_link_libraries(qserv_common PUBLIC
     mysql
     sql
     util
+    protojson
 )
 
 install(
@@ -143,7 +144,6 @@ target_link_libraries(qserv_czar PUBLIC
     rproc
     qserv_css
     qserv_meta
-    xrdreq
 )
 
 install(

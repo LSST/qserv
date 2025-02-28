@@ -29,8 +29,8 @@
 
 // Qserv headers
 #include "cconfig/CzarConfig.h"
-#include "qdisp/QdispPool.h"
 #include "util/Bug.h"
+#include "util/QdispPool.h"
 #include "util/TimeUtils.h"
 
 // LSST headers
@@ -46,17 +46,17 @@ LOG_LOGGER _log = LOG_GET("lsst.qserv.czar.CzarStats");
 namespace lsst::qserv::qdisp {
 
 CzarStats::Ptr CzarStats::_globalCzarStats;
-util::Mutex CzarStats::_globalMtx;
+MUTEX CzarStats::_globalMtx;
 
-void CzarStats::setup(qdisp::QdispPool::Ptr const& qdispPool) {
-    std::lock_guard<util::Mutex> lg(_globalMtx);
+void CzarStats::setup(util::QdispPool::Ptr const& qdispPool) {
+    std::lock_guard lg(_globalMtx);
     if (_globalCzarStats != nullptr || qdispPool == nullptr) {
         throw util::Bug(ERR_LOC, "Error CzarStats::setup called after global pointer set or qdispPool=null.");
     }
     _globalCzarStats = Ptr(new CzarStats(qdispPool));
 }
 
-CzarStats::CzarStats(qdisp::QdispPool::Ptr const& qdispPool)
+CzarStats::CzarStats(util::QdispPool::Ptr const& qdispPool)
         : _qdispPool(qdispPool), _startTimeMs(util::TimeUtils::now()) {
     auto bucketValsRates = {128'000.0,       512'000.0,       1'024'000.0,     16'000'000.0,
                             128'000'000.0,   256'000'000.0,   512'000'000.0,   768'000'000.0,
@@ -77,7 +77,7 @@ CzarStats::CzarStats(qdisp::QdispPool::Ptr const& qdispPool)
 }
 
 CzarStats::Ptr CzarStats::get() {
-    std::lock_guard<util::Mutex> lg(_globalMtx);
+    std::lock_guard lg(_globalMtx);
     if (_globalCzarStats == nullptr) {
         throw util::Bug(ERR_LOC, "Error CzarStats::get called before CzarStats::setup.");
     }
@@ -124,7 +124,7 @@ void CzarStats::addFileReadRate(double bytesPerSec) {
 void CzarStats::trackQueryProgress(QueryId qid) {
     if (qid == 0) return;
     uint64_t const currentTimestampMs = util::TimeUtils::now();
-    std::lock_guard<util::Mutex> const lock(_queryProgressMtx);
+    std::lock_guard const lock(_queryProgressMtx);
     if (auto itr = _queryNumIncompleteJobs.find(qid); itr != _queryNumIncompleteJobs.end()) return;
     _queryNumIncompleteJobs[qid].emplace_back(currentTimestampMs, 0);
 }
@@ -132,7 +132,7 @@ void CzarStats::trackQueryProgress(QueryId qid) {
 void CzarStats::updateQueryProgress(QueryId qid, int numUnfinishedJobs) {
     if (qid == 0) return;
     uint64_t const currentTimestampMs = util::TimeUtils::now();
-    std::lock_guard<util::Mutex> const lock(_queryProgressMtx);
+    std::lock_guard const lock(_queryProgressMtx);
     if (auto itr = _queryNumIncompleteJobs.find(qid); itr != _queryNumIncompleteJobs.end()) {
         auto&& history = itr->second;
         if (history.empty() || (history.back().numJobs != numUnfinishedJobs)) {
@@ -147,7 +147,7 @@ void CzarStats::untrackQueryProgress(QueryId qid) {
     if (qid == 0) return;
     unsigned int const lastSeconds = cconfig::CzarConfig::instance()->czarStatsRetainPeriodSec();
     uint64_t const minTimestampMs = util::TimeUtils::now() - 1000 * lastSeconds;
-    std::lock_guard<util::Mutex> const lock(_queryProgressMtx);
+    std::lock_guard const lock(_queryProgressMtx);
     if (lastSeconds == 0) {
         // The query gets removed instantaneously if archiving is not enabled.
         if (auto itr = _queryNumIncompleteJobs.find(qid); itr != _queryNumIncompleteJobs.end()) {
@@ -170,7 +170,7 @@ void CzarStats::untrackQueryProgress(QueryId qid) {
 
 CzarStats::QueryProgress CzarStats::getQueryProgress(QueryId qid, unsigned int lastSeconds) const {
     uint64_t const minTimestampMs = util::TimeUtils::now() - 1000 * lastSeconds;
-    std::lock_guard<util::Mutex> const lock(_queryProgressMtx);
+    std::lock_guard const lock(_queryProgressMtx);
     QueryProgress result;
     if (qid == 0) {
         if (lastSeconds == 0) {

@@ -39,6 +39,32 @@ using namespace std;
 
 namespace lsst::qserv::wsched {
 
+SchedulerBase::SchedulerBase(std::string const& name, int maxThreads, int maxReserve, int maxActiveChunks,
+                             int priority)
+        : _name{name},
+          _maxReserve{maxReserve},
+          _maxReserveDefault{maxReserve},
+          _maxThreads{maxThreads},
+          _maxThreadsAdj{maxThreads},
+          _priority{priority},
+          _priorityDefault{priority} {
+    setMaxActiveChunks(maxActiveChunks);
+
+    using namespace std::chrono_literals;
+    std::vector<double> bucketMaxVals{0.01, 0.1, 1};
+    size_t maxSize = 10;
+    _histQueuedTasks = std::make_shared<util::HistogramRolling>("queuedTasks", bucketMaxVals, 1h, maxSize);
+    _histRunningTasks = std::make_shared<util::HistogramRolling>("runningTasks", bucketMaxVals, 1h, maxSize);
+    _histTransmittingTasks =
+            std::make_shared<util::HistogramRolling>("transmittingTasks", bucketMaxVals, 1h, maxSize);
+    _histRecentlyCompletedTasks =
+            std::make_shared<util::HistogramRolling>("recentlyCompletedTasks", bucketMaxVals, 1h, maxSize);
+
+    LOGS(_log, LOG_LVL_INFO,
+         "Scheduler name=" << name << " maxThreads=" << _maxThreads << " maxThreads=" << _maxThreads
+                           << " priority=" << _priority);
+}
+
 /// Set priority to use when starting next chunk.
 void SchedulerBase::setPriority(int priority) { _priority = priority; }
 
@@ -61,7 +87,7 @@ int SchedulerBase::_decrCountForUserQuery(QueryId queryId) {
         count = --(iter->second);
         if (count <= 0) {
             _userQueryCounts.erase(iter);
-            LOGS(_log, LOG_LVL_DEBUG, queryId << " uqCount=0, erased");
+            LOGS(_log, LOG_LVL_TRACE, queryId << " uqCount=0, erased");
         }
     }
     return count;

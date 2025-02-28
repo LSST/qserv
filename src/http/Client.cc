@@ -146,7 +146,6 @@ void Client::read(CallbackType const& onDataRead) {
     }
     _curlEasyErrorChecked("curl_easy_setopt(CURLOPT_HTTPHEADER)",
                           curl_easy_setopt(_hcurl, CURLOPT_HTTPHEADER, _hlist));
-
     _curlEasyErrorChecked("curl_easy_setopt(CURLOPT_FAILONERROR)",
                           curl_easy_setopt(_hcurl, CURLOPT_FAILONERROR, 1L));
     _curlEasyErrorChecked("curl_easy_setopt(CURLOPT_WRITEFUNCTION)",

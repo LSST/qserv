@@ -82,7 +82,7 @@ public:
     virtual void discard() override;
 
     // Delegate objects
-    virtual std::shared_ptr<qdisp::MessageStore> getMessageStore() override { return _messageStore; }
+    virtual std::shared_ptr<qmeta::MessageStore> getMessageStore() override { return _messageStore; }
 
 protected:
 private:
@@ -90,7 +90,7 @@ private:
     std::string const _dbName;
     sql::SqlConnection* _resultDbConn;
     QueryState _qState;
-    std::shared_ptr<qdisp::MessageStore> _messageStore;
+    std::shared_ptr<qmeta::MessageStore> _messageStore;
 };
 
 }  // namespace lsst::qserv::ccontrol

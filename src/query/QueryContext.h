@@ -38,7 +38,7 @@
 // Local headers
 #include "css/CssAccess.h"
 #include "global/stringTypes.h"
-#include "proto/ScanTableInfo.h"
+#include "protojson/ScanTableInfo.h"
 #include "qana/QueryMapping.h"
 #include "query/FromList.h"
 #include "query/typedefs.h"
@@ -83,7 +83,7 @@ public:
 
     std::shared_ptr<qproc::DatabaseModels> databaseModels;  ///< contains database schema information.
 
-    proto::ScanInfo scanInfo;  // Tables scanned (for shared scans)
+    protojson::ScanInfo::Ptr scanInfo{protojson::ScanInfo::create()};  // Tables scanned (for shared scans)
 
     /**
      * @brief Add a TableRef to the list of tables used by this query.

@@ -43,17 +43,20 @@
 #include "ccontrol/UserQueryResources.h"
 #include "ccontrol/UserQuerySelect.h"
 #include "ccontrol/UserQueryType.h"
+#include "czar/ActiveWorker.h"
+#include "czar/CzarChunkMap.h"
 #include "czar/CzarErrors.h"
 #include "czar/HttpSvc.h"
 #include "czar/MessageTable.h"
+#include "czar/CzarRegistry.h"
 #include "global/LogContext.h"
 #include "http/Client.h"
+#include "http/ClientConnPool.h"
 #include "http/MetaModule.h"
 #include "http/Method.h"
 #include "proto/worker.pb.h"
 #include "qdisp/CzarStats.h"
-#include "qdisp/QdispPool.h"
-#include "qdisp/SharedResources.h"
+#include "qdisp/Executive.h"
 #include "qproc/DatabaseModels.h"
 #include "rproc/InfileMerger.h"
 #include "sql/SqlConnection.h"
@@ -62,76 +65,91 @@
 #include "util/common.h"
 #include "util/FileMonitor.h"
 #include "util/IterableFormatter.h"
+#include "util/QdispPool.h"
 #include "util/String.h"
-#include "xrdreq/QueryManagementAction.h"
-#include "XrdSsi/XrdSsiProvider.hh"
 
 using namespace lsst::qserv;
 using namespace nlohmann;
 using namespace std;
 
-extern XrdSsiProvider* XrdSsiProviderClient;
-
 namespace {
 
-string const createAsyncResultTmpl(
-        "CREATE TABLE IF NOT EXISTS %1% "
-        "(jobId BIGINT, resultLocation VARCHAR(1024))"
-        "ENGINE=MEMORY;"
-        "INSERT INTO %1% (jobId, resultLocation) "
-        "VALUES (%2%, '%3%')");
-
 LOG_LOGGER _log = LOG_GET("lsst.qserv.czar.Czar");
-
-/**
- * This function will keep periodically updating Czar's info in the Replication
- * System's Registry.
- * @param name The unique identifier of the Czar to be registered.
- * @param czarConfig A pointer to the Czar configuration service.
- * @note The thread will terminate the process if the registraton request to the Registry
- * was explicitly denied by the service. This means the application may be misconfigured.
- * Transient communication errors when attempting to connect or send requests to
- * the Registry will be posted into the log stream and ignored.
- */
-void registryUpdateLoop(shared_ptr<cconfig::CzarConfig> const& czarConfig) {
-    auto const method = http::Method::POST;
-    string const url = "http://" + czarConfig->replicationRegistryHost() + ":" +
-                       to_string(czarConfig->replicationRegistryPort()) + "/czar";
-    vector<string> const headers = {"Content-Type: application/json"};
-    json const request = json::object({{"version", http::MetaModule::version},
-                                       {"instance_id", czarConfig->replicationInstanceId()},
-                                       {"auth_key", czarConfig->replicationAuthKey()},
-                                       {"czar",
-                                        {{"name", czarConfig->name()},
-                                         {"id", czarConfig->id()},
-                                         {"management-port", czarConfig->replicationHttpPort()},
-                                         {"management-host-name", util::get_current_host_fqdn()}}}});
-    string const requestContext = "Czar: '" + http::method2string(method) + "' request to '" + url + "'";
-    http::Client client(method, url, request.dump(), headers);
-    while (true) {
-        try {
-            json const response = client.readAsJson();
-            if (0 == response.at("success").get<int>()) {
-                string const error = response.at("error").get<string>();
-                LOGS(_log, LOG_LVL_ERROR, requestContext + " was denied, error: '" + error + "'.");
-                abort();
-            }
-        } catch (exception const& ex) {
-            LOGS(_log, LOG_LVL_WARN, requestContext + " failed, ex: " + ex.what());
-        }
-        this_thread::sleep_for(chrono::seconds(max(1U, czarConfig->replicationRegistryHearbeatIvalSec())));
-    }
-}
 
 }  // anonymous namespace
 
 namespace lsst::qserv::czar {
 
 Czar::Ptr Czar::_czar;
+uint64_t const Czar::czarStartupTime = millisecSinceEpoch(CLOCK::now());
 
 Czar::Ptr Czar::createCzar(string const& configFilePath, string const& czarName) {
     _czar.reset(new Czar(configFilePath, czarName));
     return _czar;
+}
+
+void Czar::_monitor() {
+    string const funcN("Czar::_monitor");
+    uint16_t loopCount = 0;  // unsigned to wrap around
+    while (_monitorLoop) {
+        ++loopCount;
+        this_thread::sleep_for(_monitorSleepTime);
+        LOGS(_log, LOG_LVL_DEBUG, funcN << " start0");
+
+        /// Check database for changes in worker chunk assignments and aliveness
+        try {
+            // TODO:UJ The read() is incredibly expensive until the database has
+            //         a "changed" field of some kind (preferably timestamp) to
+            //         indicate the last time it changed.
+            //         For Now, just do one read every few times through this loop.
+            if (loopCount % 10 == 0 || true) {
+                _czarFamilyMap->read();
+            }
+        } catch (ChunkMapException const& cmex) {
+            // There are probably chunks that don't exist on any alive worker,
+            // continue on in hopes that workers will show up with the missing chunks
+            // later.
+            LOGS(_log, LOG_LVL_ERROR, funcN << " family map read problems " << cmex.what());
+        }
+
+        // Send appropriate messages to all ActiveWorkers. This will
+        // check if workers have died by timeout.
+        _czarRegistry->sendActiveWorkersMessages();
+
+        /// Create new UberJobs (if possible) for all jobs that are
+        /// unassigned for any reason.
+        map<QueryId, shared_ptr<qdisp::Executive>> execMap;
+        {
+            // Make a copy of all valid Executives
+            lock_guard<mutex> execMapLock(_executiveMapMtx);
+            // Use an iterator so it's easy/quick to delete dead weak pointers.
+            auto iter = _executiveMap.begin();
+            while (iter != _executiveMap.end()) {
+                auto qIdKey = iter->first;
+                shared_ptr<qdisp::Executive> exec = iter->second.lock();
+                if (exec == nullptr) {
+                    iter = _executiveMap.erase(iter);
+                } else {
+                    execMap[qIdKey] = exec;
+                    ++iter;
+                }
+            }
+        }
+        // Use the copy to create new UberJobs as needed
+        for (auto&& [qIdKey, execVal] : execMap) {
+            execVal->assignJobsToUberJobs();
+        }
+
+        // To prevent anything from slipping through the cracks:
+        // Workers will keep trying to transmit results until they think the czar is dead.
+        // If a worker thinks the czar died, it will cancel all related jobs that it has,
+        // and if the czar sends a status message to that worker, that worker will send back
+        // a separate message (see WorkerCzarComIssue) saying it killed everything that this
+        // czar gave it. Upon getting this message from a worker, this czar will reassign
+        // everything it had sent to that worker.
+
+        // TODO:UJ How long should queryId's remain on this list?
+    }
 }
 
 // Constructors
@@ -141,7 +159,8 @@ Czar::Czar(string const& configFilePath, string const& czarName)
           _idCounter(),
           _uqFactory(),
           _clientToQuery(),
-          _mutex() {
+          _monitorSleepTime(_czarConfig->getMonitorSleepTimeMilliSec()),
+          _activeWorkerMap(new ActiveWorkerMap(_czarConfig)) {
     // set id counter to milliseconds since the epoch, mod 1 year.
     struct timeval tv;
     gettimeofday(&tv, nullptr);
@@ -159,20 +178,22 @@ Czar::Czar(string const& configFilePath, string const& czarName)
     _czarConfig->setId(_uqFactory->userQuerySharedResources()->qMetaCzarId);
 
     // Tell workers to cancel any queries that were submitted before this restart of Czar.
-    // Figure out which query (if any) was recorded in Czar database before the restart.
+    // Figure out which query (if any) was recorded in Czar databases before the restart.
     // The id will be used as the high-watermark for queries that need to be cancelled.
     // All queries that have identifiers that are strictly less than this one will
     // be affected by the operation.
     //
     if (_czarConfig->notifyWorkersOnCzarRestart()) {
         try {
-            xrdreq::QueryManagementAction::notifyAllWorkers(_czarConfig->getXrootdFrontendUrl(),
-                                                            proto::QueryManagement::CANCEL_AFTER_RESTART,
-                                                            _czarConfig->id(), _lastQueryIdBeforeRestart());
+            QueryId lastQId = _lastQueryIdBeforeRestart();
+            _activeWorkerMap->setCzarCancelAfterRestart(_czarConfig->id(), lastQId);
         } catch (std::exception const& ex) {
             LOGS(_log, LOG_LVL_WARN, ex.what());
         }
     }
+
+    // This will block until there is a successful read of the database tables.
+    _czarFamilyMap = CzarFamilyMap::create(_uqFactory->userQuerySharedResources()->queryMetadata);
 
     int qPoolSize = _czarConfig->getQdispPoolSize();
     int maxPriority = std::max(0, _czarConfig->getQdispMaxPriority());
@@ -180,26 +201,19 @@ Czar::Czar(string const& configFilePath, string const& czarName)
     vector<int> vectRunSizes = util::String::parseToVectInt(vectRunSizesStr, ":", 1);
     string vectMinRunningSizesStr = _czarConfig->getQdispVectMinRunningSizes();
     vector<int> vectMinRunningSizes = util::String::parseToVectInt(vectMinRunningSizesStr, ":", 0);
+
     LOGS(_log, LOG_LVL_INFO,
-         "INFO qdisp config qPoolSize=" << qPoolSize << " maxPriority=" << maxPriority << " vectRunSizes="
-                                        << vectRunSizesStr << " -> " << util::prettyCharList(vectRunSizes)
-                                        << " vectMinRunningSizes=" << vectMinRunningSizesStr << " -> "
-                                        << util::prettyCharList(vectMinRunningSizes));
-    qdisp::QdispPool::Ptr qdispPool =
-            make_shared<qdisp::QdispPool>(qPoolSize, maxPriority, vectRunSizes, vectMinRunningSizes);
-    qdisp::CzarStats::setup(qdispPool);
+         " qdisp config qPoolSize=" << qPoolSize << " maxPriority=" << maxPriority << " vectRunSizes="
+                                    << vectRunSizesStr << " -> " << util::prettyCharList(vectRunSizes)
+                                    << " vectMinRunningSizes=" << vectMinRunningSizesStr << " -> "
+                                    << util::prettyCharList(vectMinRunningSizes));
+    _qdispPool = make_shared<util::QdispPool>(qPoolSize, maxPriority, vectRunSizes, vectMinRunningSizes);
 
-    _qdispSharedResources = qdisp::SharedResources::create(qdispPool);
-
-    int xrootdCBThreadsMax = _czarConfig->getXrootdCBThreadsMax();
-    int xrootdCBThreadsInit = _czarConfig->getXrootdCBThreadsInit();
-    LOGS(_log, LOG_LVL_INFO, "config xrootdCBThreadsMax=" << xrootdCBThreadsMax);
-    LOGS(_log, LOG_LVL_INFO, "config xrootdCBThreadsInit=" << xrootdCBThreadsInit);
-    XrdSsiProviderClient->SetCBThreads(xrootdCBThreadsMax, xrootdCBThreadsInit);
-    int const xrootdSpread = _czarConfig->getXrootdSpread();
-    LOGS(_log, LOG_LVL_INFO, "config xrootdSpread=" << xrootdSpread);
-    XrdSsiProviderClient->SetSpread(xrootdSpread);
+    qdisp::CzarStats::setup(_qdispPool);
     _queryDistributionTestVer = _czarConfig->getQueryDistributionTestVer();
+
+    _commandHttpPool = shared_ptr<http::ClientConnPool>(
+            new http::ClientConnPool(_czarConfig->getCommandMaxHttpConnections()));
 
     LOGS(_log, LOG_LVL_INFO, "Creating czar instance with name " << czarName);
     LOGS(_log, LOG_LVL_INFO, "Czar config: " << *_czarConfig);
@@ -224,10 +238,18 @@ Czar::Czar(string const& configFilePath, string const& czarName)
     auto const port = _controlHttpSvc->start();
     _czarConfig->setReplicationHttpPort(port);
 
-    // Begin periodically updating worker's status in the Replication System's registry
-    // in the detached thread. This will continue before the application gets terminated.
-    thread registryUpdateThread(::registryUpdateLoop, _czarConfig);
-    registryUpdateThread.detach();
+    _czarRegistry = CzarRegistry::create(_czarConfig, _activeWorkerMap);
+
+    // Start the monitor thread
+    thread monitorThrd(&Czar::_monitor, this);
+    _monitorThrd = move(monitorThrd);
+}
+
+Czar::~Czar() {
+    LOGS(_log, LOG_LVL_DEBUG, "Czar::~Czar()");
+    _monitorLoop = false;
+    _monitorThrd.join();
+    LOGS(_log, LOG_LVL_DEBUG, "Czar::~Czar() end");
 }
 
 SubmitResult Czar::submitQuery(string const& query, map<string, string> const& hints) {
@@ -275,8 +297,7 @@ SubmitResult Czar::submitQuery(string const& query, map<string, string> const& h
     ccontrol::UserQuery::Ptr uq;
     {
         lock_guard<mutex> lock(_mutex);
-        uq = _uqFactory->newUserQuery(query, defaultDb, getQdispSharedResources(), userQueryId, msgTableName,
-                                      resultDb);
+        uq = _uqFactory->newUserQuery(query, defaultDb, getQdispPool(), userQueryId, msgTableName, resultDb);
     }
 
     // Add logging context with query ID
@@ -300,6 +321,7 @@ SubmitResult Czar::submitQuery(string const& query, map<string, string> const& h
     // spawn background thread to wait until query finishes to unlock,
     // note that lambda stores copies of uq and msgTable.
     auto finalizer = [uq, msgTable]() mutable {
+        string qidstr = to_string(uq->getQueryId());
         // Add logging context with query ID
         QSERV_LOGCONTEXT_QUERY(uq->getQueryId());
         LOGS(_log, LOG_LVL_DEBUG, "submitting new query");
@@ -313,6 +335,7 @@ SubmitResult Czar::submitQuery(string const& query, map<string, string> const& h
             // will likely hang because table may still be locked.
             LOGS(_log, LOG_LVL_ERROR, "Query finalization failed (client likely hangs): " << exc.what());
         }
+        uq.reset();
     };
     LOGS(_log, LOG_LVL_DEBUG, "starting finalizer thread for query");
     thread finalThread(finalizer);
@@ -374,45 +397,45 @@ void Czar::killQuery(string const& query, string const& clientId) {
     int threadId;
     QueryId queryId;
     if (ccontrol::UserQueryType::isKill(query, threadId)) {
-        LOGS(_log, LOG_LVL_DEBUG, "thread ID: " << threadId);
+        LOGS(_log, LOG_LVL_INFO, "KILL thread ID: " << threadId);
         lock_guard<mutex> lock(_mutex);
 
         // find it in the client map based in client/thread id
         ClientThreadId ctId(clientId, threadId);
         auto iter = _clientToQuery.find(ctId);
         if (iter == _clientToQuery.end()) {
-            LOGS(_log, LOG_LVL_INFO, "Cannot find client thread id: " << threadId);
-            throw std::runtime_error("Unknown thread ID: " + query);
+            LOGS(_log, LOG_LVL_INFO, "KILL Cannot find client thread id: " << threadId);
+            throw std::runtime_error("KILL Unknown thread ID: " + query);
         }
         uq = iter->second.lock();
     } else if (ccontrol::UserQueryType::isCancel(query, queryId)) {
-        LOGS(_log, LOG_LVL_DEBUG, "query ID: " << queryId);
+        LOGS(_log, LOG_LVL_INFO, "KILL query ID: " << queryId);
         lock_guard<mutex> lock(_mutex);
 
         // find it in the client map based in client/thread id
         auto iter = _idToQuery.find(queryId);
         if (iter == _idToQuery.end()) {
-            LOGS(_log, LOG_LVL_INFO, "Cannot find query id: " << queryId);
-            throw std::runtime_error("Unknown or finished query ID: " + query);
+            LOGS(_log, LOG_LVL_INFO, "KILL Cannot find query id: " << queryId);
+            throw std::runtime_error("KILL unknown or finished query ID: " + query);
         }
         uq = iter->second.lock();
     } else {
-        throw std::runtime_error("Failed to parse query: " + query);
+        throw std::runtime_error("KILL failed to parse query: " + query);
     }
 
     // assume this cannot fail or throw
     if (uq) {
-        LOGS(_log, LOG_LVL_DEBUG, "Killing query: " << uq->getQueryId());
+        LOGS(_log, LOG_LVL_INFO, "KILLing query: " << uq->getQueryId());
         // query killing can potentially take very long and we do now want to block
         // proxy from serving other requests so run it in a detached thread
         thread killThread([uq]() {
             uq->kill();
-            LOGS(_log, LOG_LVL_DEBUG, "Finished killing query: " << uq->getQueryId());
+            LOGS(_log, LOG_LVL_INFO, "Finished KILLing query: " << uq->getQueryId());
         });
         killThread.detach();
     } else {
-        LOGS(_log, LOG_LVL_DEBUG, "Query has expired/finished: " << query);
-        throw std::runtime_error("Query has already finished: " + query);
+        LOGS(_log, LOG_LVL_INFO, "KILL query has expired/finished: " << query);
+        throw std::runtime_error("KILL query has already finished: " + query);
     }
 }
 
@@ -474,8 +497,15 @@ void Czar::_makeAsyncResult(string const& asyncResultTable, QueryId queryId, str
         throw exc;
     }
 
+    string const createAsyncResultTmpl(
+            "CREATE TABLE IF NOT EXISTS %1% "
+            "(jobId BIGINT, resultLocation VARCHAR(1024))"
+            "ENGINE=MEMORY;"
+            "INSERT INTO %1% (jobId, resultLocation) "
+            "VALUES (%2%, '%3%')");
+
     string query =
-            (boost::format(::createAsyncResultTmpl) % asyncResultTable % queryId % resultLocEscaped).str();
+            (boost::format(createAsyncResultTmpl) % asyncResultTable % queryId % resultLocEscaped).str();
 
     if (not sqlConn->runQuery(query, sqlErr)) {
         SqlError exc(ERR_LOC, "Failure creating async result table", sqlErr);
@@ -495,7 +525,7 @@ void Czar::removeOldResultTables() {
     _lastRemovedTimer.start();
     _removingOldTables = true;
     // Run in a separate thread in the off chance this takes a while.
-    thread t([this]() {
+    thread thrd([this]() {
         LOGS(_log, LOG_LVL_INFO, "Removing old result database tables.");
         auto sqlConn = sql::SqlConnectionFactory::make(_czarConfig->getMySqlResultConfig());
         string dbName = _czarConfig->getMySqlResultConfig().dbName;
@@ -541,8 +571,8 @@ void Czar::removeOldResultTables() {
         }
         _removingOldTables = false;
     });
-    t.detach();
-    _oldTableRemovalThread = std::move(t);
+    thrd.detach();
+    _oldTableRemovalThread = std::move(thrd);
 }
 
 SubmitResult Czar::getQueryInfo(QueryId queryId) const {
@@ -643,6 +673,52 @@ QueryId Czar::_lastQueryIdBeforeRestart() const {
         throw runtime_error(msg);
     }
     return stoull(queryIdStr);
+}
+
+void Czar::insertExecutive(QueryId qId, std::shared_ptr<qdisp::Executive> const& execPtr) {
+    lock_guard<mutex> lgMap(_executiveMapMtx);
+    _executiveMap[qId] = execPtr;
+}
+
+std::shared_ptr<qdisp::Executive> Czar::getExecutiveFromMap(QueryId qId) {
+    lock_guard<mutex> lgMap(_executiveMapMtx);
+    auto iter = _executiveMap.find(qId);
+    if (iter == _executiveMap.end()) {
+        return nullptr;
+    }
+    std::shared_ptr<qdisp::Executive> exec = iter->second.lock();
+    if (exec == nullptr) {
+        _executiveMap.erase(iter);
+    }
+    return exec;
+}
+
+std::map<QueryId, std::weak_ptr<qdisp::Executive>> Czar::getExecMapCopy() const {
+    // Copy list of executives so the mutex isn't held forever.
+    std::map<QueryId, std::weak_ptr<qdisp::Executive>> execMap;
+    {
+        lock_guard<mutex> lgMap(_executiveMapMtx);
+        execMap = _executiveMap;
+    }
+    return execMap;
+}
+
+void Czar::killIncompleteUbjerJobsOn(std::string const& restartedWorkerId) {
+    // Copy list of executives so the mutex isn't held forever.
+    std::map<QueryId, std::weak_ptr<qdisp::Executive>> execMap;
+    {
+        lock_guard<mutex> lgMap(_executiveMapMtx);
+        execMap = _executiveMap;
+    }
+
+    // For each executive, go through its list of uberjobs and cancel those jobs
+    // with workerId == restartedWorkerId && <not finished>
+    for (auto const& [eKey, wPtrExec] : execMap) {
+        auto exec = wPtrExec.lock();
+        if (exec != nullptr) {
+            exec->killIncompleteUberJobsOnWorker(restartedWorkerId);
+        }
+    }
 }
 
 }  // namespace lsst::qserv::czar

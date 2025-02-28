@@ -42,7 +42,7 @@
 #include "global/DbTable.h"
 #include "global/intTypes.h"
 #include "memman/MemMan.h"
-#include "proto/ScanTableInfo.h"
+#include "protojson/ScanTableInfo.h"
 #include "wbase/TaskState.h"
 #include "util/Histogram.h"
 #include "util/ThreadPool.h"
@@ -51,10 +51,11 @@
 namespace lsst::qserv::mysql {
 class MySqlConfig;
 }
-namespace lsst::qserv::proto {
-class TaskMsg;
-class TaskMsg_Fragment;
-}  // namespace lsst::qserv::proto
+
+namespace lsst::qserv::protojson {
+class UberJobMsg;
+}
+
 namespace lsst::qserv::wbase {
 class FileChannelShared;
 }
@@ -71,7 +72,13 @@ class QueryStatistics;
 
 namespace lsst::qserv::wbase {
 
+class UberJobData;
 class UserQueryInfo;
+
+class TaskException : public util::Issue {
+public:
+    explicit TaskException(util::Issue::Context const& ctx, std::string const& msg) : util::Issue(ctx, msg) {}
+};
 
 /// Base class for tracking a database query for a worker Task.
 class TaskQueryRunner {
@@ -80,6 +87,15 @@ public:
     virtual ~TaskQueryRunner() {};
     virtual bool runQuery() = 0;
     virtual void cancel() = 0;  ///< Repeated calls to cancel() must be harmless.
+};
+
+/// Class for storing database + table name.
+class TaskDbTbl {
+public:
+    TaskDbTbl() = delete;
+    TaskDbTbl(std::string const& db_, std::string const& tbl_) : db(db_), tbl(tbl_) {}
+    std::string const db;
+    std::string const tbl;
 };
 
 class Task;
@@ -99,28 +115,6 @@ public:
     util::HistogramRolling::Ptr histTimeOfTransmittingTasks;  ///< Store information about transmitting tasks.
 };
 
-/// Used to find tasks that are in process for debugging with Task::_idStr.
-/// This is largely meant to track down incomplete tasks in a possible intermittent
-/// failure and should probably be removed when it is no longer needed.
-/// It depends on code in BlendScheduler to work. If the decision is made to keep it
-/// forever, dependency on BlendScheduler needs to be re-worked.
-struct IdSet {
-    void add(std::string const& id) {
-        std::lock_guard<std::mutex> lock(mx);
-        _ids.insert(id);
-    }
-    void remove(std::string const& id) {
-        std::lock_guard<std::mutex> lock(mx);
-        _ids.erase(id);
-    }
-    std::atomic<int> maxDisp{5};  //< maximum number of entries to show with operator<<
-    friend std::ostream& operator<<(std::ostream& os, IdSet const& idSet);
-
-private:
-    std::set<std::string> _ids;
-    mutable std::mutex mx;
-};
-
 /// class Task defines a query task to be done, containing a TaskMsg
 /// (over-the-wire) additional concrete info related to physical
 /// execution conditions.
@@ -129,7 +123,6 @@ class Task : public util::CommandForThreadPool {
 public:
     static std::string const defaultUser;
     using Ptr = std::shared_ptr<Task>;
-    using TaskMsgPtr = std::shared_ptr<proto::TaskMsg>;
 
     /// Class to store constant sets and vectors.
     class DbTblsAndSubchunks {
@@ -156,27 +149,41 @@ public:
         bool operator()(Ptr const& x, Ptr const& y);
     };
 
-    Task(TaskMsgPtr const& t, int fragmentNumber, std::shared_ptr<UserQueryInfo> const& userQueryInfo,
-         size_t templateId, int subchunkId, std::shared_ptr<FileChannelShared> const& sc,
-         uint16_t resultsHttpPort = 8080);
+    std::string cName(const char* func) const { return std::string("Task::") + func + " " + _idStr; }
+
+    // TODO:UJ too many parameters.
+    //  - fragmentNumber seems pointless
+    //  - hasSubchunks seems redundant.
+    //  Hopefully, many are the same for all tasks and can be moved to ujData and userQueryInfo.
+    //  Candidates: maxTableSizeMb, FileChannelShared, resultsHttpPort.
+    //  Unfortunately, this will be much easier if it is done after xrootd method is removed.
+    Task(std::shared_ptr<UberJobData> const& ujData, int jobId, int attemptCount, int chunkId,
+         int fragmentNumber, size_t templateId, bool hasSubchunks, int subchunkId, std::string const& db,
+         std::vector<TaskDbTbl> const& fragSubTables, std::vector<int> const& fragSubchunkIds,
+         std::shared_ptr<FileChannelShared> const& sc,
+         std::shared_ptr<wpublish::QueryStatistics> const& queryStats_);
+
     Task& operator=(const Task&) = delete;
     Task(const Task&) = delete;
     virtual ~Task();
 
-    /// Read 'taskMsg' to generate a vector of one or more task objects all using the same 'sendChannel'
-    static std::vector<Ptr> createTasks(std::shared_ptr<proto::TaskMsg> const& taskMsg,
-                                        std::shared_ptr<wbase::FileChannelShared> const& sendChannel,
-                                        std::shared_ptr<wdb::ChunkResourceMgr> const& chunkResourceMgr,
-                                        mysql::MySqlConfig const& mySqlConfig,
-                                        std::shared_ptr<wcontrol::SqlConnMgr> const& sqlConnMgr,
-                                        std::shared_ptr<wpublish::QueriesAndChunks> const& queriesAndChunks,
-                                        uint16_t resultsHttpPort = 8080);
+    /// Create the Tasks needed to run an UberJob on this worker.
+    static std::vector<Ptr> createTasksFromUberJobMsg(
+            std::shared_ptr<protojson::UberJobMsg> const& uberJobMsg,
+            std::shared_ptr<UberJobData> const& ujData,
+            std::shared_ptr<wbase::FileChannelShared> const& sendChannel,
+            std::shared_ptr<wdb::ChunkResourceMgr> const& chunkResourceMgr,
+            mysql::MySqlConfig const& mySqlConfig, std::shared_ptr<wcontrol::SqlConnMgr> const& sqlConnMgr,
+            std::shared_ptr<wpublish::QueriesAndChunks> const& queriesAndChunks);
 
-    void setQueryStatistics(std::shared_ptr<wpublish::QueryStatistics> const& qC);
+    /// Create Tasks needed to run unit tests.
+    static std::vector<Ptr> createTasksForUnitTest(
+            std::shared_ptr<UberJobData> const& ujData, nlohmann::json const& jsJobs,
+            std::shared_ptr<wbase::FileChannelShared> const& sendChannel, int maxTableSizeMb,
+            std::shared_ptr<wdb::ChunkResourceMgr> const& chunkResourceMgr);
 
     std::shared_ptr<FileChannelShared> getSendChannel() const { return _sendChannel; }
-    void resetSendChannel() { _sendChannel.reset(); }  ///< reset the shared pointer for FileChannelShared
-    std::string user;                                  ///< Incoming username
+    std::string user;  ///< Incoming username
     // Note that manpage spec of "26 bytes"  is insufficient
 
     /// This is the function the scheduler will run, overriden from the util::Command class.
@@ -185,19 +192,18 @@ public:
     void action(util::CmdData* data) override;
 
     /// Cancel the query in progress and set _cancelled.
-    /// Query cancellation on the worker is fairly complicated. This
-    /// function usually called by `SsiRequest::Finished` when xrootd
-    /// indicates the job is cancelled. This may come from:
-    /// - xrootd - in the case of communications issues
+    /// Query cancellation on the worker is fairly complicated.
+    /// This may come from:
     /// - czar - user query was cancelled, an error, or limit reached.
     /// This function may also be called by `Task::checkCancelled()` - `_sendChannel`
-    ///    has been killed, usually a result of failed communication with xrootd.
+    /// has been killed, usually a result of failed czar communication.
     /// If a `QueryRunner` object for this task exists, it must
     /// be cancelled to free up threads and other resources.
     /// Otherwise `_cancelled` is set so that an attempt
     /// to run this `Task` will result in a rapid exit.
     /// This functional also attempts to inform the scheduler for this
-    /// `Task` that is has been cancelled (scheduler currently does nothing in this case).
+    /// `Task` that is has been cancelled. The scheduler currently does
+    /// nothing in this case.
     void cancel();
 
     /// Check if this task should be cancelled and call cancel() as needed.
@@ -206,10 +212,6 @@ public:
 
     TaskState state() const { return _state; }
     std::string getQueryString() const;
-    int getQueryFragmentNum() { return _queryFragmentNum; }
-    std::string const& resultFileAbsPath() const { return _resultFileAbsPath; }
-    std::string const& resultFileXrootUrl() const { return _resultFileXrootUrl; }
-    std::string const& resultFileHttpUrl() const { return _resultFileHttpUrl; }
     bool setTaskQueryRunner(
             TaskQueryRunner::Ptr const& taskQueryRunner);  ///< return true if already cancelled.
     void freeTaskQueryRunner(TaskQueryRunner* tqr);
@@ -227,9 +229,10 @@ public:
     size_t getTemplateId() const { return _templateId; }
     int getJobId() const { return _jId; }
     int getAttemptCount() const { return _attemptCount; }
-    bool getScanInteractive() { return _scanInteractive; }
-    int64_t getMaxTableSize() const { return _maxTableSize; }
-    proto::ScanInfo& getScanInfo() { return _scanInfo; }
+    bool getScanInteractive() const;
+    int64_t getMaxTableSize() const;
+
+    protojson::ScanInfo::Ptr getScanInfo() const;
     void setOnInteractive(bool val) { _onInteractive = val; }
     bool getOnInteractive() { return _onInteractive; }
     bool hasMemHandle() const { return _memHandle != memman::MemMan::HandleType::INVALID; }
@@ -240,8 +243,6 @@ public:
     void waitForMemMan();
     bool getSafeToMoveRunning() { return _safeToMoveRunning; }
     void setSafeToMoveRunning(bool val) { _safeToMoveRunning = val; }  ///< For testing only.
-
-    static IdSet allIds;  // set of all task jobId numbers that are not complete.
 
     /// @return true if qId and jId match this task's query and job ids.
     bool idsMatch(QueryId qId, int jId, uint64_t tseq) const {
@@ -312,8 +313,20 @@ public:
         setFunc(func);
     }
 
+    std::shared_ptr<UberJobData> getUberJobData() const { return _ujData; }
+
+    /// Returns the LIMIT of rows for the query enforceable at the worker, where values <= 0 indicate
+    /// that there is no limit to the number of rows sent back by the worker.
+    /// @see UberJobData::getRowLimit()
+    int getRowLimit() { return _rowLimit; }
+
+    int getLvlWT() const { return _logLvlWT; }
+    int getLvlET() const { return _logLvlET; }
+
 private:
-    std::shared_ptr<UserQueryInfo> _userQueryInfo;    ///< Details common to Tasks in this UserQuery.
+    std::atomic<int> _logLvlWT;  ///< Normally LOG_LVL_WARN, set to TRACE in cancelled Tasks.
+    std::atomic<int> _logLvlET;  ///< Normally LOG_LVL_ERROR, set to TRACE in cancelled Tasks.
+
     std::shared_ptr<FileChannelShared> _sendChannel;  ///< Send channel.
 
     uint64_t const _tSeq = 0;          ///< identifier for the specific task
@@ -326,36 +339,23 @@ private:
     int const _attemptCount = 0;       ///< attemptCount from czar
     int const _queryFragmentNum;       ///< The fragment number of the query in the task message.
     bool const _fragmentHasSubchunks;  ///< True if the fragment in this query has subchunks.
-    bool const _hasDb;                 ///< true if db was in message from czar.
     std::string _db;                   ///< Task database
     int const _czarId;                 ///< czar Id from the task message.
 
     /// Set of tables and vector of subchunk ids used by ChunkResourceRequest. Do not change/reset.
     std::unique_ptr<DbTblsAndSubchunks> _dbTblsAndSubchunks;
 
-    /// The path to the result file.
-    std::string _resultFileAbsPath;
-
-    /// The name of the result file.
-    std::string _resultFileName;
-
-    /// The XROOTD URL for the result file: "xroot://<host>:<xrootd-port>" + "/" + _resultFileAbsPath
-    /// @note an extra '/' after server:port spec is required to make a "valid" XROOTD url
-    std::string _resultFileXrootUrl;
-
-    /// The HTTP URL for the result file: "http://<host>:<http-port>/" + _resultFileName
-    std::string _resultFileHttpUrl;
-
     std::atomic<bool> _queryStarted{false};  ///< Set to true when the query is about to be run.
     std::atomic<bool> _cancelled{false};
     std::atomic<bool> _safeToMoveRunning{false};  ///< false until done with waitForMemMan().
     TaskQueryRunner::Ptr _taskQueryRunner;
     std::weak_ptr<TaskScheduler> _taskScheduler;
-    proto::ScanInfo _scanInfo;
-    bool _scanInteractive;  ///< True if the czar thinks this query should be interactive.
     bool _onInteractive{
             false};  ///< True if the scheduler put this task on the interactive (group) scheduler.
-    int64_t _maxTableSize = 0;
+
+    /// Stores information on the query's resource usage.
+    std::weak_ptr<wpublish::QueryStatistics> const _queryStats;
+
     std::atomic<memman::MemMan::Handle> _memHandle{memman::MemMan::HandleType::INVALID};
     memman::MemMan::Ptr _memMan;
 
@@ -370,9 +370,6 @@ private:
     std::chrono::system_clock::time_point _finishTime;     ///< data transmission to Czar fiished
     size_t _totalSize = 0;                                 ///< Total size of the result so far.
 
-    /// Stores information on the query's resource usage.
-    std::weak_ptr<wpublish::QueryStatistics> _queryStats;
-
     std::atomic<unsigned long> _mysqlThreadId{0};  ///< 0 if not connected to MySQL
 
     std::atomic<bool> _booted{false};  ///< Set to true if this task takes too long and is booted.
@@ -380,9 +377,13 @@ private:
     /// Time stamp for when `_booted` is set to true, otherwise meaningless.
     TIMEPOINT _bootedTime;
 
-    bool _unitTest = false;  ///<
+    /// When > 0, indicates maximum number of rows needed for a result.
+    int const _rowLimit;
 
-    static std::string const _fqdn;  ///< Fully qualified domain name of the host. Acquired once at startup.
+    std::shared_ptr<UberJobData> _ujData;
+    std::string const _idStr;
+
+    bool _unitTest = false;  ///< Only true in unit tests.
 };
 
 }  // namespace lsst::qserv::wbase

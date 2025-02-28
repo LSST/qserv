@@ -55,6 +55,12 @@ namespace lsst::qserv::util {
  */
 std::string get_current_host_fqdn(bool all = false);
 
+/** Call get_current_host_fqdn(false) repeatedly until a name is gathered.
+ * Log messages will be printed.
+ * It will block until successful.
+ */
+std::string getCurrentHostFqdnBlocking();
+
 template <class Map>
 typename Map::mapped_type const& getFromMap(Map const& m, typename Map::key_type const& key,
                                             typename Map::mapped_type const& defValue) {

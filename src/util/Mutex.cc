@@ -47,7 +47,7 @@ void Lock::_lock() {
              _context << "  LOCK[" << _mutex.id() << "]:1 "
                       << "  LOCKED: " << util::printable(Mutex::lockedId(), "", "", " "));
     }
-    assert(!_mutex.lockedByCaller());
+    assert(!_mutex.lockedByThread());
     _mutex.lock();
     if (!_context.empty()) {
         LOGS(_log, LOG_LVL_TRACE,

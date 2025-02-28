@@ -32,13 +32,33 @@
 
 #include "util/Bug.h"
 
+#define USING_VMUTEX 0  // TODO:UJ Should be replaced by variable in build.
+
+#ifdef MUTEX_UNITTEST
+#define USING_VMUTEX 1
+#endif
+
+#if USING_VMUTEX
+
+#define MUTEX util::Mutex
+
 /// Used to verify a mutex is locked before accessing a protected variable.
 #define VMUTEX_HELD(vmtx) \
-    if (!vmtx.lockedByCaller()) throw lsst::qserv::util::Bug(ERR_LOC, "mutex not locked!");
+    if (!vmtx.lockedByThread()) throw lsst::qserv::util::Bug(ERR_LOC, "mutex not locked!");
 
 /// Used to verify a mutex is not locked by this thread before locking a related mutex.
 #define VMUTEX_NOT_HELD(vmtx) \
-    if (vmtx.lockedByCaller()) throw lsst::qserv::util::Bug(ERR_LOC, "mutex not free!");
+    if (vmtx.lockedByThread()) throw lsst::qserv::util::Bug(ERR_LOC, "mutex not unlocked!");
+
+#else  // not USING_VMUTEX
+
+#define MUTEX std::mutex
+
+#define VMUTEX_HELD(vmtx) ;
+
+#define VMUTEX_NOT_HELD(vmtx) ;
+
+#endif  // USING_VMUTEX
 
 // This header declarations
 namespace lsst::qserv::util {
@@ -50,6 +70,8 @@ namespace lsst::qserv::util {
 /// Making VMutex a wrapper around std::mutex instead of a child causes lines
 /// like `std::lock_guard<std::mutex> lck(_vmutex);` to be flagged as errors,
 /// which is desirable.
+/// Unfortunately, VMutex won't work with condition_variable as those explicitly
+/// expect std::mutex.
 class VMutex {
 public:
     explicit VMutex() {}
@@ -75,8 +97,7 @@ public:
     }
 
     /// @return true if the mutex is locked by this thread.
-    /// TODO: Rename lockedByThread()
-    bool lockedByCaller() const { return _holder == std::this_thread::get_id(); }
+    bool lockedByThread() const { return _holder == std::this_thread::get_id(); }
 
 protected:
     std::atomic<std::thread::id> _holder;
@@ -101,13 +122,13 @@ public:
 
     Mutex() : _id(nextId()) {}
 
-    /// Lock the mutext (replaces the corresponding method of the base class)
+    /// Lock the mutex (replaces the corresponding method of the base class)
     void lock() {
         VMutex::lock();
         addCurrentId();
     }
 
-    /// Release the mutext (replaces the corresponding method of the base class)
+    /// Release the mutex (replaces the corresponding method of the base class)
     void unlock() {
         removeCurrentId();
         VMutex::unlock();

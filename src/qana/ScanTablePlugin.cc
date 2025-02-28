@@ -42,7 +42,6 @@
 // Qserv headers
 #include "czar/Czar.h"
 #include "global/stringTypes.h"
-#include "proto/ScanTableInfo.h"
 #include "query/ColumnRef.h"
 #include "query/FromList.h"
 #include "query/QueryContext.h"
@@ -67,8 +66,8 @@ void ScanTablePlugin::applyLogical(query::SelectStmt& stmt, query::QueryContext&
 void ScanTablePlugin::applyFinal(query::QueryContext& context) {
     int const scanThreshold = _interactiveChunkLimit;
     if (context.chunkCount < scanThreshold) {
-        context.scanInfo.infoTables.clear();
-        context.scanInfo.scanRating = 0;
+        context.scanInfo->infoTables.clear();
+        context.scanInfo->scanRating = 0;
         LOGS(_log, LOG_LVL_INFO, "ScanInfo Squash full table scan tables: <" << scanThreshold << " chunks.");
     }
 }
@@ -95,7 +94,8 @@ StringPairVector filterPartitioned(query::TableRefList const& tList) {
     return vector;
 }
 
-proto::ScanInfo ScanTablePlugin::_findScanTables(query::SelectStmt& stmt, query::QueryContext& context) {
+protojson::ScanInfo::Ptr ScanTablePlugin::_findScanTables(query::SelectStmt& stmt,
+                                                          query::QueryContext& context) {
     // Might be better as a separate plugin
 
     // All tables of a query are scan tables if the statement both:
@@ -202,15 +202,15 @@ proto::ScanInfo ScanTablePlugin::_findScanTables(query::SelectStmt& stmt, query:
 
     // Ask css if any of the tables should be locked in memory and their scan rating.
     // Use this information to determine scanPriority.
-    proto::ScanInfo scanInfo;
+    auto scanInfo = protojson::ScanInfo::create();
     for (auto& pair : scanTables) {
-        proto::ScanTableInfo info(pair.first, pair.second);
+        protojson::ScanTableInfo info(pair.first, pair.second);
         css::ScanTableParams const params = context.css->getScanTableParams(info.db, info.table);
         info.lockInMemory = params.lockInMem;
         info.scanRating = params.scanRating;
-        scanInfo.infoTables.push_back(info);
-        scanInfo.scanRating = std::max(scanInfo.scanRating, info.scanRating);
-        scanInfo.scanRating = std::min(scanInfo.scanRating, static_cast<int>(proto::ScanInfo::SLOWEST));
+        scanInfo->infoTables.push_back(info);
+        scanInfo->scanRating = std::max(scanInfo->scanRating, info.scanRating);
+        scanInfo->scanRating = std::min(scanInfo->scanRating, static_cast<int>(protojson::ScanInfo::SLOWEST));
         LOGS(_log, LOG_LVL_INFO,
              "ScanInfo " << info.db << "." << info.table << " lockInMemory=" << info.lockInMemory
                          << " rating=" << info.scanRating);

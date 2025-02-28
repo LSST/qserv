@@ -7,11 +7,7 @@ target_sources(qdisp PRIVATE
     Executive.cc
     JobDescription.cc
     JobQuery.cc
-    JobStatus.cc
-    MessageStore.cc
-    QdispPool.cc
-    QueryRequest.cc
-    XrdSsiMocks.cc
+    UberJob.cc
 )
 
 target_include_directories(qdisp PRIVATE
@@ -42,12 +38,11 @@ target_link_libraries(testQDisp
     qserv_meta
     query
     rproc
-    xrdreq
     Boost::unit_test_framework
     Threads::Threads
 )
 
 # This is failing in github actions CI but not when running locally on my dev machine.
-# add_test(NAME testQDisp COMMAND testQDisp)
+add_test(NAME testQDisp COMMAND testQDisp)
 
 # set_tests_properties(testQDisp PROPERTIES WILL_FAIL 1)

@@ -11,21 +11,10 @@ target_sources(proto PRIVATE
     ${PROTO_PB_HDRS}
     FrameBuffer.cc
     ProtoHeaderWrap.cc
-    ScanTableInfo.cc
 )
 
 target_link_libraries(proto PUBLIC
     log
     protobuf
 )
-
-add_executable(testProtocol testProtocol.cc)
-
-target_link_libraries(testProtocol
-    proto
-    crypto
-    Boost::unit_test_framework
-)
-
-add_test(NAME testProtocol COMMAND testProtocol)
 

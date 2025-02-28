@@ -48,29 +48,7 @@ public:
 
     static int getMaxPriority() { return 1000000000; }
 
-    SchedulerBase(std::string const& name, int maxThreads, int maxReserve, int maxActiveChunks, int priority)
-            : _name{name},
-              _maxReserve{maxReserve},
-              _maxReserveDefault{maxReserve},
-              _maxThreads{maxThreads},
-              _maxThreadsAdj{maxThreads},
-              _priority{priority},
-              _priorityDefault{priority} {
-        setMaxActiveChunks(maxActiveChunks);
-
-        using namespace std::chrono_literals;
-        // TODO: DM-??? set values from configuration, change values at runtime.
-        std::vector<double> bucketMaxVals{0.01, 0.1, 1};
-        size_t maxSize = 10;
-        _histQueuedTasks =
-                std::make_shared<util::HistogramRolling>("queuedTasks", bucketMaxVals, 1h, maxSize);
-        _histRunningTasks =
-                std::make_shared<util::HistogramRolling>("runningTasks", bucketMaxVals, 1h, maxSize);
-        _histTransmittingTasks =
-                std::make_shared<util::HistogramRolling>("transmittingTasks", bucketMaxVals, 1h, maxSize);
-        _histRecentlyCompletedTasks = std::make_shared<util::HistogramRolling>("recentlyCompletedTasks",
-                                                                               bucketMaxVals, 1h, maxSize);
-    }
+    SchedulerBase(std::string const& name, int maxThreads, int maxReserve, int maxActiveChunks, int priority);
     virtual ~SchedulerBase() {}
     SchedulerBase(SchedulerBase const&) = delete;
     SchedulerBase& operator=(SchedulerBase const&) = delete;

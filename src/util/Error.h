@@ -61,6 +61,7 @@ struct ErrorCode {
         MYSQLCONNECT,
         MYSQLEXEC,
         INTERNAL,
+        CZAR_RESULT_TOO_LARGE,
         // Worker errors:
         WORKER_RESULT_TOO_LARGE
     };
@@ -73,7 +74,8 @@ struct ErrorCode {
  */
 class Error {
 public:
-    Error(int code = ErrorCode::NONE, std::string const& msg = "", int status = ErrorCode::NONE);
+    Error(int code = ErrorCode::NONE, std::string const& msg = "", int status = ErrorCode::NONE,
+          bool logLvLErr = true);
 
     /** Overload output operator for current class
      *

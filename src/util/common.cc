@@ -29,11 +29,19 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 // Third-party headers
 #include "boost/asio.hpp"
 
+// LSST headers
+#include "lsst/log/Log.h"
+
 using namespace std;
+
+namespace {
+LOG_LOGGER _log = LOG_GET("lsst.qserv.util.common");
+}
 
 namespace lsst::qserv::util {
 
@@ -76,6 +84,21 @@ string get_current_host_fqdn(bool all) {
     }
     freeaddrinfo(info);
     return fqdn;
+}
+
+std::string getCurrentHostFqdnBlocking() {
+    while (true) {
+        try {
+            string result = util::get_current_host_fqdn();
+            if (!result.empty()) {
+                return result;
+            }
+            LOGS(_log, LOG_LVL_ERROR, __func__ << " Empty response for the worker hosts's FQDN.");
+        } catch (std::runtime_error const& ex) {
+            LOGS(_log, LOG_LVL_ERROR, __func__ << " Failed to obtain worker hosts's FQDN, ex: " << ex.what());
+        }
+        sleep(1);
+    }
 }
 
 }  // namespace lsst::qserv::util

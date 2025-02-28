@@ -68,7 +68,7 @@ public:
     void discard() override {}
 
     // Delegate objects
-    std::shared_ptr<qdisp::MessageStore> getMessageStore() override { return _messageStore; }
+    std::shared_ptr<qmeta::MessageStore> getMessageStore() override { return _messageStore; }
 
     /// This method should disappear when we start supporting results
     /// in locations other than MySQL tables. We'll switch to getResultLocation()
@@ -91,7 +91,7 @@ private:
     std::string _varName;
     std::string _varValue;
     QueryState _qState{SUCCESS};
-    std::shared_ptr<qdisp::MessageStore> _messageStore;
+    std::shared_ptr<qmeta::MessageStore> _messageStore;
 };
 
 }  // namespace lsst::qserv::ccontrol

@@ -39,14 +39,18 @@
 #include "qhttp/Response.h"
 #include "qhttp/Server.h"
 #include "qhttp/Status.h"
-#include "wbase/WorkerCommand.h"
+#include "util/common.h"
+#include "util/QdispPool.h"
+#include "util/String.h"
 #include "wconfig/WorkerConfig.h"
 #include "wcontrol/ResourceMonitor.h"
 #include "wcontrol/SqlConnMgr.h"
+#include "wcontrol/WCzarInfoMap.h"
 #include "wcontrol/WorkerStats.h"
 #include "wdb/ChunkResource.h"
 #include "wdb/SQLBackend.h"
 #include "wpublish/QueriesAndChunks.h"
+#include "wsched/BlendScheduler.h"
 
 using namespace std;
 namespace fs = boost::filesystem;
@@ -78,10 +82,33 @@ qhttp::Status removeResultFile(std::string const& fileName) {
 
 namespace lsst::qserv::wcontrol {
 
-Foreman::Foreman(Scheduler::Ptr const& scheduler, unsigned int poolSize, unsigned int maxPoolThreads,
-                 mysql::MySqlConfig const& mySqlConfig, wpublish::QueriesAndChunks::Ptr const& queries,
+Foreman::Ptr Foreman::_globalForeman;
+
+Foreman::Ptr Foreman::create(wsched::BlendScheduler::Ptr const& scheduler, unsigned int poolSize,
+                             unsigned int maxPoolThreads, mysql::MySqlConfig const& mySqlConfig,
+                             wpublish::QueriesAndChunks::Ptr const& queries,
+                             shared_ptr<wpublish::ChunkInventory> const& chunkInventory,
+                             shared_ptr<wcontrol::SqlConnMgr> const& sqlConnMgr, int qPoolSize,
+                             int maxPriority, string const& vectRunSizesStr,
+                             string const& vectMinRunningSizesStr) {
+    // Latch
+    static atomic<bool> globalForemanSet{false};
+    if (globalForemanSet.exchange(true) == true) {
+        throw util::Bug(ERR_LOC, "Foreman::create already an existing global Foreman.");
+    }
+
+    Ptr fm = Ptr(new Foreman(scheduler, poolSize, maxPoolThreads, mySqlConfig, queries, chunkInventory,
+                             sqlConnMgr, qPoolSize, maxPriority, vectRunSizesStr, vectMinRunningSizesStr));
+    _globalForeman = fm;
+    return _globalForeman;
+}
+
+Foreman::Foreman(wsched::BlendScheduler::Ptr const& scheduler, unsigned int poolSize,
+                 unsigned int maxPoolThreads, mysql::MySqlConfig const& mySqlConfig,
+                 wpublish::QueriesAndChunks::Ptr const& queries,
                  std::shared_ptr<wpublish::ChunkInventory> const& chunkInventory,
-                 std::shared_ptr<wcontrol::SqlConnMgr> const& sqlConnMgr)
+                 std::shared_ptr<wcontrol::SqlConnMgr> const& sqlConnMgr, int qPoolSize, int maxPriority,
+                 std::string const& vectRunSizesStr, std::string const& vectMinRunningSizesStr)
         : _scheduler(scheduler),
           _mySqlConfig(mySqlConfig),
           _queries(queries),
@@ -89,7 +116,9 @@ Foreman::Foreman(Scheduler::Ptr const& scheduler, unsigned int poolSize, unsigne
           _sqlConnMgr(sqlConnMgr),
           _resourceMonitor(make_shared<ResourceMonitor>()),
           _io_service(),
-          _httpServer(qhttp::Server::create(_io_service, 0 /* grab the first available port */)) {
+          _httpServer(qhttp::Server::create(_io_service, 0 /* grab the first available port */)),
+          _wCzarInfoMap(WCzarInfoMap::create()),
+          _fqdn(util::getCurrentHostFqdnBlocking()) {
     // Make the chunk resource mgr
     // Creating backend makes a connection to the database for making temporary tables.
     // It will delete temporary tables that it can identify as being created by a worker.
@@ -108,6 +137,15 @@ Foreman::Foreman(Scheduler::Ptr const& scheduler, unsigned int poolSize, unsigne
     WorkerStats::setup();  // FUTURE: maybe add links to scheduler, _backend, etc?
 
     _mark = make_shared<util::HoldTrack::Mark>(ERR_LOC, "Forman Test Msg");
+
+    vector<int> vectRunSizes = util::String::parseToVectInt(vectRunSizesStr, ":", 1);
+    vector<int> vectMinRunningSizes = util::String::parseToVectInt(vectMinRunningSizesStr, ":", 0);
+    LOGS(_log, LOG_LVL_INFO,
+         "INFO wPool config qPoolSize=" << qPoolSize << " maxPriority=" << maxPriority << " vectRunSizes="
+                                        << vectRunSizesStr << " -> " << util::prettyCharList(vectRunSizes)
+                                        << " vectMinRunningSizes=" << vectMinRunningSizesStr << " -> "
+                                        << util::prettyCharList(vectMinRunningSizes));
+    _wPool = make_shared<util::QdispPool>(qPoolSize, maxPriority, vectRunSizes, vectMinRunningSizes);
 
     // Read-only access to the result files via the HTTP protocol's method "GET"
     auto const workerConfig = wconfig::WorkerConfig::instance();
@@ -140,15 +178,8 @@ Foreman::~Foreman() {
 
 void Foreman::processTasks(vector<wbase::Task::Ptr> const& tasks) {
     std::vector<util::Command::Ptr> cmds;
-    for (auto const& task : tasks) {
-        _queries->addTask(task);
-        cmds.push_back(task);
-    }
+    _queries->addTasks(tasks, cmds);
     _scheduler->queCmd(cmds);
-}
-
-void Foreman::processCommand(shared_ptr<wbase::WorkerCommand> const& command) {
-    _workerCommandQueue->queCmd(command);
 }
 
 uint16_t Foreman::httpPort() const { return _httpServer->getPort(); }

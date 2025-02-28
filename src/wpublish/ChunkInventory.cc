@@ -133,22 +133,6 @@ void fetchId(string const& instanceName, SqlConnection& sc, string& id) {
     LOGS(_log, LOG_LVL_WARN, "ChunkInventory couldn't find any a unique identifier of the worker");
 }
 
-class Validator : public lsst::qserv::ResourceUnit::Checker {
-public:
-    Validator(lsst::qserv::wpublish::ChunkInventory& c) : chunkInventory(c) {}
-    virtual bool operator()(lsst::qserv::ResourceUnit const& ru) {
-        switch (ru.unitType()) {
-            case lsst::qserv::ResourceUnit::DBCHUNK:
-                return chunkInventory.has(ru.db(), ru.chunk());
-            case lsst::qserv::ResourceUnit::QUERY:
-                return true;
-            default:
-                return false;
-        }
-    }
-    lsst::qserv::wpublish::ChunkInventory& chunkInventory;
-};
-
 }  // anonymous namespace
 
 namespace lsst::qserv::wpublish {
@@ -282,10 +266,6 @@ bool ChunkInventory::has(string const& db, int chunk) const {
     if (chunkItr == chunks.end()) return false;
 
     return true;
-}
-
-shared_ptr<ResourceUnit::Checker> ChunkInventory::newValidator() {
-    return shared_ptr<ResourceUnit::Checker>(new Validator(*this));
 }
 
 void ChunkInventory::dbgPrint(ostream& os) const {

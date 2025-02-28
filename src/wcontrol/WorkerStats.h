@@ -77,7 +77,7 @@ public:
 private:
     WorkerStats();
     static Ptr _globalWorkerStats;  ///< Pointer to the global instance.
-    static util::Mutex _globalMtx;  ///< Protects `_globalWorkerStats`
+    static MUTEX _globalMtx;        ///< Protects `_globalWorkerStats`
 
     std::atomic<int> _queueCount{
             0};  ///< Number of buffers on queues (there are many queues, one per ChannelShared)
